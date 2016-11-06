@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -24,13 +26,16 @@ struct process_handle {
 typedef struct process_handle process_handle_t;
 
 
+int teardown_process (process_handle_t * _handle);
+
+
 /**
  * In most cases, when a negative value is returned the calling function
  * can consult the value of errno.
  * 
  * @return 0 on success and negative on an error.
  */
-int spawn_process (process_handle_t * _handle, const char * _command, const char ** _arguments, const char ** _environment)
+int spawn_process (process_handle_t * _handle, const char * _command, char * const _arguments[], char * const _environment[])
 {
   int err;
 
@@ -90,6 +95,8 @@ int spawn_process (process_handle_t * _handle, const char * _command, const char
 
     exit(EXIT_FAILURE);
   }
+
+  return 0;
 }
 
 int teardown_process (process_handle_t * _handle)
@@ -98,14 +105,16 @@ int teardown_process (process_handle_t * _handle)
     // TODO there might be a need to send a termination signal first
     waitpid(_handle->child_pid, &_handle->return_code, 0);
   }
+
+  return 0;
 }
 
 
 int main (int argc, char ** argv)
 {
   process_handle_t handle;
-  const char * args[] = { NULL };
-  const char * env[]  = { NULL };
+  char * const args[] = { NULL };
+  char * const env[]  = { NULL };
 
   if (spawn_process(&handle, "/bin/bash", args, env) < 0) {
     perror("error in spawn_process()");
