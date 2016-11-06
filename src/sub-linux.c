@@ -1,10 +1,15 @@
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+#include <fcntl.h>              /* Obtain O_* constant definitions */
+#include <unistd.h>
+
 
 #include "subprocess.h"
 
@@ -33,8 +38,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char * con
   if (pipe(pipe_stdin) < 0) {
     return -1;
   }
+
   /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe(pipe_stdout) < 0) || (pipe(pipe_stderr) < 0)) {
+  if ((pipe2(pipe_stdout, O_NONBLOCK) < 0) || (pipe2(pipe_stderr, O_NONBLOCK) < 0)) {
     err = errno;
     teardown_process(_handle);
     errno = err;
@@ -93,6 +99,10 @@ int spawn_process (process_handle_t * _handle, const char * _command, char * con
   _handle->pipe_stdout = pipe_stdout[PIPE_READ];
   _handle->pipe_stderr = pipe_stderr[PIPE_READ];
 
+  /* reset the NONBLOCK on stdout-read and stderr-read descriptors */
+  fcntl(_handle->pipe_stdout, F_SETFL, fcntl(_handle->pipe_stdout, F_GETFL) | O_NONBLOCK);
+  fcntl(_handle->pipe_stderr, F_SETFL, fcntl(_handle->pipe_stderr, F_GETFL) | O_NONBLOCK);
+
   return 0;
 }
 
@@ -142,7 +152,15 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
     return -1;
   }
 
-  return read(fd, _buffer, _count);
+  int rc = read(fd, _buffer, _count);
+  if (rc < 0 && errno == EAGAIN) {
+    /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
+    errno = 0;
+    *((char*)_buffer) = 0;
+    return 0;
+  }
+
+  return rc;
 }
 
 
