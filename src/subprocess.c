@@ -10,11 +10,12 @@
 
 static const size_t BUFFER_SIZE = 1024;
 
+/* --- library ------------------------------------------------------ */
 
 static void C_child_process_finalizer(SEXP ptr);
 
 
-void Rf_perror (const char * _message)
+static void Rf_perror (const char * _message)
 {
   char message[BUFFER_SIZE];
   int offset = snprintf(message, sizeof(message), "%s: ", _message);
@@ -22,7 +23,7 @@ void Rf_perror (const char * _message)
   Rf_error(message);
 }
 
-char ** to_C_array (SEXP _array)
+static char ** to_C_array (SEXP _array)
 {
   char ** ret = (char**)Calloc(LENGTH(_array) + 1, char **);
   for (int i=0; i<LENGTH(_array); ++i) {
@@ -38,7 +39,23 @@ char ** to_C_array (SEXP _array)
   return ret;
 }
 
+static process_handle_t * extract_process_handle (SEXP _handle)
+{
+  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
+  if (ptr == R_NilValue) {
+    Rf_error("`handle_ptr` attribute not found");
+  }
 
+  void * c_ptr = R_ExternalPtrAddr(ptr);
+  if (!c_ptr) {
+    Rf_error("external C pointer is NULL");
+  }
+
+  return (process_handle_t*)c_ptr;
+}
+
+
+/* --- public API --------------------------------------------------- */
 
 SEXP C_spawn_process (SEXP _command, SEXP _arguments, SEXP _environment)
 {
@@ -92,10 +109,8 @@ static void C_child_process_finalizer(SEXP ptr)
 
 SEXP C_process_read (SEXP _handle, SEXP _pipe)
 {
-  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
-  if (ptr == R_NilValue) {
-    Rf_error("`handle_ptr` attribute not found");
-  }
+  process_handle_t * process_handle = extract_process_handle(_handle);
+
   if (!isString(_pipe) || (LENGTH(_pipe) != 1)) {
     Rf_error("`pipe` must be a single character value");
   }
@@ -113,8 +128,6 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe)
 
   /* read into this buffer */
   char * buffer = (char*)Calloc(BUFFER_SIZE, char);
-
-  process_handle_t * process_handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
   process_read(process_handle, which_pipe, buffer, BUFFER_SIZE);
 
   SEXP ans;
@@ -128,20 +141,38 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe)
 
 SEXP C_process_write (SEXP _handle, SEXP _message)
 {
-  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
-  if (ptr == R_NilValue) {
-    Rf_error("`handle_ptr` attribute not found");
-  }
+  process_handle_t * process_handle = extract_process_handle(_handle);
+
   if (!isString(_message) || (LENGTH(_message) != 1)) {
     Rf_error("`message` must be a single character value");
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-
-  process_handle_t * process_handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
   process_write(process_handle, message, strlen(message));
 
   return R_NilValue;
 }
 
 
+SEXP C_process_status (SEXP _handle)
+{
+  return R_NilValue;
+}
+
+
+SEXP C_end_process (SEXP _handle)
+{
+  process_handle_t * process_handle = extract_process_handle(_handle);
+
+  if (teardown_process(process_handle) < 0) {
+    Rf_perror("error while shutting down child process");
+  }
+
+  SEXP ans;
+  PROTECT(ans = allocVector(LGLSXP, 1));
+  LOGICAL_DATA(ans)[0] = TRUE;
+
+  /* ans */
+  UNPROTECT(1);
+  return ans;
+}
