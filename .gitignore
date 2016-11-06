@@ -32,3 +32,10 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 .Rproj.user
+
+# C build files
+*.o
+*.so
+
+# VS code
+.vscode
