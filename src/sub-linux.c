@@ -6,28 +6,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
-const int PIPE_READ  = 0;
-const int PIPE_WRITE = 1;
+#include "subprocess.h"
 
 const int BUFFER_SIZE = 1024;
-
-typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
-
-struct process_handle {
-  pid_t child_pid;
-  int return_code;
-
-  int pipe_stdin,
-      pipe_stdout,
-      pipe_stderr;
-};
-
-typedef struct process_handle process_handle_t;
-
-
-int teardown_process (process_handle_t * _handle);
-
 
 // TODO prevent Ctrl+C from being passed to the child process
 
