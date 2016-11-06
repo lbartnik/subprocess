@@ -4,13 +4,19 @@ NULL
 #' @export
 spawn_process <- function (command, arguments = character(), environment = character())
 {
-  .Call("C_spawn_process", as.character(command), as.character(arguments), as.character(environment))
+  .Call("C_process_spawn", as.character(command), as.character(arguments), as.character(environment))
 }
 
 #' @export
 end_process <- function (handle)
 {
-  .Call("C_end_process", handle)
+  .Call("C_process_end", handle)
+}
+
+#' @export
+process_poll <- function (handle)
+{
+  .Call("C_process_poll", handle)
 }
 
 #' @export

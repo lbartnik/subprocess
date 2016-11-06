@@ -57,7 +57,7 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 
 /* --- public API --------------------------------------------------- */
 
-SEXP C_spawn_process (SEXP _command, SEXP _arguments, SEXP _environment)
+SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment)
 {
   /* basic argument sanity checks */
   if (!isString(_command) || (LENGTH(_command) != 1) || !strlen(translateChar(STRING_ELT(_command, 0)))) {
@@ -154,13 +154,36 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 }
 
 
-SEXP C_process_status (SEXP _handle)
+SEXP C_process_poll (SEXP _handle)
 {
-  return R_NilValue;
+  process_handle_t * process_handle = extract_process_handle(_handle);
+  if (process_poll(process_handle, 0) < 0) {
+    Rf_perror("process poll failed");
+  }
+
+  SEXP ans;
+  PROTECT(ans = allocVector(STRSXP, 1));
+
+  if (process_handle->state == EXITED) {
+    SET_STRING_ELT(ans, 0, mkChar("exited"));
+  }
+  else if (process_handle->state == TERMINATED) {
+    SET_STRING_ELT(ans, 0, mkChar("terminated"));
+  }
+  else if (process_handle->state == RUNNING) {
+    SET_STRING_ELT(ans, 0, mkChar("running"));
+  }
+  else {
+    SET_STRING_ELT(ans, 0, mkChar("not-started"));
+  }
+
+  /* ans */
+  UNPROTECT(1);
+  return ans;
 }
 
 
-SEXP C_end_process (SEXP _handle)
+SEXP C_process_end (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 

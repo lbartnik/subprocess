@@ -15,8 +15,10 @@
 
 static const int BUFFER_SIZE = 1024;
 
-const int PIPE_READ  = 0;
-const int PIPE_WRITE = 1;
+static const int PIPE_READ  = 0;
+static const int PIPE_WRITE = 1;
+
+static const int TRUE = 1, FALSE = 0;
 
 
 // TODO prevent Ctrl+C from being passed to the child process
@@ -33,6 +35,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char * con
   int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
 
   memset(_handle, 0, sizeof(process_handle_t));
+  _handle->state = NOT_STARTED;
 
   /* redirect standard streams */
   if (pipe(pipe_stdin) < 0) {
@@ -90,6 +93,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char * con
     exit(EXIT_FAILURE);
   }
 
+  /* child is running */
+  _handle->state = RUNNING;
+
   /* close those that the parent doesn't need */
   close(pipe_stdin[PIPE_READ]);
   close(pipe_stdout[PIPE_WRITE]);
@@ -117,10 +123,8 @@ int teardown_process (process_handle_t * _handle)
   close(_handle->pipe_stdout);
   close(_handle->pipe_stderr);
 
-  if (_handle->child_pid > 0) {
-    // TODO there might be a need to send a termination signal first
-    waitpid(_handle->child_pid, &_handle->return_code, 0);
-  }
+  // TODO there might be a need to send a termination signal first
+  process_poll(_handle, TRUE);
 
   return 0;
 }
@@ -162,6 +166,43 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
 
   return rc;
 }
+
+int process_poll (process_handle_t * _handle, int _wait)
+{
+  if (!_handle->child_pid) {
+    errno = ECHILD;
+    return -1;
+  }
+  if (_handle->state != RUNNING) {
+    return 0;
+  }
+
+  /* to wait or not to wait? */ 
+  int options = 0;
+  if (_wait == 0)
+    options = WNOHANG;
+  
+  /* make the actual system call */
+  int rc = waitpid(_handle->child_pid, &_handle->return_code, options);
+  
+  // there's been an error (<0) or the child is still running (==0)
+  if (rc <= 0) {
+    return rc;
+  }
+
+  // the child has exited or has been terminated
+  if (WIFEXITED(_handle->return_code)) {
+    _handle->state = EXITED;
+    _handle->return_code = WEXITSTATUS(_handle->return_code);
+  }
+  else if (WIFSIGNALED(_handle->return_code)) {
+    _handle->state = TERMINATED;
+    _handle->return_code = WTERMSIG(_handle->return_code);
+  }
+  
+  return 0;
+}
+
 
 
 #ifdef LINUX_TEST
