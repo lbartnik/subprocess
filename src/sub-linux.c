@@ -8,14 +8,18 @@
 
 #include "subprocess.h"
 
-const int BUFFER_SIZE = 1024;
+static const int BUFFER_SIZE = 1024;
+
+const int PIPE_READ  = 0;
+const int PIPE_WRITE = 1;
+
 
 // TODO prevent Ctrl+C from being passed to the child process
 
 /**
  * In most cases, when a negative value is returned the calling function
  * can consult the value of errno.
- * 
+ *
  * @return 0 on success and negative on an error.
  */
 int spawn_process (process_handle_t * _handle, const char * _command, char * const _arguments[], char * const _environment[])

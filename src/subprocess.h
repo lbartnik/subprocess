@@ -1,8 +1,7 @@
 #ifndef SUBPROCESS_H_GUARD
 #define SUBPROCESS_H_GUARD
 
-const int PIPE_READ  = 0;
-const int PIPE_WRITE = 1;
+#include <unistd.h>
 
 typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 
