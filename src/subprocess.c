@@ -121,6 +121,8 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe)
   PROTECT(ans = allocVector(STRSXP, 1));
   SET_STRING_ELT(ans, 0, mkChar(buffer));
 
+  /* ans */
+  UNPROTECT(1);
   return ans;
 }
 
