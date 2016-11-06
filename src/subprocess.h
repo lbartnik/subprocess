@@ -1,14 +1,22 @@
 #ifndef SUBPROCESS_H_GUARD
 #define SUBPROCESS_H_GUARD
 
+
+#ifdef _MSC_VER
+#else // Linux
 #include <unistd.h>
+#endif
+
 
 typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 struct process_handle {
+#ifdef _MSC_VER
+#else // Linux
   pid_t child_pid;
+#endif
   state_t state;
   int return_code;
 
