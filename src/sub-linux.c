@@ -220,6 +220,9 @@ int main (int argc, char ** argv)
   }
 
   process_write(&handle, "echo A\n", 7);
+  
+  /* read is non-blocking so the child needs time to produce output */
+  sleep(1);
   process_read(&handle, PIPE_STDOUT, buffer, sizeof(buffer));
 
   printf("stdout: %s\n", buffer);
