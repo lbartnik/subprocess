@@ -2,7 +2,10 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#ifdef WIN64
 #include <errno.h>
+#endif
 
 #include <R.h>
 #include <Rdefines.h>
@@ -19,7 +22,13 @@ static void Rf_perror (const char * _message)
 {
   char message[BUFFER_SIZE];
   int offset = snprintf(message, sizeof(message), "%s: ", _message);
+  
+#ifdef WIN64
+  FormatMessage(0, 0, 0, 0, message+offset, sizeof(message)-offset, NULL);
+#else
   strerror_r(errno, message+offset, sizeof(message)-offset);
+#endif
+
   Rf_error(message);
 }
 
@@ -92,7 +101,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment)
   /* return the child process PID */
   SEXP ans;
   ans = PROTECT(allocVector(INTSXP, 1));
-  INTEGER(ans)[0] = handle->child_pid;
+  INTEGER(ans)[0] = handle->child_id;
   setAttrib(ans, install("handle_ptr"), ptr);
 
   /* ptr, ans */

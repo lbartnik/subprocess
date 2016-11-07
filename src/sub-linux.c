@@ -29,7 +29,7 @@ static const int TRUE = 1, FALSE = 0;
  *
  * @return 0 on success and negative on an error.
  */
-int spawn_process (process_handle_t * _handle, const char * _command, char * const _arguments[], char * const _environment[])
+int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[])
 {
   int err;
   int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
@@ -95,6 +95,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char * con
 
   /* child is running */
   _handle->state = RUNNING;
+  _handle->child_id = _handle->child_pid;
 
   /* close those that the parent doesn't need */
   close(pipe_stdin[PIPE_READ]);

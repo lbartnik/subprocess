@@ -4,7 +4,8 @@ NULL
 #' @export
 spawn_process <- function (command, arguments = character(), environment = character())
 {
-  .Call("C_process_spawn", as.character(command), as.character(arguments), as.character(environment))
+  command <- as.character(command)
+  .Call("C_process_spawn", command, c(command, as.character(arguments)), as.character(environment))
 }
 
 #' @export

@@ -2,7 +2,9 @@
 #define SUBPROCESS_H_GUARD
 
 
-#ifdef _MSC_VER
+#ifdef WIN64
+#include <windows.h>
+#undef ERROR
 #else // Linux
 #include <unistd.h>
 #endif
@@ -13,10 +15,14 @@ typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 struct process_handle {
-#ifdef _MSC_VER
+  // OS-specific child process handle
+#ifdef WIN64
+  HANDLE child_handle;
 #else // Linux
   pid_t child_pid;
 #endif
+
+  int child_id; // child process identifier
   state_t state;
   int return_code;
 
@@ -28,7 +34,7 @@ struct process_handle {
 typedef struct process_handle process_handle_t;
 
 
-int spawn_process (process_handle_t * _handle, const char * _command, char * const _arguments[], char * const _environment[]);
+int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[]);
 
 int teardown_process (process_handle_t * _handle);
 

@@ -36,6 +36,7 @@ vignettes/*.pdf
 # C build files
 *.o
 *.so
+*.dll
 
 # VS code
 .vscode
