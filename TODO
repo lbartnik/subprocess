@@ -1,0 +1,3 @@
+* add working directory parameter
+* add kill()
+* add terminate()
