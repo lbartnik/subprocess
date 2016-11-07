@@ -3,10 +3,14 @@
 
 
 #ifdef WIN64
-#include <windows.h>
-#undef ERROR
+  #include <windows.h>
+  #undef ERROR // R.h already defines this
+  typedef HANDLE process_handle;
+  typedef HANDLE pipe_handle;
 #else // Linux
-#include <unistd.h>
+  #include <unistd.h>
+  typedef pid_t process_handle;
+  typedef int pipe_handle;
 #endif
 
 
@@ -15,23 +19,22 @@ typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 struct process_handle {
-  // OS-specific child process handle
-#ifdef WIN64
-  HANDLE child_handle;
-#else // Linux
-  pid_t child_pid;
-#endif
+  // OS-specific handles
+  process_handle child_handle;
 
-  int child_id; // child process identifier
+  pipe_handle pipe_stdin,
+              pipe_stdout,
+              pipe_stderr;
+
+  // platform-independent process data
+  int child_id;
   state_t state;
   int return_code;
-
-  int pipe_stdin,
-      pipe_stdout,
-      pipe_stderr;
 };
 
 typedef struct process_handle process_handle_t;
+
+void full_error_message (char * _buffer, size_t _length);
 
 
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[]);

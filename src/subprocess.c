@@ -3,10 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef WIN64
-#include <errno.h>
-#endif
-
 #include <R.h>
 #include <Rdefines.h>
 
@@ -23,12 +19,7 @@ static void Rf_perror (const char * _message)
   char message[BUFFER_SIZE];
   int offset = snprintf(message, sizeof(message), "%s: ", _message);
   
-#ifdef WIN64
-  FormatMessage(0, 0, 0, 0, message+offset, sizeof(message)-offset, NULL);
-#else
-  strerror_r(errno, message+offset, sizeof(message)-offset);
-#endif
-
+  full_error_message(message+offset, sizeof(message)-offset);
   Rf_error(message);
 }
 

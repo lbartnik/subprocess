@@ -3,8 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
+
 static char * strjoin (char *const* _array);
 
+
+void full_error_message (char * _buffer, size_t _length)
+{
+  FormatMessage(0, 0, 0, 0, _buffer, _length, NULL);
+}
 
 
 
@@ -21,10 +27,55 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   /* put all arguments into one line */
   char * command_line = strjoin(_arguments);
 
+  /* Windows magic */
   PROCESS_INFORMATION pi;
-  STARTUPINFO si = {sizeof(STARTUPINFO)};
-
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
+
+  // Set the bInheritHandle flag so pipe handles are inherited
+  SECURITY_ATTRIBUTES sa;
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = NULL;
+
+  HANDLE stdin_read   = NULL;
+  HANDLE stdin_write  = NULL;
+  HANDLE stdout_read  = NULL;
+  HANDLE stdout_write = NULL;
+  HANDLE stderr_read  = NULL;
+  HANDLE stderr_write = NULL;
+
+  #define CLOSE_HANDLES do {                     \
+    if (stdin_read)   CloseHandle(stdin_read);   \
+    if (stdin_write)  CloseHandle(stdin_write);  \
+    if (stdout_read)  CloseHandle(stdout_read);  \
+    if (stdout_write) CloseHandle(stdout_write); \
+    if (stderr_read)  CloseHandle(stderr_read);  \
+    if (stderr_write) CloseHandle(stderr_write); \
+  } while (0);
+
+  if (!CreatePipe(&stdin_read, &stdin_write, &sa, 0)) { 
+    return -1;
+  }
+  if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
+    CLOSE_HANDLES;
+    return -1;
+  }
+  if (!CreatePipe(&stderr_read, &stderr_write, &sa, 0)) {
+    CLOSE_HANDLES;
+    return -1;
+  }
+
+  // Ensure the write handle to the pipe for STDIN is not inherited. 
+  if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0)) {
+    CLOSE_HANDLES;
+    return -1;
+  }
+
+  STARTUPINFO si = {sizeof(STARTUPINFO)}; 
+  si.hStdError  = stderr_write;
+  si.hStdOutput = stdout_write;
+  si.hStdInput  = stdin_read;
+  si.dwFlags   |= STARTF_USESTDHANDLES;
 
   BOOL rc = CreateProcess(_command,     // lpApplicationName
                           command_line, // lpCommandLine
@@ -41,14 +92,22 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* translate from Windows to Linux; -1 means error */
   if (!rc) {
+    CLOSE_HANDLES;
     return -1;
   }
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
+  CloseHandle(stdin_read);
+  CloseHandle(stdout_write);
+  CloseHandle(stderr_write);
   
-  _handle->child_id = pi.dwProcessId;
-  
+  _handle->state       = RUNNING;
+  _handle->child_id    = pi.dwProcessId;
+  _handle->pipe_stdin  = stdin_write;
+  _handle->pipe_stdout = stdout_read;
+  _handle->pipe_stderr = stderr_read;
+
   /* again, in Linux 0 is "good" */
   return 0;
 }
@@ -60,40 +119,75 @@ int teardown_process (process_handle_t * _handle)
     return 0;
   }
 
-  // Wait until child process exits.
-  WaitForSingleObject(_handle->child_handle, INFINITE);
+  process_poll(_handle, 1); // 1 means wait
   
-  DWORD status;
-  GetExitCodeProcess(_handle->child_handle, &status);
-
-  if (status == STILL_ACTIVE) {
-    return -1;
-  }
-    
-  _handle->return_code = (int)status;
-    
-  // Close process and thread handles. 
+  // Close OS handles 
   CloseHandle(_handle->child_handle);
+  CloseHandle(_handle->pipe_stdin);
+  CloseHandle(_handle->pipe_stdout);
+  CloseHandle(_handle->pipe_stderr);
 
-  _handle->state = EXITED;
-  
-  
   return 0;
 }
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
 {
-  return 0;
+  DWORD written = 0;
+  BOOL rc = WriteFile(_handle->pipe_stdin, _buffer, _count, &written, NULL);
+  
+  if (!rc)
+    return -1;
+  
+  return (ssize_t)written;
 }
 
 ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count)
 {
-  return 0;
+  // choose pipe
+  HANDLE pipe;
+  if (_pipe == PIPE_STDOUT)
+    pipe = _handle->pipe_stdout;
+  else if (_pipe == PIPE_STDERR)
+    pipe = _handle->pipe_stderr;
+  else
+    return -1;
+
+  DWORD read = 0;
+  BOOL rc = ReadFile(pipe, _buffer, _count, &read, NULL);
+  
+  if (!rc)
+    return -1;
+ 
+  return (ssize_t)read;
 }
 
 int process_poll (process_handle_t * _handle, int _wait)
 {
-  return 0;
+  // to wait or not to wait?
+  DWORD tm = 0;
+  if (_wait > 0)
+    tm = INFINITE;
+
+  DWORD rc = WaitForSingleObject(_handle->child_handle, tm);
+  
+  // if already exited
+  if (rc == WAIT_OBJECT_0) {
+    DWORD status;
+    GetExitCodeProcess(_handle->child_handle, &status);
+ 
+    if (status == STILL_ACTIVE) {
+      return -1;
+    }
+    
+    _handle->return_code = (int)status;
+    _handle->state = EXITED;
+  }
+ 
+  if (WAIT_TIMEOUT)
+    return 0;
+  
+  // error while waiting
+  return -1;
 }
 
 

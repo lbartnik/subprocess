@@ -21,6 +21,13 @@ static const int PIPE_WRITE = 1;
 static const int TRUE = 1, FALSE = 0;
 
 
+
+void full_error_message (char * _buffer, size_t _length)
+{
+  strerror_r(errno, _buffer, _length);
+}
+
+
 // TODO prevent Ctrl+C from being passed to the child process
 
 /**
