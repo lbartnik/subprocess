@@ -43,12 +43,24 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   }
 
   /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe2(pipe_stdout, O_NONBLOCK) < 0) || (pipe2(pipe_stderr, O_NONBLOCK) < 0)) {
+  if ((pipe2(pipe_stdout, O_NONBLOCK) < 0)) {
     err = errno;
-    teardown_process(_handle);
+    close(pipe_stdin[PIPE_READ]);
+    close(pipe_stdin[PIPE_WRITE]);
     errno = err;
     return -1;
   }
+
+  if ((pipe2(pipe_stderr, O_NONBLOCK) < 0)) {
+    err = errno;
+    close(pipe_stdin[PIPE_READ]);
+    close(pipe_stdin[PIPE_WRITE]);
+    close(pipe_stdout[PIPE_READ]);
+    close(pipe_stdout[PIPE_WRITE]);
+    errno = err;
+    return -1;
+  }
+
 
   /* spawn a child */
   _handle->child_pid = fork();
@@ -120,9 +132,9 @@ int teardown_process (process_handle_t * _handle)
     return -1;
   }
 
-  close(_handle->pipe_stdin);
-  close(_handle->pipe_stdout);
-  close(_handle->pipe_stderr);
+  if (_handle->pipe_stdin) close(_handle->pipe_stdin);
+  if (_handle->pipe_stdout) close(_handle->pipe_stdout);
+  if (_handle->pipe_stderr) close(_handle->pipe_stderr);
 
   // TODO there might be a need to send a termination signal first
   process_poll(_handle, TRUE);
