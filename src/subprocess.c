@@ -32,6 +32,7 @@ static void Rf_perror (const char * _message)
   Rf_error(message);
 }
 
+
 static char ** to_C_array (SEXP _array)
 {
   char ** ret = (char**)Calloc(LENGTH(_array) + 1, char **);
@@ -47,6 +48,7 @@ static char ** to_C_array (SEXP _array)
 
   return ret;
 }
+
 
 static process_handle_t * extract_process_handle (SEXP _handle)
 {
@@ -90,7 +92,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment)
 
   /* spawn the process */
   if (spawn_process(handle, command, arguments, environment) < 0) {
-    Rf_perror("erro while spawning a child process");
+    Rf_perror("error while spawning a child process");
   }
 
   /* return an external pointer handle */

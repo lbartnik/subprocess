@@ -1,7 +1,7 @@
 #include "subprocess.h"
 
+#include <stdio.h>
 #include <string.h>
-#include <R.h>
 
 static char * strjoin (char *const* _array);
 
@@ -21,8 +21,10 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   /* put all arguments into one line */
   char * command_line = strjoin(_arguments);
 
-  PROCESS_INFORMATION pi = {0};
+  PROCESS_INFORMATION pi;
   STARTUPINFO si = {sizeof(STARTUPINFO)};
+
+  memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
   BOOL rc = CreateProcess(_command,     // lpApplicationName
                           command_line, // lpCommandLine
@@ -35,6 +37,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
                           &si,          // lpStartupInfo
                           &pi);         // lpProcessInformation
 
+  free(command_line);
 
   /* translate from Windows to Linux; -1 means error */
   if (!rc) {
@@ -43,6 +46,8 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
+  
+  _handle->child_id = pi.dwProcessId;
   
   /* again, in Linux 0 is "good" */
   return 0;
@@ -102,16 +107,15 @@ static char * strjoin (char *const* _array)
   size_t total_length = 0;
   char *const* ptr;
 
-  for ( ptr = _array ; *ptr; ++ptr) {
+  for ( ptr = _array ; *ptr != NULL; ++ptr) {
     total_length += strlen(*ptr) + 1; /* +1 for space */
-    ++ptr;
   }
 
-  char * buffer = (char*)Calloc(total_length + 1, char);
+  char * buffer = (char*)malloc(total_length + 1);
 
   /* combine all parts, put spaces between them */
   char * tail = buffer;
-  for ( ptr = _array ; *ptr; ++ptr, ++tail) {
+  for ( ptr = _array ; *ptr != NULL; ++ptr, ++tail) {
     size_t len = strlen(*ptr);
     strncpy(tail, *ptr, len);
     tail += len;
@@ -123,3 +127,22 @@ static char * strjoin (char *const* _array)
   return buffer;
 }
 
+
+#ifdef WINDOWS_TEST
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+  const char * command = "x";
+  char * args[] = { "x", NULL };
+  char * env[]  = { NULL };
+  
+  process_handle_t handle;
+  if (spawn_process(&handle, command, args, env) < 0) {
+    fprintf(stderr, "error in spawn_process\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  teardown_process(&handle);
+  
+  return 0;
+}
+#endif /* WINDOWS_TEST */

@@ -1,5 +1,8 @@
-test: sub-linux.c
+test-linux: sub-linux.c
 	gcc -DLINUX_TEST $^ -Wall -ggdb -O0 -o $@
+
+test-windows: sub-windows.c
+	$(CC) -DWIN64 -DWINDOWS_TEST $^ -Wall -g -O0 -o $@
 
 .PHONY: clean
 clean:
