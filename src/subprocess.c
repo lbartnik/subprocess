@@ -108,7 +108,6 @@ static void C_child_process_finalizer(SEXP ptr)
   if (process_terminate(R_ExternalPtrAddr(ptr)) < 0) {
     Rf_perror("error while finalizing child process");
   }
-  teardown_process(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 
@@ -188,11 +187,11 @@ SEXP C_process_poll (SEXP _handle)
 }
 
 
-SEXP C_process_end (SEXP _handle)
+SEXP C_process_terminate (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
-  if (teardown_process(process_handle) < 0) {
+  if (process_terminate(process_handle) < 0) {
     Rf_perror("error while shutting down child process");
   }
 

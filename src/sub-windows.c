@@ -15,7 +15,22 @@ void full_error_message (char * _buffer, size_t _length)
 }
 
 
+int duplicate_handle(HANDLE src, HANDLE * dst)
+{
+  BOOL rc = DuplicateHandle(GetCurrentProcess(), src,
+	                        GetCurrentProcess(),
+	                        dst,      // Address of new handle.
+                            0, FALSE, // Make it uninheritable.
+                            DUPLICATE_SAME_ACCESS);
+  if (rc != TRUE)
+	return -1;
+  return 0;
+}
+
+//
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
+// https://support.microsoft.com/en-us/kb/190351
+//
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[])
 {
   memset(_handle, 0, sizeof(process_handle_t));
@@ -73,6 +88,28 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  // Create new output read handle and the input write handles. Set
+  // the Properties to FALSE. Otherwise, the child inherits the
+  // properties and, as a result, non-closeable handles to the pipes
+  // are created.
+  if (duplicate_handle(stdin_write, &_handle->pipe_stdin) < 0) {
+	CLOSE_HANDLES;
+	return -1;
+  }
+  if (duplicate_handle(stdout_read, &_handle->pipe_stdout) < 0) {
+	CLOSE_HANDLES;
+	return -1;
+  }
+  if (duplicate_handle(stderr_read, &_handle->pipe_stderr) < 0) {
+	CLOSE_HANDLES;
+	return -1;
+  }
+
+  // close those we don't want to inherit
+  CloseHandle(stdin_write);
+  CloseHandle(stdout_read);
+  CloseHandle(stderr_read);
+
   STARTUPINFO si;
   memset(&si, 0, sizeof(STARTUPINFO));
 
@@ -95,6 +132,10 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   free(command_line);
 
+  CloseHandle(stdin_read);
+  CloseHandle(stdout_write);
+  CloseHandle(stderr_write);
+
   /* translate from Windows to Linux; -1 means error */
   if (rc != TRUE) {
     CLOSE_HANDLES;
@@ -103,16 +144,10 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
-//  CloseHandle(stdin_read);
-//  CloseHandle(stdout_write);
-//  CloseHandle(stderr_write);
   
   _handle->state        = RUNNING;
   _handle->child_handle = pi.hProcess;
   _handle->child_id     = pi.dwProcessId;
-  _handle->pipe_stdin   = stdin_write;
-  _handle->pipe_stdout  = stdout_read;
-  _handle->pipe_stderr  = stderr_read;
 
   /* start reader threads */
   if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
@@ -137,16 +172,18 @@ int teardown_process (process_handle_t * _handle)
   }
 
   process_poll(_handle, 1); // 1 means wait
-  
+
   // Close OS handles 
   CloseHandle(_handle->child_handle);
   CloseHandle(_handle->pipe_stdin);
-  CloseHandle(_handle->pipe_stdout);
-  CloseHandle(_handle->pipe_stderr);
 
   // wait until threads exit
   join_reader_thread (&_handle->stdout_reader);
   join_reader_thread (&_handle->stderr_reader);
+
+  // finally close read handles
+  CloseHandle(_handle->pipe_stdout);
+  CloseHandle(_handle->pipe_stderr);
 
   return 0;
 }
@@ -159,6 +196,9 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
   if (!rc)
     return -1;
   
+  // give the reader a chance to receive the response before we return
+  SwitchToThread();
+
   return (ssize_t)written;
 }
 
@@ -201,9 +241,11 @@ int process_poll (process_handle_t * _handle, int _wait)
     
     _handle->return_code = (int)status;
     _handle->state = EXITED;
+
+	return 0;
   }
  
-  if (WAIT_TIMEOUT)
+  if (rc == WAIT_TIMEOUT)
     return 0;
   
   // error while waiting
@@ -212,8 +254,26 @@ int process_poll (process_handle_t * _handle, int _wait)
 
 int process_terminate(process_handle_t * _handle)
 {
-  if (TerminateProcess(_handle->child_handle, 0) == 0)
+  // first make sure it's even still running
+  if (process_poll(_handle, 0) < 0)
     return -1;
+  if (_handle->state != RUNNING)
+    return 0;
+
+  // first terminate the child process
+  HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
+  if (!to_terminate)
+    return -1;
+
+  BOOL rc = TerminateProcess(to_terminate, 0);
+  CloseHandle(to_terminate);
+  if (rc == FALSE)
+    return -1;
+
+  // clean up
+  teardown_process(_handle);
+  _handle->state = TERMINATED;
+
   return 0;
 }
 
