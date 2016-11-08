@@ -9,9 +9,9 @@ spawn_process <- function (command, arguments = character(), environment = chara
 }
 
 #' @export
-end_process <- function (handle)
+process_terminate <- function (handle)
 {
-  .Call("C_process_end", handle)
+  .Call("C_process_terminate", handle)
 }
 
 #' @export
@@ -23,7 +23,11 @@ process_poll <- function (handle)
 #' @export
 process_read <- function (handle, pipe = "stdout")
 {
-  .Call("C_process_read", handle, as.character(pipe))
+  x <- .Call("C_process_read", handle, as.character(pipe))
+  if (!is.character(x)) {
+    return(x)
+  }
+  strsplit(gsub("\r", "", x, fixed = TRUE), "\n", fixed = TRUE)[[1]]
 }
 
 #' @export
