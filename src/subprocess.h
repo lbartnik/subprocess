@@ -15,7 +15,6 @@
   typedef int pipe_handle;
 #endif
 
-
 typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;

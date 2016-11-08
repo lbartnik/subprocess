@@ -7,7 +7,7 @@
 #include <Rdefines.h>
 
 
-static const size_t BUFFER_SIZE = 1024;
+#define BUFFER_SIZE 1024
 
 /* --- library ------------------------------------------------------ */
 

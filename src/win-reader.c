@@ -2,7 +2,7 @@
 
 #include "win-reader.h"
 
-static const int BUFFER_SIZE = 4096;
+#define BUFFER_SIZE 4096
 
 struct chunk {
   struct chunk * next;
@@ -60,11 +60,14 @@ DWORD WINAPI reader_function (LPVOID data)
   BOOL rc = TRUE;
   do {
     rc = ReadFile(reader->stream_handle, buffer, sizeof(buffer), &read, NULL);
+	if (rc != TRUE || read == 0)
+	  break;
+
     chunk_t * new_chunk = (chunk_t*) HeapAlloc(GetProcessHeap(), 0, sizeof(chunk_t) + read);
 
     if (new_chunk == NULL) {
       reader->state = THREAD_TERMINATED;
-      reader->error = GetLastError();
+      reader->error = GetLastError(); // TODO make this printable in R console
       return -1;
     }
 
@@ -81,7 +84,7 @@ DWORD WINAPI reader_function (LPVOID data)
     *append_to   = new_chunk;
     reader->tail = new_chunk;
 
-  } while (rc != TRUE || read == 0);
+  } while (42);
 
   if (!rc)
     return -1;
@@ -106,14 +109,14 @@ int get_next_chunk (reader_t * _reader, char * _output, size_t _count)
   // partial
   if (chunk->length+1 > _count) {
     size_t to_copy = _count-1;
-    CopyMemory(chunk->data, _output, to_copy);
+    CopyMemory(_output, chunk->data, to_copy);
     _output[to_copy] = 0;
     MoveMemory(chunk->data, chunk->data+to_copy, chunk->length-to_copy);
     chunk->length -= to_copy;
   }
   // full
   else {
-    CopyMemory(chunk->data, _output, chunk->length);
+    CopyMemory(_output, chunk->data, chunk->length);
     _output[chunk->length] = 0;
     _reader->head = chunk->next;
     if (_reader->head == NULL) {

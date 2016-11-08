@@ -8,11 +8,14 @@ static char * strjoin (char *const* _array);
 
 void full_error_message (char * _buffer, size_t _length)
 {
-  FormatMessage(0, 0, 0, 0, _buffer, _length, NULL);
+  DWORD code = GetLastError();
+  DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
+	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+	                        _buffer, _length, NULL);
 }
 
 
-
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[])
 {
   memset(_handle, 0, sizeof(process_handle_t));
@@ -70,18 +73,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
-  STARTUPINFO si = {sizeof(STARTUPINFO)}; 
+  STARTUPINFO si;
+  memset(&si, 0, sizeof(STARTUPINFO));
+
+  si.cb         = sizeof(STARTUPINFO);
   si.hStdError  = stderr_write;
   si.hStdOutput = stdout_write;
   si.hStdInput  = stdin_read;
-  si.dwFlags   |= STARTF_USESTDHANDLES;
+  si.dwFlags    = STARTF_USESTDHANDLES;
 
-  BOOL rc = CreateProcess(_command,     // lpApplicationName
-                          command_line, // lpCommandLine
-                          NULL,         // lpProcessAttributes
-                          NULL,         // lpThreadAttributes
-                          FALSE,        // bInheritHandles
-                          CREATE_NO_WINDOW, // dwCreationFlags
+  BOOL rc = CreateProcess(_command,         // lpApplicationName
+                          command_line,     // lpCommandLine, command line
+                          NULL,             // lpProcessAttributes, process security attributes
+                          NULL,             // lpThreadAttributes, primary thread security attributes
+                          TRUE,             // bInheritHandles, handles are inherited
+                          CREATE_NO_WINDOW, // dwCreationFlags, creation flags
                           (void**)_environment, // lpEnvironment
                           NULL,         // lpCurrentDirectory
                           &si,          // lpStartupInfo
@@ -90,16 +96,16 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   free(command_line);
 
   /* translate from Windows to Linux; -1 means error */
-  if (!rc) {
+  if (rc != TRUE) {
     CLOSE_HANDLES;
     return -1;
   }
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
-  CloseHandle(stdin_read);
-  CloseHandle(stdout_write);
-  CloseHandle(stderr_write);
+//  CloseHandle(stdin_read);
+//  CloseHandle(stdout_write);
+//  CloseHandle(stderr_write);
   
   _handle->state       = RUNNING;
   _handle->child_id    = pi.dwProcessId;
