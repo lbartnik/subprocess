@@ -6,7 +6,6 @@
 
 static char * strjoin (char *const* _array);
 
-
 void full_error_message (char * _buffer, size_t _length)
 {
   FormatMessage(0, 0, 0, 0, _buffer, _length, NULL);
@@ -108,6 +107,17 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   _handle->pipe_stdout = stdout_read;
   _handle->pipe_stderr = stderr_read;
 
+  /* start reader threads */
+  if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
+    CLOSE_HANDLES;
+    return -1;
+  }
+  if (start_reader_thread (&_handle->stderr_reader, _handle->pipe_stderr) < 0) {
+    TerminateThread(&_handle->stdout_reader, 0); // TODO is this safe? how else to handle it?
+    CLOSE_HANDLES;
+    return -1;
+  }
+
   /* again, in Linux 0 is "good" */
   return 0;
 }
@@ -127,6 +137,10 @@ int teardown_process (process_handle_t * _handle)
   CloseHandle(_handle->pipe_stdout);
   CloseHandle(_handle->pipe_stderr);
 
+  // wait until threads exit
+  join_reader_thread (&_handle->stdout_reader);
+  join_reader_thread (&_handle->stderr_reader);
+
   return 0;
 }
 
@@ -144,21 +158,20 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
 ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count)
 {
   // choose pipe
-  HANDLE pipe;
+  reader_t * reader = NULL;
   if (_pipe == PIPE_STDOUT)
-    pipe = _handle->pipe_stdout;
+    reader = &_handle->stdout_reader;
   else if (_pipe == PIPE_STDERR)
-    pipe = _handle->pipe_stderr;
+    reader = &_handle->stderr_reader;
   else
     return -1;
 
-  DWORD read = 0;
-  BOOL rc = ReadFile(pipe, _buffer, _count, &read, NULL);
-  
-  if (!rc)
+  // event though return code is negative, buffer might hold data
+  // this will happen if HeapFree() fails
+  if (get_next_chunk (reader, _buffer, _count) < 0)
     return -1;
  
-  return (ssize_t)read;
+  return strlen(_buffer);
 }
 
 int process_poll (process_handle_t * _handle, int _wait)

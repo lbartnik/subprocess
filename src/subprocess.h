@@ -7,6 +7,8 @@
   #undef ERROR // R.h already defines this
   typedef HANDLE process_handle;
   typedef HANDLE pipe_handle;
+
+  #include "win-reader.h"
 #else // Linux
   #include <unistd.h>
   typedef pid_t process_handle;
@@ -19,6 +21,10 @@ typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 struct process_handle {
+#ifdef WIN64
+  reader_t stdout_reader, stderr_reader;
+#endif
+
   // OS-specific handles
   process_handle child_handle;
 

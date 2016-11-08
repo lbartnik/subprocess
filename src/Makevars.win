@@ -1,1 +1,1 @@
-OBJECTS=subprocess.o sub-windows.o
+OBJECTS=subprocess.o sub-windows.o win-reader.o

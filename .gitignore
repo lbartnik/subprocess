@@ -37,6 +37,7 @@ vignettes/*.pdf
 *.o
 *.so
 *.dll
+*.exe
 
 # VS code
 .vscode
