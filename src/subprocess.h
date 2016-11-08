@@ -52,5 +52,7 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
 
 int process_poll (process_handle_t * _handle, int _wait);
 
+int process_terminate (process_handle_t * _handle);
+
 #endif /* SUBPROCESS_H_GUARD */
 

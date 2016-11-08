@@ -104,7 +104,10 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment)
 
 static void C_child_process_finalizer(SEXP ptr)
 {
-  if(!R_ExternalPtrAddr(ptr)) return;
+  if (!R_ExternalPtrAddr(ptr)) return;
+  if (process_terminate(R_ExternalPtrAddr(ptr)) < 0) {
+    Rf_perror("error while finalizing child process");
+  }
   teardown_process(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr); /* not really needed */
 }

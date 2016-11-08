@@ -107,11 +107,12 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 //  CloseHandle(stdout_write);
 //  CloseHandle(stderr_write);
   
-  _handle->state       = RUNNING;
-  _handle->child_id    = pi.dwProcessId;
-  _handle->pipe_stdin  = stdin_write;
-  _handle->pipe_stdout = stdout_read;
-  _handle->pipe_stderr = stderr_read;
+  _handle->state        = RUNNING;
+  _handle->child_handle = pi.hProcess;
+  _handle->child_id     = pi.dwProcessId;
+  _handle->pipe_stdin   = stdin_write;
+  _handle->pipe_stdout  = stdout_read;
+  _handle->pipe_stderr  = stderr_read;
 
   /* start reader threads */
   if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
@@ -207,6 +208,13 @@ int process_poll (process_handle_t * _handle, int _wait)
   
   // error while waiting
   return -1;
+}
+
+int process_terminate(process_handle_t * _handle)
+{
+  if (TerminateProcess(_handle->child_handle, 0) == 0)
+    return -1;
+  return 0;
 }
 
 
