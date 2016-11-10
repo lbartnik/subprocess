@@ -39,7 +39,7 @@ struct process_handle {
 
 typedef struct process_handle process_handle_t;
 
-void full_error_message (char * _buffer, size_t _length);
+void full_error_message(char * _buffer, size_t _length);
 
 
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[]);

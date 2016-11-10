@@ -102,6 +102,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment)
   return ans;
 }
 
+
 static void C_child_process_finalizer(SEXP ptr)
 {
   if (!R_ExternalPtrAddr(ptr)) return;
@@ -110,6 +111,7 @@ static void C_child_process_finalizer(SEXP ptr)
   }
   R_ClearExternalPtr(ptr); /* not really needed */
 }
+
 
 SEXP C_process_read (SEXP _handle, SEXP _pipe)
 {

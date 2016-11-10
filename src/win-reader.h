@@ -8,6 +8,8 @@ typedef struct chunk chunk_t;
 struct reader {
   HANDLE stream_handle;
   HANDLE thread_handle;
+  HANDLE mutex;
+
   DWORD thread_id;
   reader_state_t state;
   DWORD error;
