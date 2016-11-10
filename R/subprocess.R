@@ -33,9 +33,9 @@ process_return_code <- function (handle)
 
 
 #' @export
-process_read <- function (handle, pipe = "stdout")
+process_read <- function (handle, pipe = "stdout", timeout = 0)
 {
-  x <- .Call("C_process_read", handle, as.character(pipe))
+  x <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
   if (!is.character(x)) {
     return(x)
   }

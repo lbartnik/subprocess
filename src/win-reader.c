@@ -1,4 +1,11 @@
 #include <windows.h>
+#include <synchapi.h>
+
+/* min_gw that comes with Rtools doesn't have these functions */
+WINBASEAPI VOID WINAPI InitializeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
+WINBASEAPI VOID WINAPI WakeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
+WINBASEAPI BOOL WINAPI SleepConditionVariableCS(PCONDITION_VARIABLE ConditionVariable, PCRITICAL_SECTION CriticalSection, DWORD dwMilliseconds);
+
 
 #include "win-reader.h"
 
@@ -13,22 +20,13 @@ struct chunk {
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682516(v=vs.85).aspx
 DWORD WINAPI reader_function (LPVOID data);
-int acquire_mutex(reader_t * _reader);
-int release_mutex(reader_t * _reader);
-
 
 
 int start_reader_thread (reader_t * _reader, HANDLE _stream)
 {
-  // create the access mutex
-  _reader->mutex = CreateMutex(
-	  NULL,              // default security attributes
-	  FALSE,             // initially not owned
-	  NULL);             // unnamed mutex
-
-  if (_reader->mutex == NULL) {
-	return -1;
-  }
+  // initialize synchronization mechanism
+  InitializeConditionVariable (&_reader->data_arrived);
+  InitializeCriticalSection (&_reader->reader_lock);
 
   // create the thread
   _reader->thread_handle = CreateThread( 
@@ -41,7 +39,6 @@ int start_reader_thread (reader_t * _reader, HANDLE _stream)
 
   // returns NULL on error
   if (_reader->thread_handle == NULL) {
-	CloseHandle(_reader->mutex);
     return -1;
   }
 
@@ -87,9 +84,8 @@ DWORD WINAPI reader_function (LPVOID data)
     new_chunk->length = read;
     CopyMemory(new_chunk->data, buffer, read);
 
-	if (acquire_mutex(reader) < 0) {
-	  goto error;
-	}
+	/* enter critical section - manipulating the list of chunks */
+	EnterCriticalSection(&reader->reader_lock);
 
     chunk_t ** append_to = &reader->head;
     while (*append_to) {
@@ -99,10 +95,9 @@ DWORD WINAPI reader_function (LPVOID data)
     *append_to   = new_chunk;
     reader->tail = new_chunk;
 
-    if (release_mutex(reader) < 0) {
-	  goto error;
-    }
-
+	/* leave critical section and signal into get_next_chunk() */
+	LeaveCriticalSection(&reader->reader_lock);
+	WakeConditionVariable(&reader->data_arrived);
   } while (42);
 
   return 0;
@@ -115,17 +110,31 @@ error:
 
 
 // will zero-terminate the string copied into _output
-int get_next_chunk (reader_t * _reader, char * _output, size_t _count)
+int get_next_chunk (reader_t * _reader, char * _output, size_t _count, int _timeout)
 {
   if (_count <= 1) {
     return -1;
   }
 
-  if (acquire_mutex(_reader) < 0) {
-	return -1;
+  int ret = 0;
+
+  /* begin synchronized section */
+  EnterCriticalSection(&_reader->reader_lock);
+
+  /* if there's nothing there yet try waiting */
+  FILETIME start, current;
+  GetSystemTimeAsFileTime(&start);
+  while (!_reader->head) {
+    if (SleepConditionVariableCS(&_reader->data_arrived, &_reader->reader_lock, _timeout))
+      break;
+
+	GetSystemTimeAsFileTime(&current);
+	_timeout -= (current.dwLowDateTime - start.dwLowDateTime)/10000;
+    if (_timeout < 0)
+      break;
   }
 
-  int ret = 0;
+  /* if there is nothing here, then we run out of time */
   chunk_t * chunk = _reader->head;
   if (chunk == NULL) {
     *_output = 0;
@@ -157,25 +166,6 @@ int get_next_chunk (reader_t * _reader, char * _output, size_t _count)
   }
 
 finish:
-  if (release_mutex(_reader) < 0) {
-	  return -1;
-  }
+  LeaveCriticalSection(&_reader->reader_lock);
   return ret;
-}
-
-
-int acquire_mutex(reader_t * _reader)
-{
-  DWORD rc = WaitForSingleObject(_reader->mutex, INFINITE);
-  if (rc == WAIT_OBJECT_0)
-	return 0;
-  return -1;
-}
-
-
-int release_mutex(reader_t * _reader)
-{
-  if (ReleaseMutex(_reader->mutex) != TRUE)
-    return -1;
-  return 0;
 }

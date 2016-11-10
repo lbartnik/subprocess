@@ -246,7 +246,7 @@ int teardown_process (process_handle_t * _handle)
     return 0;
   }
 
-  process_poll(_handle, 1); // 1 means wait
+  process_poll(_handle, -1); // -1 means wait infinitely
 
   // Close OS handles 
   CloseHandle(_handle->child_handle);
@@ -277,7 +277,7 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
   return (ssize_t)written;
 }
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count)
+ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout)
 {
   // choose pipe
   reader_t * reader = NULL;
@@ -288,22 +288,28 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   else
     return -1;
 
+  // identify timeout
+  if (_timeout < 0)
+    _timeout = INFINITE;
+
   // event though return code is negative, buffer might hold data
   // this will happen if HeapFree() fails
-  if (get_next_chunk (reader, _buffer, _count) < 0)
+  if (get_next_chunk (reader, _buffer, _count, _timeout) < 0)
     return -1;
  
   return strlen(_buffer);
 }
 
-int process_poll (process_handle_t * _handle, int _wait)
+int process_poll (process_handle_t * _handle, int _timeout)
 {
-  // to wait or not to wait?
-  DWORD tm = 0;
-  if (_wait > 0)
-    tm = INFINITE;
+  if (_handle->state != RUNNING)
+	return 0;
 
-  DWORD rc = WaitForSingleObject(_handle->child_handle, tm);
+  // to wait or not to wait?
+  if (_timeout < 0)
+    _timeout = INFINITE;
+
+  DWORD rc = WaitForSingleObject(_handle->child_handle, _timeout);
   
   // if already exited
   if (rc == WAIT_OBJECT_0) {

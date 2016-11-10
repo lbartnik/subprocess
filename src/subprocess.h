@@ -48,7 +48,7 @@ int teardown_process (process_handle_t * _handle);
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count);
+ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout);
 
 int process_poll (process_handle_t * _handle, int _wait);
 

@@ -114,13 +114,19 @@ static void C_child_process_finalizer(SEXP ptr)
 
 
 // TODO add wait/timeout
-SEXP C_process_read (SEXP _handle, SEXP _pipe /*, SEXP _timeout*/)
+SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
   if (!isString(_pipe) || (LENGTH(_pipe) != 1)) {
     Rf_error("`pipe` must be a single character value");
   }
+  if (!isInteger(_timeout) || (LENGTH(_timeout) != 1)) {
+    Rf_error("`timeout` must be a single integer value");
+  }
+
+  /* extract timeout */
+  int timeout = INTEGER_DATA(_timeout)[0];
 
   /* determine which pipe */
   const char * pipe = translateChar(STRING_ELT(_pipe, 0));
@@ -135,7 +141,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe /*, SEXP _timeout*/)
 
   /* read into this buffer */
   char * buffer = (char*)Calloc(BUFFER_SIZE, char);
-  process_read(process_handle, which_pipe, buffer, BUFFER_SIZE);
+  process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
 
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));

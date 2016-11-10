@@ -8,7 +8,8 @@ typedef struct chunk chunk_t;
 struct reader {
   HANDLE stream_handle;
   HANDLE thread_handle;
-  HANDLE mutex;
+  CRITICAL_SECTION reader_lock;
+  CONDITION_VARIABLE data_arrived;
 
   DWORD thread_id;
   reader_state_t state;
@@ -24,6 +25,6 @@ int start_reader_thread (reader_t * _reader, HANDLE _stream);
 
 int join_reader_thread (reader_t * _reader);
 
-int get_next_chunk (reader_t * _reader, char * _output, size_t _count);
+int get_next_chunk (reader_t * _reader, char * _output, size_t _count, int _timeout);
 
 #endif /* WIN_READER_H_GUARD */

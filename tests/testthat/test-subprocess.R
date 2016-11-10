@@ -32,6 +32,6 @@ test_that("exchange data", {
   expect_true(process_exists(handle))
   
   process_write(handle, 'cat("A")\n')
-  expect_equal(process_read(handle), 'A')
+  expect_equal(process_read(handle, timeout = 1000), 'A')
 })
 
