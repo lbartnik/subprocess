@@ -4,10 +4,19 @@ is_windows <- function ()
 }
 
 
-R_binary <- function ()
+root_dir <- function ()
+{
+  ifelse(is_windows(), "c:\\", "/")
+}
+
+
+
+R_child <- function(...)
 {
   binary <- ifelse(is_windows(), 'R.exe', 'R')
-  file.path(R.home("bin"), binary)
+  binary <- file.path(R.home("bin"), binary)
+  stopifnot(file.exists(binary))
+  spawn_process(binary, '--slave', ...)
 }
 
 

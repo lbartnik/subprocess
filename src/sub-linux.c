@@ -124,6 +124,17 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     close(pipe_stderr[PIPE_READ]);
     close(pipe_stderr[PIPE_WRITE]);
 
+    /* change directory */
+    if (_workdir != NULL) {
+      if (chdir(_workdir) < 0) {
+        char message[BUFFER_SIZE];
+        snprintf(message, sizeof(message), "could not change working directory to %s",
+                 _workdir);
+        perror(message);
+        exit(EXIT_FAILURE);
+      }
+    }
+
     /* finally start the new process */
     execve(_command, _arguments, _environment);
 

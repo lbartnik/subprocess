@@ -6,12 +6,6 @@ test_that("helper works", {
 })
 
 
-R_child <- function()
-{
-  spawn_process(R_binary(), '--slave')
-}
-
-
 test_that("a subprocess can be spawned and killed", {
   handle <- R_child()
   expect_true('handle_ptr' %in% names(attributes(handle)))
