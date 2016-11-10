@@ -11,10 +11,10 @@ NULL
 
 
 #' @description Operating System-level signals that can be used with
-#' \link{process_signal} are defined in the \code{signals} list
-#' which is generated automatically when package is loaded. The list
-#' is also attached upon package load so signals are available directly
-#' under their names.
+#' \code{\link[subprocess]{process_send_signal}} are defined in the
+#' \code{signals} list which is generated automatically when package is
+#' loaded. The list is also attached upon package load so signals are
+#' available directly under their names.
 #' 
 #' @rdname signals
 #' @export
@@ -59,7 +59,10 @@ process_kill <- function (handle)
 #' \code{signal} to \code{handle}. In Linux all standard signal
 #' numbers are supported. On Windows supported signals are
 #' \code{SIGTERM}, \code{CTRL_C_EVENT} and \code{CTRL_BREAK_EVENT}.
-#' Those values will be available via the \code{signals} list.
+#' Those values will be available via the \code{signals} list which
+#' is also attached in the package namespace.
+#' 
+#' @param signal Signal number, one of \code{names(signals)}.
 #' 
 #' @rdname signals
 #' @export

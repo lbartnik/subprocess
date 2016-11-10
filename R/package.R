@@ -11,7 +11,7 @@
 #' With R's standard \code{\link{system}} and \code{\link{system2}}
 #' functions one can start a new process and capture its output but
 #' cannot directly write to its standard input. Another tool, the
-#' \code{\link[parallel]{mc.lapply}} function, is aimed at replicating
+#' \code{\link[parallel]{mclapply}} function, is aimed at replicating
 #' the current session and is limited to operating systems that come
 #' with the \code{fork()} system call.
 #' 
@@ -31,10 +31,11 @@ NULL
 .onLoad <- function (libname, pkgname)
 {
   signals <<- as.list(known_signals())
-  attach(signals)
-}
-
-.onUnload <- function (libpath)
-{
-  detach(signals)
+  envir <- asNamespace(pkgname)
+  
+  mapply(name = names(signals),
+         code = as.integer(signals),
+         function (name, code) {
+           assign(name, code, envir = envir, inherits = FALSE)
+         })
 }

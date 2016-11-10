@@ -19,15 +19,17 @@ process_send_signal(handle, signal)
 }
 \arguments{
 \item{handle}{Process handle obtained from \code{spawn_process()}.}
+
+\item{signal}{Signal number, one of \code{names(signals)}.}
 }
 \description{
 Sending signals to the child process.
 
 Operating System-level signals that can be used with
-\link{process_signal} are defined in the \code{signals} list
-which is generated automatically when package is loaded. The list
-is also attached upon package load so signals are available directly
-under their names.
+\code{\link[subprocess]{process_send_signal}} are defined in the
+\code{signals} list which is generated automatically when package is
+loaded. The list is also attached upon package load so signals are
+available directly under their names.
 
 \code{process_terminate} on Linux sends the
 \code{SIGTERM} signal to the process pointed to by \code{handle}.
@@ -41,7 +43,8 @@ signal to \code{handle}. On Windows it is an alias for
 \code{signal} to \code{handle}. In Linux all standard signal
 numbers are supported. On Windows supported signals are
 \code{SIGTERM}, \code{CTRL_C_EVENT} and \code{CTRL_BREAK_EVENT}.
-Those values will be available via the \code{signals} list.
+Those values will be available via the \code{signals} list which
+is also attached in the package namespace.
 }
 \examples{
 \dontrun{

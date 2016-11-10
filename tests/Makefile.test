@@ -1,0 +1,9 @@
+test-linux: ../src/sub-linux.c
+	$(CC) -DLINUX_TEST $^ -Wall -ggdb -O0 -o $@
+
+test-windows: ../src/sub-windows.c ../src/win-reader.c
+	$(CC) -DWIN64 -DWINDOWS_TEST $^ -Wall -g -O0 -o $@
+
+.PHONY: clean
+clean:
+	rm test
