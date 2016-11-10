@@ -5,5 +5,6 @@ Version: 0.1.0
 Authors@R: person("Lukasz", "Bartnik", email = "l.bartnik@gmail.com", role = c("aut", "cre"))
 Description: Create and handle subprocesses in R.
 License: MIT + file LICENSE
-LazyData: TRUE
+Suggests:
+  testthat
 RoxygenNote: 5.0.1
