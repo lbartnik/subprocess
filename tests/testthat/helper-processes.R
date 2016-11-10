@@ -21,7 +21,7 @@ process_exists <- function (pid)
     return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
   }
   else {
-    rc <- system2("pgrep", as.character(pid), stdout = NULL, stderr = NULL)
+    rc <- system2("ps", c("-q", as.character(pid)), stdout = NULL, stderr = NULL)
     return(rc == 0)
   }
 }

@@ -4,6 +4,7 @@
 #' 
 #' @seealso \code{\link{spawn_process}}
 #' 
+#' @format An object of class \code{list}.
 #' @rdname signals
 #' @name signals
 NULL

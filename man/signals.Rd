@@ -7,7 +7,7 @@
 \alias{process_terminate}
 \alias{signals}
 \title{Sending signals to the child process.}
-\format{An object of class \code{list} of length 3.}
+\format{An object of class \code{list}.}
 \usage{
 signals
 

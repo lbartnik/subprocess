@@ -1,9 +1,11 @@
 #define _GNU_SOURCE             /* See feature_test_macros(7) */
 
 #include <errno.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -28,6 +30,27 @@ void full_error_message (char * _buffer, size_t _length)
 }
 
 
+int clock_millisec ()
+{
+  struct timespec current;
+  clock_gettime(CLOCK_REALTIME, &current);
+  return current.tv_sec * 1000 + current.tv_nsec / 1000000;
+}
+
+int timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
+
+int set_non_block (int _fd)
+{
+  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
+}
+
+int set_block (int _fd)
+{
+  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
+}
+
+
+
 // TODO prevent Ctrl+C from being passed to the child process
 
 /**
@@ -36,7 +59,8 @@ void full_error_message (char * _buffer, size_t _length)
  *
  * @return 0 on success and negative on an error.
  */
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[])
+int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
+	               char *const _environment[], const char * _workdir)
 {
   int err;
   int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
@@ -70,15 +94,15 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
 
   /* spawn a child */
-  _handle->child_pid = fork();
+  _handle->child_id = fork();
 
-  if (_handle->child_pid < 0) {
+  if (_handle->child_id < 0) {
     return -1;
   }
 
   /* child should copy his ends of pipes and close his and parent's
    * ends of pipes */
-  if (_handle->child_pid == 0) {
+  if (_handle->child_id == 0) {
     if (dup2(pipe_stdin[PIPE_READ], STDIN_FILENO) < 0) {
       perror("redirecting stdin failed, abortnig");
       exit(EXIT_FAILURE);
@@ -114,7 +138,6 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* child is running */
   _handle->state = RUNNING;
-  _handle->child_id = _handle->child_pid;
 
   /* close those that the parent doesn't need */
   close(pipe_stdin[PIPE_READ]);
@@ -126,15 +149,15 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   _handle->pipe_stderr = pipe_stderr[PIPE_READ];
 
   /* reset the NONBLOCK on stdout-read and stderr-read descriptors */
-  fcntl(_handle->pipe_stdout, F_SETFL, fcntl(_handle->pipe_stdout, F_GETFL) | O_NONBLOCK);
-  fcntl(_handle->pipe_stderr, F_SETFL, fcntl(_handle->pipe_stderr, F_GETFL) | O_NONBLOCK);
+  set_non_block(_handle->pipe_stdout);
+  set_non_block(_handle->pipe_stderr);
 
   return 0;
 }
 
 int teardown_process (process_handle_t * _handle)
 {
-  if (!_handle || !_handle->child_pid) {
+  if (!_handle || !_handle->child_id) {
     errno = ECHILD;
     return -1;
   }
@@ -149,9 +172,10 @@ int teardown_process (process_handle_t * _handle)
   return 0;
 }
 
+
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
 {
-  if (!_handle || !_handle->child_pid) {
+  if (!_handle || !_handle->child_id) {
     errno = ECHILD;
     return -1;
   }
@@ -159,9 +183,10 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
   return write(_handle->pipe_stdin, _buffer, _count);
 }
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count)
+
+ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout)
 {
-  if (!_handle || !_handle->child_pid) {
+  if (!_handle || !_handle->child_id) {
     errno = ECHILD;
     return -1;
   }
@@ -176,6 +201,20 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
     return -1;
   }
 
+  // finite timeout
+  if (_timeout > 0) {
+    return timed_read(fd, _buffer, _count, _timeout);
+  }
+
+  // infinite timeout
+  if (_timeout < 0) {
+    set_block(fd);
+    int rc = read(fd, _buffer, _count);
+    set_non_block(fd);
+    return rc;
+  }
+
+  // no timeout
   int rc = read(fd, _buffer, _count);
   if (rc < 0 && errno == EAGAIN) {
     /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
@@ -187,9 +226,10 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   return rc;
 }
 
-int process_poll (process_handle_t * _handle, int _wait)
+
+int process_poll (process_handle_t * _handle, int _timeout)
 {
-  if (!_handle->child_pid) {
+  if (!_handle->child_id) {
     errno = ECHILD;
     return -1;
   }
@@ -199,15 +239,25 @@ int process_poll (process_handle_t * _handle, int _wait)
 
   /* to wait or not to wait? */ 
   int options = 0;
-  if (_wait == 0)
+  if (_timeout >= 0)
     options = WNOHANG;
   
   /* make the actual system call */
-  int rc = waitpid(_handle->child_pid, &_handle->return_code, options);
+  int start = clock_millisec(), rc;
+  do {
+    rc = waitpid(_handle->child_id, &_handle->return_code, options);
   
-  // there's been an error (<0) or the child is still running (==0)
-  if (rc <= 0) {
-    return rc;
+    // there's been an error (<0)
+    if (rc < 0) {
+      return rc;
+    }
+
+    _timeout -= clock_millisec() - start;
+  } while (rc == 0 && _timeout > 0);
+
+  // the child is still running
+  if (rc == 0) {
+    return 0;
   }
 
   // the child has exited or has been terminated
@@ -224,6 +274,73 @@ int process_poll (process_handle_t * _handle, int _wait)
 }
 
 
+int process_send_signal(process_handle_t * _handle, int _signal)
+{
+  return kill(_handle->child_id, _signal);
+}
+
+
+int process_terminate (process_handle_t * _handle)
+{
+  if (_handle->state != RUNNING)
+    return 0;
+
+  if (process_send_signal(_handle, SIGTERM) < 0)
+    return -1;
+
+  return process_poll(_handle, 100);
+}
+
+
+int process_kill(process_handle_t * _handle)
+{
+  if (_handle->state != RUNNING)
+    return 0;
+
+  if (process_send_signal(_handle, SIGKILL) < 0)
+    return -1;
+
+  return process_poll(_handle, 100);
+}
+
+
+/* --- library ------------------------------------------------------ */
+
+int timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
+{
+  // this should never be called with "infinite" timeout
+  if (_timeout < 0)
+    return -1;
+
+  fd_set set;
+  struct timeval timeout;
+
+  FD_ZERO(&set);
+  FD_SET(_fd, &set);
+
+  int start = clock_millisec(), rc;
+  do {
+    _timeout -= clock_millisec() - start;
+    timeout.tv_sec = _timeout/1000;
+    timeout.tv_usec = (_timeout % 1000) * 1000;
+
+    rc = select(_fd + 1, &set, NULL, NULL, &timeout);
+    if (rc == -1 && errno != EINTR)
+      return -1;
+  
+  } while(rc == 0 && _timeout > 0);
+
+  // nothing to read
+  if (rc == 0)
+    return 0;
+
+  return read(_fd, _buffer, _count);
+}
+
+
+/* --- test --------------------------------------------------------- */
+
+
 
 #ifdef LINUX_TEST
 int main (int argc, char ** argv)
@@ -234,7 +351,7 @@ int main (int argc, char ** argv)
 
   char buffer[BUFFER_SIZE];
 
-  if (spawn_process(&handle, "/bin/bash", args, env) < 0) {
+  if (spawn_process(&handle, "/bin/bash", args, env, NULL) < 0) {
     perror("error in spawn_process()");
     exit(EXIT_FAILURE);
   }
@@ -243,7 +360,7 @@ int main (int argc, char ** argv)
   
   /* read is non-blocking so the child needs time to produce output */
   sleep(1);
-  process_read(&handle, PIPE_STDOUT, buffer, sizeof(buffer));
+  process_read(&handle, PIPE_STDOUT, buffer, sizeof(buffer), -1);
 
   printf("stdout: %s\n", buffer);
 
