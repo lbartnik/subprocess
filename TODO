@@ -1,4 +1,3 @@
-* add kill()
 * add parameters to spawn_process: stdin, stdout, stderr; enable
   string-based input, output to /dev/null (Linux) or nul (Windows);
   redirecting stderr to stdout

@@ -14,11 +14,6 @@ spawn_process <- function (command, arguments = character(), environment = chara
         as.character(environment), as.character(workdir))
 }
 
-#' @export
-process_terminate <- function (handle)
-{
-  .Call("C_process_terminate", handle)
-}
 
 #' @export
 process_poll <- function (handle, timeout)
@@ -59,4 +54,5 @@ process_write <- function (handle, message)
 {
   .Call("C_process_write", handle, as.character(message))
 }
+
 

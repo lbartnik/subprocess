@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 
 #include <R.h>
 #include <Rdefines.h>
@@ -285,4 +286,56 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
   }
 
   return allocate_single_int(TRUE);
+}
+
+
+SEXP C_known_signals ()
+{
+  SEXP ans;
+  SEXP ansnames;
+
+  #define ADD_SIGNAL(i, name) do {              \
+    INTEGER_DATA(ans)[i] = name;                \
+    SET_STRING_ELT(ansnames, i, mkChar(#name)); \
+  } while (0);                                  \
+
+
+#ifdef WIN64
+  PROTECT(ans = allocVector(INTSXP, 3));
+  PROTECT(ansnames = allocVector(STRSXP, 3));
+
+  ADD_SIGNAL(0, SIGTERM);
+  ADD_SIGNAL(1, CTRL_C_EVENT);
+  ADD_SIGNAL(2, CTRL_BREAK_EVENT);
+
+#else /* Linux */
+  PROTECT(ans = allocVector(INTSXP, 19));
+  PROTECT(ansnames = allocVector(STRSXP, 19));
+
+  ADD_SIGNAL(0, SIGHUP)
+  ADD_SIGNAL(1, SIGINT)
+  ADD_SIGNAL(2, SIGQUIT)
+  ADD_SIGNAL(3, SIGILL)
+  ADD_SIGNAL(4, SIGABRT)
+  ADD_SIGNAL(5, SIGFPE)
+  ADD_SIGNAL(6, SIGKILL)
+  ADD_SIGNAL(7, SIGSEGV)
+  ADD_SIGNAL(8, SIGPIPE)
+  ADD_SIGNAL(9, SIGALRM)
+  ADD_SIGNAL(10, SIGTERM)
+  ADD_SIGNAL(11, SIGUSR1)
+  ADD_SIGNAL(12, SIGUSR2)
+  ADD_SIGNAL(13, SIGCHLD)
+  ADD_SIGNAL(14, SIGCONT)
+  ADD_SIGNAL(15, SIGSTOP)
+  ADD_SIGNAL(16, SIGTSTP)
+  ADD_SIGNAL(17, SIGTTIN)
+  ADD_SIGNAL(18, SIGTTOU)
+#endif
+
+  setAttrib(ans, R_NamesSymbol, ansnames);
+  
+  /* ans, ansnames */
+  UNPROTECT(2);
+  return ans;
 }
