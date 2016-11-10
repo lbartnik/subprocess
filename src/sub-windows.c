@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 
 
 static char * strjoin (char *const* _array);
@@ -17,7 +18,7 @@ void full_error_message (char * _buffer, size_t _length)
   DWORD code = GetLastError();
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
 	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	                        _buffer, _length, NULL);
+	                        _buffer, (DWORD)_length, NULL);
 }
 
 
@@ -76,6 +77,8 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
+  //      so that CTRL_C_EVENT can be sent in process_send_signal()
   BOOL rc = CreateProcess(_command,         // lpApplicationName
                           command_line,     // lpCommandLine, command line
                           NULL,             // lpProcessAttributes, process security attributes
@@ -267,7 +270,7 @@ int teardown_process (process_handle_t * _handle)
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
 {
   DWORD written = 0;
-  BOOL rc = WriteFile(_handle->pipe_stdin, _buffer, _count, &written, NULL);
+  BOOL rc = WriteFile(_handle->pipe_stdin, _buffer, (DWORD)_count, &written, NULL);
   
   if (!rc)
     return -1;
@@ -298,7 +301,7 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   if (get_next_chunk (reader, _buffer, _count, _timeout) < 0)
     return -1;
  
-  return strlen(_buffer);
+  return (ssize_t)strlen(_buffer);
 }
 
 int process_poll (process_handle_t * _handle, int _timeout)
@@ -373,6 +376,29 @@ int process_terminate(process_handle_t * _handle)
 }
 
 
+int process_kill (process_handle_t * _handle)
+{
+  return process_terminate (_handle);
+}
+
+
+int process_send_signal (process_handle_t * _handle, int _signal)
+{
+  if (_signal == SIGTERM) {
+    return process_terminate(_handle);
+  }
+  if (_signal == CTRL_C_EVENT || _signal == CTRL_BREAK_EVENT) {
+    BOOL rc = GenerateConsoleCtrlEvent(_signal, (DWORD)_handle->child_id);
+    if (rc == FALSE)
+      return -1;
+  }
+
+  // unsupported `signal` value
+  SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
+  return -1;
+}
+
+
 /**
  * You have to Free() the buffer returned from this function
  * yourself - or let R do it, since we allocate it with Calloc().
@@ -393,7 +419,7 @@ static char * strjoin (char *const* _array)
   char * tail = buffer;
   for ( ptr = _array ; *ptr != NULL; ++ptr, ++tail) {
     size_t len = strlen(*ptr);
-    strncpy(tail, *ptr, len);
+	strncpy_s(tail, total_length+1, *ptr, len);
     tail += len;
     *tail = ' ';
   }

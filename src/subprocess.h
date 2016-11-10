@@ -55,5 +55,9 @@ int process_poll (process_handle_t * _handle, int _timeout);
 
 int process_terminate (process_handle_t * _handle);
 
+int process_kill(process_handle_t * _handle);
+
+int process_send_signal(process_handle_t * _handle, int _signal);
+
 #endif /* SUBPROCESS_H_GUARD */
 

@@ -9,6 +9,7 @@
 // from "is_something.c"
 int is_nonempty_string(SEXP _obj);
 int is_single_string_or_NULL(SEXP _obj);
+int is_single_integer(SEXP _obj);
 
 
 #define BUFFER_SIZE 1024
@@ -42,6 +43,15 @@ static char ** to_C_array (SEXP _array)
   ret[LENGTH(_array)] = NULL;
 
   return ret;
+}
+
+static SEXP allocate_single_int (int _value)
+{
+  SEXP ans;
+  PROTECT(ans = allocVector(LGLSXP, 1));
+  LOGICAL_DATA(ans)[0] = _value;
+  UNPROTECT(1);
+  return ans;
 }
 
 
@@ -134,10 +144,10 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
-  if (!isString(_pipe) || (LENGTH(_pipe) != 1)) {
+  if (!is_nonempty_string(_pipe)) {
     Rf_error("`pipe` must be a single character value");
   }
-  if (!isInteger(_timeout) || (LENGTH(_timeout) != 1)) {
+  if (!is_single_integer(_timeout)) {
     Rf_error("`timeout` must be a single integer value");
   }
 
@@ -172,7 +182,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
-  if (!isString(_message) || (LENGTH(_message) != 1)) {
+  if (!is_nonempty_string(_message)) {
     Rf_error("`message` must be a single character value");
   }
 
@@ -186,7 +196,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 {
   /* extract timeout */
-  if (!isInteger(_timeout) || (LENGTH(_timeout) != 1)) {
+  if (!is_single_integer(_timeout)) {
     Rf_error("`timeout` must be a single integer value");
   }
 
@@ -230,17 +240,10 @@ SEXP C_process_return_code (SEXP _handle)
     Rf_perror("process poll failed");
   }
 
-  SEXP ans;
-  PROTECT(ans = allocVector(INTSXP, 1));
-
   if (process_handle->state == EXITED || process_handle->state == TERMINATED)
-    INTEGER_DATA(ans)[0] = process_handle->return_code;
+    return allocate_single_int(process_handle->return_code);
   else
-    INTEGER_DATA(ans)[0] = NA_INTEGER;
-
-  /* ans */
-  UNPROTECT(1);
-  return ans;
+    return allocate_single_int(NA_INTEGER);
 }
 
 
@@ -249,14 +252,37 @@ SEXP C_process_terminate (SEXP _handle)
   process_handle_t * process_handle = extract_process_handle(_handle);
 
   if (process_terminate(process_handle) < 0) {
-    Rf_perror("error while shutting down child process");
+    Rf_perror("error while terminating child process");
   }
 
-  SEXP ans;
-  PROTECT(ans = allocVector(LGLSXP, 1));
-  LOGICAL_DATA(ans)[0] = TRUE;
+  return allocate_single_int(TRUE);
+}
 
-  /* ans */
-  UNPROTECT(1);
-  return ans;
+
+SEXP C_process_kill (SEXP _handle)
+{
+  process_handle_t * process_handle = extract_process_handle(_handle);
+
+  if (process_kill(process_handle) < 0) {
+    Rf_perror("error while killing child process");
+  }
+
+  return allocate_single_int(TRUE);
+}
+
+
+SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
+{
+  process_handle_t * process_handle = extract_process_handle(_handle);
+  if (!is_single_integer(_signal)) {
+    Rf_error("`signal` must be a single integer value");
+  }
+
+  int signal = INTEGER_DATA(_signal)[0];
+
+  if (process_send_signal(process_handle, signal) < 0) {
+    Rf_perror("error while sending a signal to child process");
+  }
+
+  return allocate_single_int(TRUE);
 }
