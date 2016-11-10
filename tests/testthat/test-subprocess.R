@@ -6,11 +6,14 @@ test_that("helper works", {
 })
 
 
+R_child <- function()
+{
+  spawn_process(R_binary(), '--slave')
+}
+
 
 test_that("a subprocess can be spawned and killed", {
-  binary <- R_binary()
-  
-  handle <- spawn_process(binary, '--no-save')
+  handle <- R_child()
   expect_true('handle_ptr' %in% names(attributes(handle)))
 
   ptr <- attr(handle, 'handle_ptr')
@@ -25,10 +28,8 @@ test_that("a subprocess can be spawned and killed", {
 
 
 test_that("exchange data", {
-  binary <- R_binary()
-  
   on.exit(process_terminate(handle))
-  handle <- spawn_process(binary, c('--slave'))
+  handle <- R_child()
   
   expect_true(process_exists(handle))
   
@@ -36,3 +37,12 @@ test_that("exchange data", {
   expect_equal(process_read(handle, timeout = 1000), 'A')
 })
 
+
+test_that("read from standard error output", {
+  on.exit(process_terminate(handle))
+  handle <- R_child()
+
+  process_write(handle, 'cat("A", file = stderr())\n')
+  expect_equal(process_read(handle, 'stderr', timeout = 1000), 'A')
+  expect_equal(process_read(handle), character())
+})
