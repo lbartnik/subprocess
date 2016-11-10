@@ -6,15 +6,18 @@
 
 static char * strjoin (char *const* _array);
 
+int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si);
+
+int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
+
+
+
 void full_error_message (char * _buffer, size_t _length)
 {
   DWORD code = GetLastError();
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
 	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 	                        _buffer, _length, NULL);
-  if (ret == 0) {
-    snprintf(_buffer, _length, "error in FormatMessage()");
-  }
 }
 
 
@@ -43,6 +46,11 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   if (!strcmp(_arguments[0], _command)) {
     _command = NULL;
   }
+  /* if the environment is empty (most cases) don't bother with passing
+   * just this single NULLed element */
+  if (*_environment == NULL) {
+    _environment = NULL;
+  }
 
   /* put all arguments into one line */
   char * command_line = strjoin(_arguments);
@@ -51,76 +59,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   PROCESS_INFORMATION pi;
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
-  // Set the bInheritHandle flag so pipe handles are inherited
-  SECURITY_ATTRIBUTES sa;
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.bInheritHandle = TRUE;
-  sa.lpSecurityDescriptor = NULL;
-
-  HANDLE stdin_read   = NULL;
-  HANDLE stdin_write  = NULL;
-  HANDLE stdout_read  = NULL;
-  HANDLE stdout_write = NULL;
-  HANDLE stderr_read  = NULL;
-  HANDLE stderr_write = NULL;
-
-  #define CLOSE_HANDLES do {                     \
-    if (stdin_read)   CloseHandle(stdin_read);   \
-    if (stdin_write)  CloseHandle(stdin_write);  \
-    if (stdout_read)  CloseHandle(stdout_read);  \
-    if (stdout_write) CloseHandle(stdout_write); \
-    if (stderr_read)  CloseHandle(stderr_read);  \
-    if (stderr_write) CloseHandle(stderr_write); \
-  } while (0);
-
-  if (!CreatePipe(&stdin_read, &stdin_write, &sa, 0)) { 
-    return -1;
-  }
-  if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
-    CLOSE_HANDLES;
-    return -1;
-  }
-  if (!CreatePipe(&stderr_read, &stderr_write, &sa, 0)) {
-    CLOSE_HANDLES;
-    return -1;
-  }
-
-  // Ensure the write handle to the pipe for STDIN is not inherited. 
-  if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0)) {
-    CLOSE_HANDLES;
-    return -1;
-  }
-
-  // Create new output read handle and the input write handles. Set
-  // the Properties to FALSE. Otherwise, the child inherits the
-  // properties and, as a result, non-closeable handles to the pipes
-  // are created.
-  if (duplicate_handle(stdin_write, &_handle->pipe_stdin) < 0) {
-	CLOSE_HANDLES;
-	return -1;
-  }
-  if (duplicate_handle(stdout_read, &_handle->pipe_stdout) < 0) {
-	CLOSE_HANDLES;
-	return -1;
-  }
-  if (duplicate_handle(stderr_read, &_handle->pipe_stderr) < 0) {
-	CLOSE_HANDLES;
-	return -1;
-  }
-
-  // close those we don't want to inherit
-  CloseHandle(stdin_write);
-  CloseHandle(stdout_read);
-  CloseHandle(stderr_read);
-
   STARTUPINFO si;
   memset(&si, 0, sizeof(STARTUPINFO));
 
-  si.cb         = sizeof(STARTUPINFO);
-  si.hStdError  = stderr_write;
-  si.hStdOutput = stdout_write;
-  si.hStdInput  = stdin_read;
-  si.dwFlags    = STARTF_USESTDHANDLES;
+  int pipe_rc = 0;
+
+  // TODO expose this as a debugging interface
+  if (1) pipe_rc = pipe_redirection(_handle, &si);
+    else pipe_rc = file_redirection(_handle, &si);
+
+  if (pipe_rc < 0) {
+	CloseHandle(si.hStdInput);
+	CloseHandle(si.hStdOutput);
+	CloseHandle(si.hStdError);
+    return -1;
+  }
 
   BOOL rc = CreateProcess(_command,         // lpApplicationName
                           command_line,     // lpCommandLine, command line
@@ -135,13 +88,12 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   free(command_line);
 
-  CloseHandle(stdin_read);
-  CloseHandle(stdout_write);
-  CloseHandle(stderr_write);
+  CloseHandle(si.hStdInput);
+  CloseHandle(si.hStdOutput);
+  CloseHandle(si.hStdError);
 
   /* translate from Windows to Linux; -1 means error */
   if (rc != TRUE) {
-    CLOSE_HANDLES;
     return -1;
   }
 
@@ -154,18 +106,138 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* start reader threads */
   if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
-    CLOSE_HANDLES;
     return -1;
   }
   if (start_reader_thread (&_handle->stderr_reader, _handle->pipe_stderr) < 0) {
     TerminateThread(&_handle->stdout_reader, 0); // TODO is this safe? how else to handle it?
-    CLOSE_HANDLES;
     return -1;
   }
 
   /* again, in Linux 0 is "good" */
   return 0;
 }
+
+
+int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si)
+{
+  // Set the bInheritHandle flag so pipe handles are inherited
+  SECURITY_ATTRIBUTES sa;
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = NULL;
+
+  HANDLE stdin_read   = NULL;
+  HANDLE stdin_write  = NULL;
+  HANDLE stdout_read  = NULL;
+  HANDLE stdout_write = NULL;
+  HANDLE stderr_read  = NULL;
+  HANDLE stderr_write = NULL;
+
+  if (!CreatePipe(&stdin_read, &stdin_write, &sa, 0)) { 
+    goto error;
+  }
+  if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
+    goto error;
+  }
+  if (!CreatePipe(&stderr_read, &stderr_write, &sa, 0)) {
+    goto error;
+  }
+
+  // Ensure the write handle to the pipe for STDIN is not inherited. 
+  if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0)) {
+    goto error;
+  }
+
+  // Create new output read handle and the input write handles. Set
+  // the Properties to FALSE. Otherwise, the child inherits the
+  // properties and, as a result, non-closeable handles to the pipes
+  // are created.
+  if (duplicate_handle(stdin_write, &_process->pipe_stdin) < 0) {
+    goto error;
+  }
+  if (duplicate_handle(stdout_read, &_process->pipe_stdout) < 0) {
+    goto error;
+  }
+  if (duplicate_handle(stderr_read, &_process->pipe_stderr) < 0) {
+    goto error;
+  }
+
+  // close those we don't want to inherit
+  CloseHandle(stdin_write);
+  CloseHandle(stdout_read);
+  CloseHandle(stderr_read);
+
+  _si->cb = sizeof(STARTUPINFO);
+  _si->hStdError = stderr_write;
+  _si->hStdOutput = stdout_write;
+  _si->hStdInput = stdin_read;
+  _si->dwFlags = STARTF_USESTDHANDLES;
+
+  return 0;
+
+error:
+  if (stdin_read)   CloseHandle(stdin_read);
+  if (stdin_write)  CloseHandle(stdin_write);
+  if (stdout_read)  CloseHandle(stdout_read);
+  if (stdout_write) CloseHandle(stdout_write);
+  if (stderr_read)  CloseHandle(stderr_read);
+  if (stderr_write) CloseHandle(stderr_write);
+  return -1;
+}
+
+
+int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
+{
+  HANDLE input  = NULL;
+  HANDLE output = NULL;
+  HANDLE error  = NULL;
+
+  input = CreateFile("C:/Windows/TEMP/subprocess.in", // name of the write
+                     GENERIC_READ,           // open for writing
+                     0,                      // do not share
+                     NULL,                   // default security
+                     OPEN_EXISTING,          // create new file only
+                     FILE_ATTRIBUTE_NORMAL,  // normal file
+                     NULL);                  // no attr. template
+
+  if (input == INVALID_HANDLE_VALUE) {
+	goto error;
+  }
+
+  output = CreateFile("C:/Windows/TEMP/subprocess.out", // name of the write
+                      GENERIC_WRITE,          // open for writing
+                      0,                      // do not share
+                      NULL,                   // default security
+                      CREATE_ALWAYS,          // create new file only
+                      FILE_ATTRIBUTE_NORMAL,  // normal file
+                      NULL);                  // no attr. template
+
+  if (output == INVALID_HANDLE_VALUE) { 
+    goto error;
+  }
+
+  if ((duplicate_handle(output, &_process->pipe_stdout) < 0) ||
+	  (duplicate_handle(output, &_process->pipe_stderr) < 0) ||
+	  (duplicate_handle(output, &error) < 0))
+  {
+	goto error;
+  }
+
+  _si->cb = sizeof(STARTUPINFO);
+  _si->hStdError = error;
+  _si->hStdOutput = output;
+  _si->hStdInput = input;
+  _si->dwFlags = STARTF_USESTDHANDLES;
+
+  return 0;
+
+error:
+  if (input) CloseHandle(input);
+  if (output) CloseHandle(output);
+  if (error) CloseHandle(error);
+  return -1;
+}
+
 
 
 int teardown_process (process_handle_t * _handle)
@@ -236,7 +308,9 @@ int process_poll (process_handle_t * _handle, int _wait)
   // if already exited
   if (rc == WAIT_OBJECT_0) {
     DWORD status;
-    GetExitCodeProcess(_handle->child_handle, &status);
+    if (GetExitCodeProcess(_handle->child_handle, &status) == FALSE) {
+      return -1;
+	}
  
     if (status == STILL_ACTIVE) {
       return -1;

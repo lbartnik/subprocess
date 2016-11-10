@@ -21,6 +21,13 @@ process_poll <- function (handle)
 }
 
 #' @export
+process_return_code <- function (handle)
+{
+  .Call("C_process_return_code", handle)
+}
+
+
+#' @export
 process_read <- function (handle, pipe = "stdout")
 {
   x <- .Call("C_process_read", handle, as.character(pipe))

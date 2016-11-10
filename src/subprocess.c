@@ -189,6 +189,27 @@ SEXP C_process_poll (SEXP _handle)
 }
 
 
+SEXP C_process_return_code (SEXP _handle)
+{
+  process_handle_t * process_handle = extract_process_handle(_handle);
+  if (process_poll(process_handle, 0) < 0) {
+    Rf_perror("process poll failed");
+  }
+
+  SEXP ans;
+  PROTECT(ans = allocVector(INTSXP, 1));
+
+  if (process_handle->state == EXITED || process_handle->state == TERMINATED)
+    INTEGER_DATA(ans)[0] = process_handle->return_code;
+  else
+    INTEGER_DATA(ans)[0] = NA_INTEGER;
+
+  /* ans */
+  UNPROTECT(1);
+  return ans;
+}
+
+
 SEXP C_process_terminate (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);

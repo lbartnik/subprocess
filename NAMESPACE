@@ -2,6 +2,7 @@
 
 export(process_poll)
 export(process_read)
+export(process_return_code)
 export(process_terminate)
 export(process_write)
 export(spawn_process)
