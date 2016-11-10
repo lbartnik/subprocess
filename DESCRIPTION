@@ -9,4 +9,10 @@ URL: https://github.com/lbartnik/subprocess
 BugReports: https://github.com/lbartnik/subprocess/issues
 Suggests:
   testthat
+Collate:
+  'package.R'
+  'readwrite.R'
+  'signals.R'
+  'subprocess.R'
+  'utils.R'
 RoxygenNote: 5.0.1

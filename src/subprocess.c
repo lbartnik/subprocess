@@ -49,8 +49,8 @@ static char ** to_C_array (SEXP _array)
 static SEXP allocate_single_int (int _value)
 {
   SEXP ans;
-  PROTECT(ans = allocVector(LGLSXP, 1));
-  LOGICAL_DATA(ans)[0] = _value;
+  PROTECT(ans = allocVector(INTSXP, 1));
+  INTEGER_DATA(ans)[0] = _value;
   UNPROTECT(1);
   return ans;
 }
@@ -188,9 +188,9 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  process_write(process_handle, message, strlen(message));
+  int ret = process_write(process_handle, message, strlen(message));
 
-  return R_NilValue;
+  return allocate_single_int(ret);
 }
 
 

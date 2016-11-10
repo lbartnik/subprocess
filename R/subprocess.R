@@ -6,6 +6,9 @@ spawn_process <- function (command, arguments = character(), environment = chara
 {
   command <- as.character(command)
   
+  # apps from C:\Rtools\bin accepted "/" as delimiter but even R itself
+  # didn't; I'm not sure why this happened but it seems the replacement
+  # below is necessary
   if (is_windows()) {
     command <- chartr('/', '\\', command)
   }
@@ -34,25 +37,3 @@ process_wait <- function (handle, timeout)
   process_poll(handle, timeout)
   process_return_code(handle)
 }
-
-
-#' @export
-process_read <- function (handle, pipe = "stdout", timeout = 0)
-{
-  output <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
-  if (!is.character(output)) {
-    return(output)
-  }
-  
-  # replace funny line ending and break into multiple lines
-  output <- gsub("\r", "", output, fixed = TRUE)
-  strsplit(output, "\n", fixed = TRUE)[[1]]
-}
-
-#' @export
-process_write <- function (handle, message)
-{
-  .Call("C_process_write", handle, as.character(message))
-}
-
-

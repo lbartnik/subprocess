@@ -46,3 +46,11 @@ test_that("read from standard error output", {
   expect_equal(process_read(handle, 'stderr', timeout = 1000), 'A')
   expect_equal(process_read(handle), character())
 })
+
+
+test_that("write returns the number of characters", {
+  on.exit(process_terminate(handle))
+  handle <- R_child()
+  
+  expect_equal(process_write(handle, 'cat("A")\n'), 9)
+})
