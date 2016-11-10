@@ -20,9 +20,9 @@ process_terminate <- function (handle)
 }
 
 #' @export
-process_poll <- function (handle)
+process_poll <- function (handle, timeout)
 {
-  .Call("C_process_poll", handle)
+  .Call("C_process_poll", handle, as.integer(timeout))
 }
 
 #' @export
@@ -33,13 +33,24 @@ process_return_code <- function (handle)
 
 
 #' @export
+process_wait <- function (handle, timeout)
+{
+  process_poll(handle, timeout)
+  process_return_code(handle)
+}
+
+
+#' @export
 process_read <- function (handle, pipe = "stdout", timeout = 0)
 {
-  x <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
-  if (!is.character(x)) {
-    return(x)
+  output <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
+  if (!is.character(output)) {
+    return(output)
   }
-  strsplit(gsub("\r", "", x, fixed = TRUE), "\n", fixed = TRUE)[[1]]
+  
+  # replace funny line ending and break into multiple lines
+  output <- gsub("\r", "", output, fixed = TRUE)
+  strsplit(output, "\n", fixed = TRUE)[[1]]
 }
 
 #' @export

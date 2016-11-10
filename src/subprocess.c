@@ -167,13 +167,24 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 }
 
 
-SEXP C_process_poll (SEXP _handle)
+SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 {
+  /* extract timeout */
+  if (!isInteger(_timeout) || (LENGTH(_timeout) != 1)) {
+    Rf_error("`timeout` must be a single integer value");
+  }
+
+  int timeout = INTEGER_DATA(_timeout)[0];
+
+  /* extract handle */
   process_handle_t * process_handle = extract_process_handle(_handle);
-  if (process_poll(process_handle, 0) < 0) {
+
+  /* check the process */
+  if (process_poll(process_handle, timeout) < 0) {
     Rf_perror("process poll failed");
   }
 
+  /* answer */
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
 
