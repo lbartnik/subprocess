@@ -71,9 +71,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     else pipe_rc = file_redirection(_handle, &si);
 
   if (pipe_rc < 0) {
-	CloseHandle(si.hStdInput);
-	CloseHandle(si.hStdOutput);
-	CloseHandle(si.hStdError);
+    CloseHandle(si.hStdInput);
+    CloseHandle(si.hStdOutput);
+    CloseHandle(si.hStdError);
     return -1;
   }
 
@@ -205,7 +205,7 @@ int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
                      NULL);                  // no attr. template
 
   if (input == INVALID_HANDLE_VALUE) {
-	goto error;
+    goto error;
   }
 
   output = CreateFile("C:/Windows/TEMP/subprocess.out", // name of the write
@@ -224,7 +224,7 @@ int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
 	  (duplicate_handle(output, &_process->pipe_stderr) < 0) ||
 	  (duplicate_handle(output, &error) < 0))
   {
-	goto error;
+    goto error;
   }
 
   _si->cb = sizeof(STARTUPINFO);
