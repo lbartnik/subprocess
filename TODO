@@ -1,3 +1,7 @@
-* add working directory parameter
 * add kill()
-* add terminate()
+* add parameters to spawn_process: stdin, stdout, stderr; enable
+  string-based input, output to /dev/null (Linux) or nul (Windows);
+  redirecting stderr to stdout
+* enable a single wait on both stdout and stderr
+* enable passing CTRL_C_EVENT and CTRL_BREAK_EVENT to the child
+  process
