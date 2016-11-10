@@ -113,7 +113,8 @@ static void C_child_process_finalizer(SEXP ptr)
 }
 
 
-SEXP C_process_read (SEXP _handle, SEXP _pipe)
+// TODO add wait/timeout
+SEXP C_process_read (SEXP _handle, SEXP _pipe /*, SEXP _timeout*/)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 

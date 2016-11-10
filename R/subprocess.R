@@ -5,6 +5,11 @@ NULL
 spawn_process <- function (command, arguments = character(), environment = character())
 {
   command <- as.character(command)
+  
+  if (is_windows()) {
+    command <- chartr('/', '\\', command)
+  }
+  
   .Call("C_process_spawn", command, c(command, as.character(arguments)), as.character(environment))
 }
 
