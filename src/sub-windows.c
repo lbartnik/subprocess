@@ -12,6 +12,9 @@ void full_error_message (char * _buffer, size_t _length)
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
 	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 	                        _buffer, _length, NULL);
+  if (ret == 0) {
+    snprintf(_buffer, _length, "error in FormatMessage()");
+  }
 }
 
 
