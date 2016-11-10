@@ -48,3 +48,8 @@ test_that("write returns the number of characters", {
   
   expect_equal(process_write(handle, 'cat("A")\n'), 9)
 })
+
+
+test_that("error when no executable", {
+  expect_error(spawn_process("xxx"))
+})

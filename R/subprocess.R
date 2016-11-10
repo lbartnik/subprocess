@@ -42,6 +42,7 @@ NULL
 spawn_process <- function (command, arguments = character(), environment = character(), workdir = "")
 {
   command <- as.character(command)
+  stopifnot(file.exists(command))
   
   # apps from C:\Rtools\bin accepted "/" as delimiter but even R itself
   # didn't; I'm not sure why this happened but it seems the replacement
@@ -52,7 +53,7 @@ spawn_process <- function (command, arguments = character(), environment = chara
   
   # handle named environment
   if (!is.null(names(environment))) {
-    if (any(names(environment()) == "")) {
+    if (any(names(environment) == "")) {
       stop("empty name(s) for environment variables", call. = FALSE)
     }
     environment <- paste(names(environment), as.character(environment), sep = '=')

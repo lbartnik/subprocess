@@ -9,14 +9,18 @@ root_dir <- function ()
   ifelse(is_windows(), "c:\\", "/")
 }
 
-
-
-R_child <- function(...)
+R_binary <- function ()
 {
   binary <- ifelse(is_windows(), 'R.exe', 'R')
   binary <- file.path(R.home("bin"), binary)
   stopifnot(file.exists(binary))
-  spawn_process(binary, '--slave', ...)
+  binary
+}
+
+
+R_child <- function(...)
+{
+  spawn_process(R_binary(), '--slave', ...)
 }
 
 

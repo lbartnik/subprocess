@@ -18,10 +18,33 @@ test_that("working directory can be set", {
 })
 
 
-test_that("environment can be specified", {
+test_that("environment", {
   on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child(environment = "VAR=SOME_VALUE")
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
   expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+})
+
+
+test_that("environment via named vector", {
+  on.exit(process_terminate(handle), add = TRUE)
+  handle <- R_child(environment = c(VAR="SOME_VALUE"))
+  
+  process_write(handle, 'cat(Sys.getenv("VAR"))\n')
+  expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+})
+
+
+test_that("environment via list", {
+  on.exit(process_terminate(handle), add = TRUE)
+  handle <- R_child(environment = list(VAR="SOME_VALUE"))
+  
+  process_write(handle, 'cat(Sys.getenv("VAR"))\n')
+  expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+})
+
+
+test_that("environment error checking", {
+  expect_error(spawn_process(R_binary(), environment = list(A="B", "C")))
 })
