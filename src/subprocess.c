@@ -8,7 +8,7 @@
 
 // from "is_something.c"
 int is_nonempty_string(SEXP _obj);
-int is_nonempty_string_or_NULL(SEXP obj);
+int is_single_string_or_NULL(SEXP _obj);
 
 
 #define BUFFER_SIZE 1024
@@ -66,7 +66,7 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir)
 {
   /* basic argument sanity checks */
-  if (!is_nonempty_string(_command, 0)) {
+  if (!is_nonempty_string(_command)) {
 	  Rf_error("`command` must be a non-empty string");
   }
   if (!isString(_arguments)) {
@@ -75,8 +75,8 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   if (!isString(_environment)) {
     Rf_error("invalid value for `environment`");
   }
-  if (!is_nonempty_string_or_NULL(_workdir, 0)) {
-	  Rf_error("`workdir` must be a non-empty string");
+  if (!is_single_string_or_NULL(_workdir)) {
+    Rf_error("`workdir` must be a non-empty string");
   }
 
   /* translate into C */
@@ -85,9 +85,13 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   char ** arguments   = to_C_array(_arguments);
   char ** environment = to_C_array(_environment);
 
+  /* if workdir is NULL or an empty string, inherit from parent */
   const char * workdir = NULL;
   if (_workdir != R_NilValue) {
 	  workdir = translateChar(STRING_ELT(_workdir, 0));
+      if (strlen(workdir) == 0) {
+        workdir = NULL;
+      }
   }
 
   /* Calloc() handles memory allocation errors internally */

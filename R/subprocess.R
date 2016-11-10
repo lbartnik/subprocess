@@ -2,7 +2,7 @@
 NULL
 
 #' @export
-spawn_process <- function (command, arguments = character(), environment = character())
+spawn_process <- function (command, arguments = character(), environment = character(), workdir = "")
 {
   command <- as.character(command)
   
@@ -10,7 +10,8 @@ spawn_process <- function (command, arguments = character(), environment = chara
     command <- chartr('/', '\\', command)
   }
   
-  .Call("C_process_spawn", command, c(command, as.character(arguments)), as.character(environment))
+  .Call("C_process_spawn", command, c(command, as.character(arguments)),
+        as.character(environment), as.character(workdir))
 }
 
 #' @export
