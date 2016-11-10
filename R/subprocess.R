@@ -66,21 +66,66 @@ spawn_process <- function (command, arguments = character(), environment = chara
 }
 
 
+
+#' Terminating a Child Process.
+#' 
+#' @description
+#' 
+#' These functions give access to the state of the child process and to
+#' its exit status (return code).
+#' 
+#' The \code{timeout} parameter can take one of three values:
+#' \itemize{
+#'   \item \code{0} which means no timeout
+#'   \item \code{-1} which means "wait until there is data to read"
+#'   \item a positive integer, which is the actual timeout in milliseconds
+#' }
+#' 
+#' @details \code{process_poll} checks the state of the child process.
+#' 
+#' @param handle Process handle obtained from \code{spawn_process}.
+#' @param timeout Optional timeout in milliseconds.
+#' 
+#' @return \code{process_poll} returns one of these values:
+#' \code{"not-started"}. \code{"running"}, \code{"exited"},
+#' \code{"terminated"}.
+#' 
+#' @rdname terminating
+#' @name terminating
 #' @export
-process_poll <- function (handle, timeout)
+#' 
+#' @seealso \code{\link{spawn_process}}, \code{\link{process_read}}
+#' 
+process_poll <- function (handle, timeout = 0)
 {
   .Call("C_process_poll", handle, as.integer(timeout))
 }
 
+
+#' @details \code{process_return_code} complements \code{process_poll}
+#' by giving access to the child process' exit status (return code). If
+#' \code{process_poll} returns neither \code{"exited"} nor
+#' \code{"terminated"}, \code{process_return_code} returns \code{NA}.
+#' 
+#' @rdname terminating
+#' @name terminating
 #' @export
+#' 
 process_return_code <- function (handle)
 {
   .Call("C_process_return_code", handle)
 }
 
 
+#' @details \code{process_wait} combined \code{process_poll} and
+#' \code{process_return_code}. It firsts for the process to exit and
+#' then returns its exit code.
+#' 
+#' @rdname terminating
+#' @name terminating
 #' @export
-process_wait <- function (handle, timeout)
+#' 
+process_wait <- function (handle, timeout = -1)
 {
   process_poll(handle, timeout)
   process_return_code(handle)

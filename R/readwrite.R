@@ -4,12 +4,7 @@
 #' \emph{standard output} or \emph{standard error output}, and returns
 #' it as a \code{character} vector.
 #' 
-#' The \code{timeout} parameter can take one of three values:
-#' \itemize{
-#'   \item \code{0} which means no timeout
-#'   \item \code{-1} which means "wait until there is data to read"
-#'   \item a positive integer, which is the actual timeout in milliseconds
-#' }
+#' For details on \code{timeout} see \code{\link{terminating}}.
 #' 
 #' @param handle Process handle obtained from \code{spawn_process}.
 #' @param pipe Output stream name, \code{"stdout"} or \code{"stderr"}.
