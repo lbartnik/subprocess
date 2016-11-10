@@ -37,7 +37,8 @@ int duplicate_handle(HANDLE src, HANDLE * dst)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
 // https://support.microsoft.com/en-us/kb/190351
 //
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[], char *const _environment[])
+int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
+	               char *const _environment[], const char * _workdir)
 {
   memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
@@ -82,9 +83,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
                           TRUE,             // bInheritHandles, handles are inherited
                           CREATE_NO_WINDOW, // dwCreationFlags, creation flags
                           (void**)_environment, // lpEnvironment
-                          NULL,         // lpCurrentDirectory
-                          &si,          // lpStartupInfo
-                          &pi);         // lpProcessInformation
+                          _workdir,         // lpCurrentDirectory
+                          &si,              // lpStartupInfo
+                          &pi);             // lpProcessInformation
 
   free(command_line);
 
