@@ -20,9 +20,25 @@ spawn_process(command, arguments = character(), environment = character(),
 A process handle.
 }
 \description{
-Start a new child process.
+In Linux, the usual combination of \code{fork()} and \code{exec()}
+is used to spawn a new child process. Standard streams are redirected
+over regular unnamed \code{pipe}s.
 }
 \details{
+In Windows a new process is spawned with \code{CreateProcess()} and
+streams are redirected over unnamed pipes obtained with
+\code{CreatePipe()}. However, because non-blocking (\emph{overlapped}
+in Windows-speech) read/write is not supported for unnamed pipes,
+two reader threads are created for each new child process. These
+threads never touch memory allocated by R and thus they will not
+interfere with R interpreter's memory management (garbage collection).
+
+
+\code{command} is always prepended to \code{arguments} so that the
+child process can correcty recognize the name of its executable
+via its \code{argv} vector. This is done automatically by
+\code{spawn_process}.
+
 \code{environment} can be passed as a \code{character} vector whose
 elements take the form \code{"NAME=VALUE"}, a named \code{character}
 vector or a named \code{list}.
