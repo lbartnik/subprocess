@@ -15,4 +15,5 @@ Collate:
   'signals.R'
   'subprocess.R'
   'utils.R'
+VignetteBuilder: knitr
 RoxygenNote: 5.0.1
