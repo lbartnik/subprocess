@@ -8,12 +8,14 @@ License: MIT + file LICENSE
 URL: https://github.com/lbartnik/subprocess
 BugReports: https://github.com/lbartnik/subprocess/issues
 Suggests:
-  testthat
+  testthat,
+  knitr,
+  rmarkdown (>= 1.0)
 Collate:
   'package.R'
   'readwrite.R'
   'signals.R'
   'subprocess.R'
   'utils.R'
-VignetteBuilder: knitr
 RoxygenNote: 5.0.1
+VignetteBuilder: knitr
