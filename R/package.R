@@ -38,4 +38,5 @@ NULL
          function (name, code) {
            assign(name, code, envir = envir, inherits = FALSE)
          })
+  namespaceExport(asNamespace("subprocess"), names(signals))
 }

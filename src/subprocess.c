@@ -56,6 +56,15 @@ static SEXP allocate_single_int (int _value)
   return ans;
 }
 
+static SEXP make_TRUE ()
+{
+  SEXP ans;
+  PROTECT(ans = allocVector(LGLSXP, 1));
+  LOGICAL_DATA(ans)[0] = 1;
+  UNPROTECT(1);
+  return ans;
+}
+
 
 static process_handle_t * extract_process_handle (SEXP _handle)
 {
@@ -286,7 +295,7 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
     Rf_perror("error while sending a signal to child process");
   }
 
-  return allocate_single_int(TRUE);
+  return make_TRUE();
 }
 
 
@@ -369,11 +378,6 @@ SEXP C_signal (SEXP _signal, SEXP _handler)
     Rf_perror("error while calling signal()");
   }
 
-  /* return true */
-  SEXP ans;
-  PROTECT(ans = allocVector(LGLSXP, 1));
-  LOGICAL_DATA(ans)[0] = 1;
-  UNPROTECT(1);
-  return ans;
+  return make_TRUE();
 }
 
