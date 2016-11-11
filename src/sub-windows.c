@@ -4,12 +4,29 @@
 #include <string.h>
 #include <signal.h>
 
+/*
+ * There are probably many places that need to be adapted to make this
+ * package Unicode-ready. One place that for sure needs a change is
+ * the prepare_environment() function. It currently assumes a double
+ * NULL environment block delimiter; if UNICODE is enabled, it will
+ * be a four-NULL block.
+ *
+ * See this page for more details:
+ * https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
+ */
+#ifdef UNICODE
+#error "This package is not ready for UNICODE"
+#endif
 
-static char * strjoin (char *const* _array);
+
+
+static char * strjoin (char *const* _array, char _sep);
 
 int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si);
 
 int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
+
+char * prepare_environment(char *const* _environment);
 
 
 
@@ -50,12 +67,13 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   }
   /* if the environment is empty (most cases) don't bother with passing
    * just this single NULLed element */
-  if (*_environment == NULL) {
-    _environment = NULL;
+  char * environment = NULL;
+  if (*_environment != NULL) {
+    environment = prepare_environment(_environment);
   }
 
   /* put all arguments into one line */
-  char * command_line = strjoin(_arguments);
+  char * command_line = strjoin(_arguments, ' ');
 
   /* Windows magic */
   PROCESS_INFORMATION pi;
@@ -85,12 +103,13 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
                           NULL,             // lpThreadAttributes, primary thread security attributes
                           TRUE,             // bInheritHandles, handles are inherited
                           CREATE_NO_WINDOW, // dwCreationFlags, creation flags
-                          (void**)_environment, // lpEnvironment
+                          environment,      // lpEnvironment
                           _workdir,         // lpCurrentDirectory
                           &si,              // lpStartupInfo
                           &pi);             // lpProcessInformation
 
-  free(command_line);
+  HeapFree(GetProcessHeap(), 0, command_line);
+  HeapFree(GetProcessHeap(), 0, environment);
 
   CloseHandle(si.hStdInput);
   CloseHandle(si.hStdOutput);
@@ -403,7 +422,7 @@ int process_send_signal (process_handle_t * _handle, int _signal)
  * You have to Free() the buffer returned from this function
  * yourself - or let R do it, since we allocate it with Calloc().
  */
-static char * strjoin (char *const* _array)
+static char * strjoin (char *const* _array, char _sep)
 {
   /* total length is the sum of lengths plus spaces */
   size_t total_length = 0;
@@ -413,7 +432,7 @@ static char * strjoin (char *const* _array)
     total_length += strlen(*ptr) + 1; /* +1 for space */
   }
 
-  char * buffer = (char*)malloc(total_length + 1);
+  char * buffer = (char*)HeapAlloc(GetProcessHeap(), 0, total_length + 2); /* +2 for double NULL */
 
   /* combine all parts, put spaces between them */
   char * tail = buffer;
@@ -421,13 +440,42 @@ static char * strjoin (char *const* _array)
     size_t len = strlen(*ptr);
 	strncpy_s(tail, total_length+1, *ptr, len);
     tail += len;
-    *tail = ' ';
+    *tail = _sep;
   }
 
-  *tail = 0;
+  *tail++ = 0;
+  *tail   = 0;
 
   return buffer;
 }
+
+
+int find_double_0 (const char * _str)
+{
+  int length = 0;
+  while (*_str++ || *_str) {
+	++length;
+  }
+  return length;
+}
+
+char * prepare_environment (char *const* _environment)
+{
+  char * current_env = GetEnvironmentStrings();
+  char * new_env = strjoin(_environment, 0);
+
+  int length_1 = find_double_0(current_env);
+  int length_2 = find_double_0(new_env);
+
+  char * combined_env = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, length_1 + length_2 + 5);
+  CopyMemory(combined_env, current_env, length_1);
+  CopyMemory(combined_env+length_1+1, new_env, length_2);
+
+  FreeEnvironmentStrings(current_env);
+  HeapFree(GetProcessHeap(), 0, new_env);
+  return combined_env;
+}
+
 
 
 #ifdef WINDOWS_TEST
