@@ -1,5 +1,6 @@
 #include "subprocess.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
@@ -339,3 +340,40 @@ SEXP C_known_signals ()
   UNPROTECT(2);
   return ans;
 }
+
+
+/* --- hidden calls ------------------------------------------------- */
+
+
+/* this is an access interface to system call signal(); it is used
+ * in the introduction vignette */
+SEXP C_signal (SEXP _signal, SEXP _handler)
+{
+  if (!is_single_integer(_signal)) {
+    error("`signal` needs to be an integer");
+  }
+  if (!is_nonempty_string(_handler)) {
+    error("`handler` needs to be a single character value");
+  }
+  
+  const char * handler = translateChar(STRING_ELT(_handler, 0));
+  if (!strncmp(handler, "ignore", 6) && !strncmp(handler, "default", 7)) {
+    error("`handler` can be either \"ignore\" or \"default\"");
+  }
+  
+  int sgn = INTEGER_DATA(_signal)[0];
+  typedef void (*sighandler_t)(int);
+  sighandler_t hnd = (strncmp(handler, "ignore", 6) ? SIG_DFL : SIG_IGN);
+  
+  if (signal(sgn, hnd) == SIG_ERR) {
+    Rf_perror("error while calling signal()");
+  }
+
+  /* return true */
+  SEXP ans;
+  PROTECT(ans = allocVector(LGLSXP, 1));
+  LOGICAL_DATA(ans)[0] = 1;
+  UNPROTECT(1);
+  return ans;
+}
+

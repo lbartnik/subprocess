@@ -5,3 +5,4 @@
 * enable a single wait on both stdout and stderr
 * enable passing CTRL_C_EVENT and CTRL_BREAK_EVENT to the child
   process
+* see how tools::pskill can be used our own process_send_signal
