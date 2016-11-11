@@ -18,6 +18,9 @@
 #'
 #' @docType package
 #' @name subprocess
+#' @aliases SIGABRT SIGALRM SIGCHLD SIGCONT SIGFPE SIGHUP SIGILL
+#' SIGINT SIGKILL SIGPIPE SIGQUIT SIGSEGV SIGSTOP SIGTERM
+#' SIGTSTP SIGTTIN SIGTTOU SIGUSR1 SIGUSR2
 #' @rdname subprocess
 #' 
 #' @references

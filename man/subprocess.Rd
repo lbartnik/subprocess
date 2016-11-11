@@ -2,6 +2,25 @@
 % Please edit documentation in R/package.R
 \docType{package}
 \name{subprocess}
+\alias{SIGABRT}
+\alias{SIGALRM}
+\alias{SIGCHLD}
+\alias{SIGCONT}
+\alias{SIGFPE}
+\alias{SIGHUP}
+\alias{SIGILL}
+\alias{SIGINT}
+\alias{SIGKILL}
+\alias{SIGPIPE}
+\alias{SIGQUIT}
+\alias{SIGSEGV}
+\alias{SIGSTOP}
+\alias{SIGTERM}
+\alias{SIGTSTP}
+\alias{SIGTTIN}
+\alias{SIGTTOU}
+\alias{SIGUSR1}
+\alias{SIGUSR2}
 \alias{subprocess}
 \alias{subprocess-package}
 \title{Manage Subprocesses in R}
