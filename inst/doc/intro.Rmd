@@ -1,0 +1,219 @@
+---
+title: "Subprocesses in R"
+author: "Lukasz A. Bartnik"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Subprocesses in R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+library(subprocess)
+
+library(knitr)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+## Introduction
+
+Since R is not really a systems-programming language[^systemslanguage]
+some facilities present in other such languages (e.g. C/C++, Python)
+haven't been yet brought to R. One of such features is process
+management which is understood here as the capability to create,
+interact with and control the lifetime of child processes.
+
+The R package `subprocess` aims at filling this gap by providing the few
+basic operations to carry out the aforementioned tasks. The
+`spawn_subprocess()` function starts a new child process and returns a
+handle which can be later used in `process_read()` and `process_write()`
+to send and receive data or in `process_wait()` or `process_terminate()`
+to stop the such a process.
+
+The R `subprocess` package has been designed after the exemplary
+Python package which goes by the same. Its documentation can be found
+[here](https://docs.python.org/3/library/subprocess.html) and numerous
+examples of how it can be used can be found on the Web.
+
+The R `subprocess` package has been implemented for both **Linux** and
+**Windows** but since the author doesn't have access to a MacOSX machine
+the extent to which it is compatible with Mac is unknown.
+
+
+[^systemslanguage]: "By systems programming I mean writing code that
+directly uses hardware resources, has serious resource constraints,
+or closely interacts with code that does." Bjarne Stroustrup, "The
+C++ Programming Language"
+
+
+## Design and Implementation
+
+The main concept in the package is the __handle__ which holds process
+identifiers and an __external pointer__ object which in turn is a handle
+to a low-level data structure holding various system-level parameters
+of the running sub-process.
+
+A child process, once started, runs until it exits on its own or until
+its killed. Its current state as well as its exit status can be obtained
+by dedicated API.
+
+Communication with the child process can be carried out over the three
+standard streams: the standard input, standard output and standard error
+output. These streams are intercepted on the child process' side and
+redirected into three anonymous pipes whose other ends are held by the
+parent process and can be accessed through the process __handle__.
+
+In **Linux** these are regular pipes created with the `pipe()` system call
+and opened in the __non-blocking__ mode. All communication takes place
+on request and follows the usual OS rules (e.g. the sub-process will
+sleep if its output buffer gets filled).
+
+In **Windows** these pipes are created with the `CreatePipe()` call and
+opened in the __blocking__ mode. **Windows** does not support
+__non-blocking__ (__overlapped__ in **Windows**-speak) mode for anonymous
+pipes. For that reason each stream has an accompanying reader thread.
+Reader threads are separated from R interpreter, do not exchange memory
+with the R interpreter and will not break the single-thread assumption
+under which R operates.
+
+
+## Example: SSH connection
+
+In this simple example we start a `ssh` client and connect to the local
+ssh server. The connection is password-less, based on the public key.
+Then, we list files in the remote  account. The example can be run in
+both **Linux** and **Windows**, as long as a `ssh` __daemon__ is running
+on `localhost` and a correct path to the `ssh` client is passed to
+`spawn_process()`.
+
+
+Open the connection:
+
+```{r}
+library(subprocess)
+
+ssh_path <- '/usr/bin/ssh'
+handle <- spawn_process(ssh_path, c('-T', 'test@localhost'))
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
+```
+The first number in the output is the value returned by `process_write`
+which is the number of characters written to standard input of the
+child process. The final `character(0)` is the output read from the
+standard error stream.
+
+Next, list files in the remote account:
+
+```{r}
+process_write(handle, 'ls\n')
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
+```
+
+Finally, we close the connection by exiting the remote __shell__:
+
+```{r}
+process_write(handle, 'exit\n')
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
+```
+
+The last thing is making sure that the child process is no longer alive:
+
+```{r}
+process_poll(handle)
+process_return_code(handle)
+```
+
+## Advanced techniques
+
+### Terminating a child process
+
+If the child process needs to be terminated one can choose to:
+
+  - send a command on the standard input with `process_write()`
+  - send the termination signal, `SIGTERM` (**Linux**, **Windows**)
+  - send the kill signal, `SIGKILL` (**Linux** only)
+
+Assume the child R process is hung and there is no way to stop it
+gracefully. Again, this example can be run on **Windows** if `"R"` is
+replaced with `"R.exe"`[^termination].
+
+`process_wait(handle, 1000)` will wait for 1 second (1000 milliseconds)
+for the process to exit and then return `NA`. `process_terminate()` will
+give `R` a chance to exit graceully, and then `process_kill()` will force
+it to exit.
+
+
+```{r}
+R_binary <- file.path(R.home("bin"), "R")
+handle <- spawn_process(R_binary, c('--slave', '-e', 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'))
+
+# process is hung
+process_poll(handle, 1000)
+process_return_code(handle)
+
+# ask nicely to exit
+process_terminate(handle)
+process_poll(handle, 1000)
+process_return_code(handle)
+
+# forced exit
+process_kill(handle)
+process_poll(handle, 1000)
+process_return_code(handle)
+```
+
+We see that the child process remains running until it receives the
+`SIGKILL` signal[^signal]. The final return code (exit status) is the
+number of the signal that caused the child process to exit[^status].
+
+[^termination]: In **Windows**, `process_terminate()` is an alias for
+`process_kill()`. They both lead to immediate termination of the child
+process.
+
+[^signal]: The `.Call("C_signal")` in our example is a call to a hidden
+C function that `subprocess` provides mainly for the purposes of this
+example.
+
+[^status]: See the `waitpid()` manual page, e.g. [here](https://linux.die.net/man/2/waitpid). 
+
+
+## Sending a signal to the child process
+
+The last topic we want to cover here is sending an arbitrary[^windowssignals]
+signal to the child process. **Linux** signals can be listed by looking
+at the `signals` variable present in the package. It is constructed
+automatically when the package is loaded and its value on **Linux** is
+different than on **Windows**. In the example below we see the first
+three elements of the **Linux** list of signals.
+
+```{r}
+length(signals)
+signals[1:3]
+```
+
+
+`signals` is a `list` and its values are exported under their names in
+the `subprocess` namespace.
+
+```{r}
+ls(pattern = 'SIG', envir = asNamespace('subprocess'))
+```
+
+
+Now we can create a new child process and send an arbitrary using its
+handle.
+
+```{r}
+R_binary <- file.path(R.home("bin"), "R")
+handle <- spawn_process(R_binary, '--slave')
+
+process_send_signal(handle, SIGUSR1)
+```
+
+
+[^windowssignals]: The only signal currently supported in **Windows** is
+`SIGTERM`. In the future versions of this package two additional signals
+will be supported: `CTRL_C_EVENT` and `CTRL_BREAK_EVENT`.
