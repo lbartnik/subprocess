@@ -2,6 +2,27 @@
 % Please edit documentation in R/signals.R
 \docType{data}
 \name{signals}
+\alias{CTRL_BREAK_EVENT}
+\alias{CTRL_C_EVENT}
+\alias{SIGABRT}
+\alias{SIGALRM}
+\alias{SIGCHLD}
+\alias{SIGCONT}
+\alias{SIGFPE}
+\alias{SIGHUP}
+\alias{SIGILL}
+\alias{SIGINT}
+\alias{SIGKILL}
+\alias{SIGPIPE}
+\alias{SIGQUIT}
+\alias{SIGSEGV}
+\alias{SIGSTOP}
+\alias{SIGTERM}
+\alias{SIGTSTP}
+\alias{SIGTTIN}
+\alias{SIGTTOU}
+\alias{SIGUSR1}
+\alias{SIGUSR2}
 \alias{process_kill}
 \alias{process_send_signal}
 \alias{process_terminate}
@@ -16,6 +37,48 @@ process_terminate(handle)
 process_kill(handle)
 
 process_send_signal(handle, signal)
+
+SIGABRT
+
+SIGALRM
+
+SIGCHLD
+
+SIGCONT
+
+SIGFPE
+
+SIGHUP
+
+SIGILL
+
+SIGINT
+
+SIGKILL
+
+SIGPIPE
+
+SIGQUIT
+
+SIGSEGV
+
+SIGSTOP
+
+SIGTERM
+
+SIGTSTP
+
+SIGTTIN
+
+SIGTTOU
+
+SIGUSR1
+
+SIGUSR2
+
+CTRL_C_EVENT
+
+CTRL_BREAK_EVENT
 }
 \arguments{
 \item{handle}{Process handle obtained from \code{spawn_process()}.}
@@ -27,9 +90,14 @@ Sending signals to the child process.
 
 Operating System-level signals that can be used with
 \code{\link[subprocess]{process_send_signal}} are defined in the
-\code{signals} list which is generated automatically when package is
-loaded. The list is also attached upon package load so signals are
-available directly under their names.
+\code{subprocess::signals} list which is generated automatically
+when package is loaded and contains only signals supported by the
+current platform (Windows or Linux).
+
+All signals, both supported and not supported by the current
+platform, are also exported under their names. If a given signal
+is not supported on the current platform, then its value is set to
+\code{NA}.
 
 \code{process_terminate} on Linux sends the
 \code{SIGTERM} signal to the process pointed to by \code{handle}.

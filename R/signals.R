@@ -12,9 +12,14 @@ NULL
 
 #' @description Operating System-level signals that can be used with
 #' \code{\link[subprocess]{process_send_signal}} are defined in the
-#' \code{signals} list which is generated automatically when package is
-#' loaded. The list is also attached upon package load so signals are
-#' available directly under their names.
+#' \code{subprocess::signals} list which is generated automatically
+#' when package is loaded and contains only signals supported by the
+#' current platform (Windows or Linux).
+#' 
+#' All signals, both supported and not supported by the current
+#' platform, are also exported under their names. If a given signal
+#' is not supported on the current platform, then its value is set to
+#' \code{NA}.
 #' 
 #' @rdname signals
 #' @export
@@ -79,3 +84,88 @@ process_send_signal <- function (handle, signal)
 {
   .Call("C_process_terminate", handle, as.integer(signal))
 }
+
+
+#' @export
+#' @rdname signals
+SIGABRT <- NA
+
+#' @export
+#' @rdname signals
+SIGALRM <- NA
+
+#' @export
+#' @rdname signals
+SIGCHLD <- NA
+
+#' @export
+#' @rdname signals
+SIGCONT <- NA
+
+#' @export
+#' @rdname signals
+SIGFPE <- NA
+
+#' @export
+#' @rdname signals
+SIGHUP <- NA
+
+#' @export
+#' @rdname signals
+SIGILL <- NA
+
+#' @export
+#' @rdname signals
+SIGINT <- NA
+
+#' @export
+#' @rdname signals
+SIGKILL <- NA
+
+#' @export
+#' @rdname signals
+SIGPIPE <- NA
+
+#' @export
+#' @rdname signals
+SIGQUIT <- NA
+
+#' @export
+#' @rdname signals
+SIGSEGV <- NA
+
+#' @export
+#' @rdname signals
+SIGSTOP <- NA
+
+#' @export
+#' @rdname signals
+SIGTERM <- NA
+
+#' @export
+#' @rdname signals
+SIGTSTP <- NA
+
+#' @export
+#' @rdname signals
+SIGTTIN <- NA
+
+#' @export
+#' @rdname signals
+SIGTTOU <- NA
+
+#' @export
+#' @rdname signals
+SIGUSR1 <- NA
+
+#' @export
+#' @rdname signals
+SIGUSR2 <- NA
+
+#' @export
+#' @rdname signals
+CTRL_C_EVENT <- NA
+
+#' @export
+#' @rdname signals
+CTRL_BREAK_EVENT <- NA

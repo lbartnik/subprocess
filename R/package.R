@@ -18,9 +18,6 @@
 #'
 #' @docType package
 #' @name subprocess
-#' @aliases SIGABRT SIGALRM SIGCHLD SIGCONT SIGFPE SIGHUP SIGILL
-#' SIGINT SIGKILL SIGPIPE SIGQUIT SIGSEGV SIGSTOP SIGTERM
-#' SIGTSTP SIGTTIN SIGTTOU SIGUSR1 SIGUSR2
 #' @rdname subprocess
 #' 
 #' @references
@@ -39,7 +36,6 @@ NULL
   mapply(name = names(signals),
          code = as.integer(signals),
          function (name, code) {
-           assign(name, code, envir = envir, inherits = FALSE)
+           suppressWarnings(assign(name, code, envir = envir, inherits = FALSE))
          })
-  namespaceExport(asNamespace("subprocess"), names(signals))
 }
