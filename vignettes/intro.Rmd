@@ -13,7 +13,7 @@ vignette: >
 library(subprocess)
 library(knitr)
 
-eval <- .Platform$OS.type == "Windows"
+eval <- .Platform$OS.type != "windows"
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval)
 ```
 
