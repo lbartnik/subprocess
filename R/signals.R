@@ -10,10 +10,10 @@
 NULL
 
 
-#' @description Operating System-level signals that can be used with
-#' \code{\link[subprocess]{process_send_signal}} are defined in the
-#' \code{subprocess::signals} list which is generated automatically
-#' when package is loaded and contains only signals supported by the
+#' @description Operating-System-level signals that can be sent via
+#' \code{\link[subprocess]{process_send_signal}()} are defined in the
+#' \code{subprocess::signals}. It is a list that is generated when the
+#' package is loaded and it contains only signals supported by the
 #' current platform (Windows or Linux).
 #' 
 #' All signals, both supported and not supported by the current
@@ -21,20 +21,32 @@ NULL
 #' is not supported on the current platform, then its value is set to
 #' \code{NA}.
 #' 
+#' Calling \code{process_kill()} and \code{process_terminate()} invokes
+#' the appropriate OS routine (\code{waitpid()} or
+#' \code{WaitForSingleObject()}, closing the process handle, etc.) that
+#' effectively lets the operating system clean up after the child
+#' process. Calling \code{process_send_signal()} is not accompanied by
+#' such clean-up and if the child process exits it needs to be followed
+#' by a call to \code{\link{process_poll}()}.
+#' 
 #' @rdname signals
 #' @export
 #' 
 #' @examples
 #' \dontrun{
+#' # send the SIGKILL signal to bash
 #' h <- spawn_process('bash')
 #' process_signal(h, signals$SIGKILL)
 #' process_signal(h, SIGKILL)
+#' 
+#' # is SIGABRT supported on the current platform?
+#' is.na(SIGABRT)
 #' }
 #' 
 signals <- character()
 
 
-#' @description \code{process_terminate} on Linux sends the
+#' @description \code{process_terminate()} on Linux sends the
 #' \code{SIGTERM} signal to the process pointed to by \code{handle}.
 #' On Windows it calls \code{TerminateProcess()}.
 #' 
@@ -47,9 +59,9 @@ process_terminate <- function (handle)
 }
 
 
-#' @description \code{process_kill} on Linux sends the \code{SIGKILL}
+#' @description \code{process_kill()} on Linux sends the \code{SIGKILL}
 #' signal to \code{handle}. On Windows it is an alias for
-#' \code{process_terminate}.
+#' \code{process_terminate()}.
 #' 
 #' @rdname signals
 #' @export
@@ -60,7 +72,7 @@ process_kill <- function (handle)
 }
 
 
-#' @description \code{process_send_signal} sends an OS-level
+#' @description \code{process_send_signal()} sends an OS-level
 #' \code{signal} to \code{handle}. In Linux all standard signal
 #' numbers are supported. On Windows supported signals are
 #' \code{SIGTERM}, \code{CTRL_C_EVENT} and \code{CTRL_BREAK_EVENT}.

@@ -382,12 +382,12 @@ int process_terminate(process_handle_t * _handle)
 
   // if any of the threads reported an error
   if (_handle->stdout_reader.state == THREAD_TERMINATED) {
-	SetLastError(_handle->stdout_reader.error);
-	return -1;
+    SetLastError(_handle->stdout_reader.error);
+    return -1;
   }
   if (_handle->stderr_reader.state == THREAD_TERMINATED) {
-	  SetLastError(_handle->stderr_reader.error);
-	  return -1;
+    SetLastError(_handle->stderr_reader.error);
+    return -1;
   }
 
   // everything went smoothly
