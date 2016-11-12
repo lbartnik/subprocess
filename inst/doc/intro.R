@@ -1,8 +1,9 @@
 ## ----setup, include=FALSE------------------------------------------------
 library(subprocess)
-
 library(knitr)
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+
+eval <- .Platform$OS.type != "windows"
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval)
 
 ## ------------------------------------------------------------------------
 library(subprocess)
