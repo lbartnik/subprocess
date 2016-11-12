@@ -1,8 +1,11 @@
 #ifndef SUBPROCESS_H_GUARD
 #define SUBPROCESS_H_GUARD
 
+#if defined WIN64 || defined WIN32 || defined _MSC_VER
+#define SUBPROCESS_WINDOWS
+#endif
 
-#ifdef WIN64
+#ifdef SUBPROCESS_WINDOWS
   #include <windows.h>
   #undef ERROR // R.h already defines this
   typedef HANDLE process_handle;
@@ -20,7 +23,7 @@ typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 struct process_handle {
-#ifdef WIN64
+#ifdef SUBPROCESS_WINDOWS
   reader_t stdout_reader, stderr_reader;
 #endif
 

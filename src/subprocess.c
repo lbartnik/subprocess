@@ -310,7 +310,7 @@ SEXP C_known_signals ()
   } while (0);                                  \
 
 
-#ifdef WIN64
+#ifdef SUBPROCESS_WINDOWS
   PROTECT(ans = allocVector(INTSXP, 3));
   PROTECT(ansnames = allocVector(STRSXP, 3));
 
