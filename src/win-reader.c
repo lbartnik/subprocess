@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <synchapi.h>
 
-/* min_gw that comes with Rtools doesn't have these functions */
+/* min_gw that comes with Rtools 3.4 doesn't have these functions */
 WINBASEAPI VOID WINAPI InitializeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
 WINBASEAPI VOID WINAPI WakeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
 WINBASEAPI BOOL WINAPI SleepConditionVariableCS(PCONDITION_VARIABLE ConditionVariable, PCRITICAL_SECTION CriticalSection, DWORD dwMilliseconds);
@@ -52,9 +52,12 @@ int start_reader_thread (reader_t * _reader, HANDLE _stream)
 }
 
 
-int join_reader_thread (reader_t * _reader)
+int join_reader_thread (reader_t * _reader, int _timeout)
 {
-  WaitForSingleObject(_reader->thread_handle, INFINITE);
+  if (_timeout)
+    _timeout = INFINITE;
+
+  WaitForSingleObject(_reader->thread_handle, _timeout);
   CloseHandle(_reader->thread_handle);
   
   return 0;

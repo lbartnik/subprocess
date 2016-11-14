@@ -23,7 +23,7 @@ typedef struct reader reader_t;
 
 int start_reader_thread (reader_t * _reader, HANDLE _stream);
 
-int join_reader_thread (reader_t * _reader);
+int join_reader_thread (reader_t * _reader, int _timeout);
 
 int get_next_chunk (reader_t * _reader, char * _output, size_t _count, int _timeout);
 
