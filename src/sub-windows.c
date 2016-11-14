@@ -33,6 +33,9 @@ int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
 
 char * prepare_environment(char *const* _environment);
 
+HANDLE create_job_for_process ();
+
+
 
 
 void full_error_message (char * _buffer, size_t _length)
@@ -108,10 +111,10 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   // if it fails
   if (_termination_mode == TERMINATION_GROUP) {
     creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
-	_handle->process_job = CreateJobObject(NULL, NULL);
-	if (_handle->process_job == NULL) {
+    _handle->process_job = create_job_for_process();
+    if (_handle->process_job == NULL) {
       return -1;
-	}
+    }
   }
 
   // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
@@ -139,18 +142,25 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
-  // if termination mode is "group" add process to the job
+  /* if termination mode is "group" add process to the job; see here
+   * for more details:
+   * https://msdn.microsoft.com/en-us/library/windows/desktop/ms684161(v=vs.85).aspx
+   * 
+   * "After a process is associated with a job, by default any child
+   *  processes it creates using CreateProcess are also associated
+   *  with the job."
+   */
   if (_termination_mode == TERMINATION_GROUP) {
     BOOL rc = AssignProcessToJobObject(_handle->process_job, pi.hProcess);
     if (rc == FALSE) {
-	  int error_code = GetLastError();
-	  _handle->state = RUNNING;
-	  process_terminate(_handle);
-	  SetLastError(error_code);
-	  return -1;
-	}
+      int error_code = GetLastError();
+      _handle->state = RUNNING;
+      process_terminate(_handle);
+      SetLastError(error_code);
+      return -1;
+    }
 
-	if (ResumeThread(pi.hThread) < 0) {
+    if (ResumeThread(pi.hThread) == (DWORD)-1) {
       return -1;
     }
   }
@@ -174,6 +184,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* again, in Linux 0 is "good" */
   return 0;
+}
+
+
+// see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
+HANDLE create_job_for_process ()
+{
+  HANDLE job_handle = CreateJobObject(NULL, NULL);
+  
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = { };
+  info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  SetInformationJobObject(job_handle,
+                          JobObjectExtendedLimitInformation,
+                          &info, sizeof(info));
+  
+  return job_handle;
 }
 
 
@@ -405,6 +430,8 @@ int process_poll (process_handle_t * _handle, int _timeout)
   return -1;
 }
 
+
+// compare with: https://github.com/andreisavu/python-process/blob/master/killableprocess.py
 int process_terminate(process_handle_t * _handle)
 {
   // first make sure it's even still running
@@ -416,7 +443,10 @@ int process_terminate(process_handle_t * _handle)
   // first terminate the child process; if mode is "group" terminate
   // the whole job
   if (_handle->termination_mode == TERMINATION_GROUP) {
-    if (TerminateJobObject(_handle->process_job, 0) == FALSE) {
+    if (TerminateJobObject(_handle->process_job, 127) == FALSE) {
+      return -1;
+    }
+    if (CloseHandle(_handle->process_job) == FALSE) {
       return -1;
     }
   }
@@ -426,7 +456,7 @@ int process_terminate(process_handle_t * _handle)
     if (!to_terminate)
       return -1;
 
-    BOOL rc = TerminateProcess(to_terminate, 0);
+    BOOL rc = TerminateProcess(to_terminate, 127);
     CloseHandle(to_terminate);
     if (rc == FALSE)
       return -1;
