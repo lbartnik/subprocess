@@ -84,7 +84,7 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 
 /* --- public API --------------------------------------------------- */
 
-SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir)
+SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
 {
   /* basic argument sanity checks */
   if (!is_nonempty_string(_command)) {
@@ -98,6 +98,9 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   }
   if (!is_single_string_or_NULL(_workdir)) {
     Rf_error("`workdir` must be a non-empty string");
+  }
+  if (!is_nonempty_string(_termination_mode)) {
+    Rf_error("`termination_mode` must be a non-emptry string");
   }
 
   /* translate into C */
@@ -115,11 +118,21 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
       }
   }
 
+  /* see if termination mode is set properly */
+  const char * termination_mode_str = translateChar(STRING_ELT(_termination_mode, 0));
+  termination_mode_t termination_mode = TERMINATION_GROUP;
+  if (!strncmp(termination_mode_str, "child_only", 10)) {
+    termination_mode = TERMINATION_CHILD_ONLY;
+  }
+  else if (strncmp(termination_mode_str, "group", 5)) {
+    Rf_error("unknown value for `termination_mode`");
+  }
+
   /* Calloc() handles memory allocation errors internally */
   process_handle_t * handle = (process_handle_t*)Calloc(1, process_handle_t);
 
   /* spawn the process */
-  if (spawn_process(handle, command, arguments, environment, workdir) < 0) {
+  if (spawn_process(handle, command, arguments, environment, workdir, termination_mode) < 0) {
     Rf_perror("error while spawning a child process");
   }
 

@@ -32,15 +32,19 @@ NULL
 #' ought to be started. \code{NULL} and \code{""} mean that working
 #' directory is inherited from the parent.
 #' 
+#' The \code{termination_mode} param....
+#' 
 #' @param command Path to the executable.
 #' @param arguments Optional arguments for the program.
 #' @param environment Optional environment.
 #' @param workdir Optional new working directory.
-#' 
+#' @param termination_mode Either \code{"group"} or \code{"child-only"}.
+#'
 #' @return A process handle.
 #' 
 #' @export
-spawn_process <- function (command, arguments = character(), environment = character(), workdir = "")
+spawn_process <- function (command, arguments = character(), environment = character(),
+                           workdir = "", termination_mode = "group")
 {
   command <- as.character(command)
   stopifnot(file.exists(command))
@@ -62,7 +66,8 @@ spawn_process <- function (command, arguments = character(), environment = chara
   
   # hand over to C
   .Call("C_process_spawn", command, c(command, as.character(arguments)),
-        as.character(environment), as.character(workdir))
+        as.character(environment), as.character(workdir),
+        as.character(termination_mode))
 }
 
 

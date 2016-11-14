@@ -5,7 +5,7 @@
 \title{Start a new child process.}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
-  workdir = "")
+  workdir = "", termination_mode = "group")
 }
 \arguments{
 \item{command}{Path to the executable.}
@@ -15,6 +15,8 @@ spawn_process(command, arguments = character(), environment = character(),
 \item{environment}{Optional environment.}
 
 \item{workdir}{Optional new working directory.}
+
+\item{termination_mode}{Either \code{"group"} or \code{"child-only"}.}
 }
 \value{
 A process handle.
@@ -45,5 +47,7 @@ vector or a named \code{list}.
 \code{workdir} is the path to the directory where the new process is
 ought to be started. \code{NULL} and \code{""} mean that working
 directory is inherited from the parent.
+
+The \code{termination_mode} param....
 }
 

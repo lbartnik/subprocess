@@ -62,7 +62,7 @@ int duplicate_handle(HANDLE src, HANDLE * dst)
 // https://support.microsoft.com/en-us/kb/190351
 //
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir)
+	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
   memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
@@ -101,6 +101,20 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  // creation flags
+  DWORD creation_flags = CREATE_NO_WINDOW;
+
+  // if termination is set to "group", create a job for this process;
+  // attempt at it at the beginning and not even try to start the process
+  // if it fails
+  if (_termination_mode == TERMINATION_GROUP) {
+    creation_flags |= CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP;
+	_handle->process_job = CreateJobObject(NULL, NULL);
+	if (_handle->process_job != NULL) {
+      return -1;
+	}
+  }
+
   // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
   //      so that CTRL_C_EVENT can be sent in process_send_signal()
   BOOL rc = CreateProcess(_command,         // lpApplicationName
@@ -108,7 +122,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
                           NULL,             // lpProcessAttributes, process security attributes
                           NULL,             // lpThreadAttributes, primary thread security attributes
                           TRUE,             // bInheritHandles, handles are inherited
-                          CREATE_NO_WINDOW, // dwCreationFlags, creation flags
+                          creation_flags,   // dwCreationFlags, creation flags
                           environment,      // lpEnvironment
                           _workdir,         // lpCurrentDirectory
                           &si,              // lpStartupInfo
@@ -126,12 +140,24 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  // if termination mode is "group" add process to the job
+  if (_termination_mode == TERMINATION_GROUP) {
+    BOOL rc = AssignProcessToJobObject(_handle->process_job, _handle->child_handle);
+    if (rc == FALSE) {
+	  int error_code = GetLastError();
+	  process_terminate(_handle);
+	  SetLastError(error_code);
+	  return -1;
+	}
+  }
+
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
   
-  _handle->state        = RUNNING;
-  _handle->child_handle = pi.hProcess;
-  _handle->child_id     = pi.dwProcessId;
+  _handle->state            = RUNNING;
+  _handle->child_handle     = pi.hProcess;
+  _handle->child_id         = pi.dwProcessId;
+  _handle->termination_mode = _termination_mode;
 
   /* start reader threads */
   if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
@@ -383,7 +409,15 @@ int process_terminate(process_handle_t * _handle)
   if (_handle->state != RUNNING)
     return 0;
 
-  // first terminate the child process
+  // first terminate the child process; if mode is "group" terminate
+  // the whole job
+  if (_handle->termination_mode == TERMINATION_GROUP) {
+    if (TerminateJobObject(_handle->process_job, 0) == FALSE) {
+      return -1;
+    }
+  }
+
+  // now terminate the process itself
   HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
   if (!to_terminate)
     return -1;
