@@ -279,7 +279,7 @@ SEXP C_process_terminate (SEXP _handle)
     Rf_perror("error while terminating child process");
   }
 
-  return allocate_single_int(TRUE);
+  return allocate_TRUE();
 }
 
 
