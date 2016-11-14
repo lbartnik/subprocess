@@ -48,8 +48,6 @@ void full_error_message(char * _buffer, size_t _length);
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
 	               char *const _environment[], const char * _workdir);
 
-int teardown_process (process_handle_t * _handle);
-
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 
 ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout);

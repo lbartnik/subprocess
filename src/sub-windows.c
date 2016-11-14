@@ -4,6 +4,12 @@
 #include <string.h>
 #include <signal.h>
 
+
+/* min_gw that comes with Rtools 3.4 doesn't have these functions */
+BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
+BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
+
+
 /*
  * There are probably many places that need to be adapted to make this
  * package Unicode-ready. One place that for sure needs a change is
@@ -269,15 +275,26 @@ int teardown_process (process_handle_t * _handle)
     return 0;
   }
 
+  int rc = 1;
+
   process_poll(_handle, -1); // -1 means wait infinitely
 
   // Close OS handles 
   CloseHandle(_handle->child_handle);
   CloseHandle(_handle->pipe_stdin);
 
+  // terminate reader threads
+  rc &= CancelSynchronousIo(&_handle->stdout_reader);
+  rc &= CancelSynchronousIo(&_handle->stderr_reader); 
+  rc &= CancelIoEx(_handle->pipe_stdout, NULL);
+  rc &= CancelIoEx(_handle->pipe_stderr, NULL);
+  if (!rc) {
+    // TODO produce a warning
+  }
+
   // wait until threads exit
-  join_reader_thread (&_handle->stdout_reader);
-  join_reader_thread (&_handle->stderr_reader);
+  join_reader_thread (&_handle->stdout_reader, INFINITE);
+  join_reader_thread (&_handle->stderr_reader, INFINITE);
 
   // finally close read handles
   CloseHandle(_handle->pipe_stdout);
