@@ -6,9 +6,8 @@
 
 
 /* min_gw that comes with Rtools 3.4 doesn't have these functions */
-BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
-BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
-
+WINBASEAPI BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
+WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 
 /*
  * There are probably many places that need to be adapted to make this
@@ -108,9 +107,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   // attempt at it at the beginning and not even try to start the process
   // if it fails
   if (_termination_mode == TERMINATION_GROUP) {
-    creation_flags |= CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP;
+    creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
 	_handle->process_job = CreateJobObject(NULL, NULL);
-	if (_handle->process_job != NULL) {
+	if (_handle->process_job == NULL) {
       return -1;
 	}
   }
@@ -142,13 +141,18 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   // if termination mode is "group" add process to the job
   if (_termination_mode == TERMINATION_GROUP) {
-    BOOL rc = AssignProcessToJobObject(_handle->process_job, _handle->child_handle);
+    BOOL rc = AssignProcessToJobObject(_handle->process_job, pi.hProcess);
     if (rc == FALSE) {
 	  int error_code = GetLastError();
+	  _handle->state = RUNNING;
 	  process_terminate(_handle);
 	  SetLastError(error_code);
 	  return -1;
 	}
+
+	if (ResumeThread(pi.hThread) < 0) {
+      return -1;
+    }
   }
 
   /* close thread handle but keep the process handle */
@@ -416,16 +420,17 @@ int process_terminate(process_handle_t * _handle)
       return -1;
     }
   }
+  else {
+    // now terminate just the process itself
+    HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
+    if (!to_terminate)
+      return -1;
 
-  // now terminate the process itself
-  HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
-  if (!to_terminate)
-    return -1;
-
-  BOOL rc = TerminateProcess(to_terminate, 0);
-  CloseHandle(to_terminate);
-  if (rc == FALSE)
-    return -1;
+    BOOL rc = TerminateProcess(to_terminate, 0);
+    CloseHandle(to_terminate);
+    if (rc == FALSE)
+      return -1;
+  }
 
   // clean up
   teardown_process(_handle);
