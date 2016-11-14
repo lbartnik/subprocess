@@ -18,17 +18,12 @@
 #' @export
 #' 
 process_read <- function (handle, pipe = "stdout", timeout = 0)
-{ 
-  output <- .Call("C_process_read", handle, as.character(pipe), 
-                  as.integer(timeout))
+{
+  output <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
   if (!is.character(output)) {
     return(output)
   }
-  while(!identical(output[length(output)], "")){
-    output <- c(output, .Call("C_process_read", handle, as.character(pipe), 
-                              as.integer(timeout)))
-  }
-  output <- paste(output, collapse = "")
+  
   # replace funny line ending and break into multiple lines
   output <- gsub("\r", "", output, fixed = TRUE)
   strsplit(output, "\n", fixed = TRUE)[[1]]
