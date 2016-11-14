@@ -7,7 +7,7 @@ env:
   matrix:
   - NOT_CRAN=true
 r:
-  - oldrel
+- oldrel
 - release
 - devel
 after_success:
