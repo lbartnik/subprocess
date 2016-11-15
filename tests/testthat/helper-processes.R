@@ -20,7 +20,10 @@ R_binary <- function ()
 
 R_child <- function(...)
 {
-  spawn_process(R_binary(), '--slave', ...)
+  handle <- spawn_process(R_binary(), '--slave', ...)
+  # give the child a chance to start
+  Sys.sleep(0.3)
+  handle
 }
 
 
