@@ -60,7 +60,7 @@ int set_block (int _fd)
  * @return 0 on success and negative on an error.
  */
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir)
+	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
   int err;
   int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
@@ -135,6 +135,14 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
       }
     }
 
+    /* if termination mode is "group" start new session */
+    if (_termination_mode == TERMINATION_GROUP) {
+      if (setsid() == (pid_t)-1) {
+        perror("could not start a new session");
+        exit(EXIT_FAILURE);
+      }
+    }
+
     /* finally start the new process */
     execve(_command, _arguments, _environment);
 
@@ -149,6 +157,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* child is running */
   _handle->state = RUNNING;
+  _handle->termination_mode = _termination_mode;
 
   /* close those that the parent doesn't need */
   close(pipe_stdin[PIPE_READ]);
@@ -291,27 +300,30 @@ int process_send_signal(process_handle_t * _handle, int _signal)
 }
 
 
-int process_terminate (process_handle_t * _handle)
+
+static int termination_signal (process_handle_t * _handle, int _signal, int _timeout)
 {
   if (_handle->state != RUNNING)
     return 0;
 
-  if (process_send_signal(_handle, SIGTERM) < 0)
+  pid_t addressee = (_handle->termination_mode == TERMINATION_CHILD_ONLY) ?
+                      (_handle->child_id) : (-_handle->child_id);
+  if (kill(addressee, _signal) < 0)
     return -1;
 
-  return process_poll(_handle, 100);
+  return process_poll(_handle, _timeout);
+}
+
+
+int process_terminate (process_handle_t * _handle)
+{
+  return termination_signal(_handle, SIGTERM, 100);
 }
 
 
 int process_kill(process_handle_t * _handle)
 {
-  if (_handle->state != RUNNING)
-    return 0;
-
-  if (process_send_signal(_handle, SIGKILL) < 0)
-    return -1;
-
-  return process_poll(_handle, 100);
+  return termination_signal(_handle, SIGKILL, -1);
 }
 
 

@@ -39,3 +39,42 @@ test_that("child process is terminated in Windows", {
   expect_false(process_exists(child_id))
 })
 
+
+
+# In RStudio this test will pass even if termination_mode is set to
+# "child_only" when run with Ctrl+Shift+T. It's quite possible that
+# RStudio creates a new session when running tests and kills that
+# session before completing the test run.
+#
+# This test will, however, fail in plain R if termination_mode is
+# set to "child_only".
+test_that("child process is terminated in Linux", {
+  skip_if_not(is_linux())
+
+  # the parent shell script will start "sleep" and print its PID
+  shell <- Sys.getenv("SHELL", '/bin/sh')
+  shell_script_parent <- tempfile()
+  shell_script_child  <- tempfile()
+
+  write(file = shell_script_parent,
+        paste0('#!', shell, '\n',
+               shell, ' ', shell_script_child, ' &', '\n',
+               'echo $!', '\n',
+               'sleep 50'))
+  write(file = shell_script_child,
+        paste0('#!', shell, '\n',
+               'sleep 100'))
+  
+  # start the parent process which in turn spawns a child process
+  parent_handle <- spawn_process(shell, shell_script_parent)
+  expect_true(process_exists(as.integer(parent_handle)))
+  
+  # make sure the child exists
+  child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
+  expect_true(process_exists(child_id))
+
+  # ... and not after we kill the parent
+  process_kill(parent_handle)
+  expect_false(process_exists(as.integer(parent_handle)))
+  expect_false(process_exists(child_id))
+})
