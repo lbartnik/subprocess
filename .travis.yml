@@ -7,8 +7,10 @@ env:
   matrix:
   - NOT_CRAN=true
 r:
-- oldrel
-- release
-- devel
+  - oldrel
+  - release
+  - devel
+r_packages:
+  - covr
 after_success:
-  - Rscript -e 'covr::codecov()'
+  - Rscript -e 'library(covr); covr::codecov()'
