@@ -1,0 +1,14 @@
+sudo: required
+language: R
+cache: packages
+r_github_packages:
+  - lbartnik/subprocess
+env:
+  matrix:
+  - NOT_CRAN=true
+r:
+- oldrel
+- release
+- devel
+after_success:
+  - Rscript -e 'covr::codecov()'
