@@ -1,13 +1,10 @@
-sudo: required
-language: R
+# R for travis: see documentation at https://docs.travis-ci.com/user/languages/r
+
+language: r
 cache: packages
-r_github_packages:
-  - lbartnik/subprocess
-env:
-  matrix:
-  - NOT_CRAN=true
+sudo: false
+warnings_are_errors: false
 r:
-  - oldrel
   - release
   - devel
 r_packages:
