@@ -15,7 +15,7 @@ test_that("a subprocess can be spawned and killed", {
   
   expect_true(process_exists(handle))
   
-  process_terminate(handle)
+  process_kill(handle)
   process_wait(handle, 1000)
   expect_false(process_exists(handle))
 })
