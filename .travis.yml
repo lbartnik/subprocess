@@ -1,0 +1,16 @@
+# R for travis: see documentation at https://docs.travis-ci.com/user/languages/r
+
+language: r
+cache: packages
+sudo: false
+warnings_are_errors: false
+env:
+  global:
+    - R_CHECK_ARGS="--no-build-vignettes --no-manual --timings"
+r:
+  - release
+  - devel
+r_packages:
+  - covr
+after_success:
+  - Rscript -e 'library(covr); covr::codecov()'

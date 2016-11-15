@@ -25,7 +25,10 @@ R_binary <- function ()
 
 R_child <- function(...)
 {
-  spawn_process(R_binary(), '--slave', ...)
+  handle <- spawn_process(R_binary(), '--slave', ...)
+  # give the child a chance to start
+  Sys.sleep(0.3)
+  handle
 }
 
 
@@ -39,7 +42,8 @@ process_exists <- function (pid)
     return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
   }
   else {
-    rc <- system2("ps", c("-q", as.character(pid)), stdout = NULL, stderr = NULL)
+    rc <- system2("ps", c("--pid", as.character(pid)), stdout = NULL, 
+                  stderr = NULL)
     return(rc == 0)
   }
 }

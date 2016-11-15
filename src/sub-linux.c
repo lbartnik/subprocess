@@ -323,6 +323,8 @@ int process_terminate (process_handle_t * _handle)
 
 int process_kill(process_handle_t * _handle)
 {
+  // this will terminate the child for sure so we can
+  // wait until it happens
   return termination_signal(_handle, SIGKILL, -1);
 }
 
