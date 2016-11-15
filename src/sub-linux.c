@@ -311,7 +311,9 @@ int process_kill(process_handle_t * _handle)
   if (process_send_signal(_handle, SIGKILL) < 0)
     return -1;
 
-  return process_poll(_handle, 100);
+  // this will terminate the child for sure so we can
+  // wait until it happens
+  return process_poll(_handle, -1);
 }
 
 
