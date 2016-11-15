@@ -32,7 +32,20 @@ NULL
 #' ought to be started. \code{NULL} and \code{""} mean that working
 #' directory is inherited from the parent.
 #' 
-#' The \code{termination_mode} param....
+#' @section Termination:
+#' 
+#' The \code{termination_mode} specifies what should happen when
+#' \code{process_terminate()} or \code{process_kill()} is called on a
+#' subprocess. If it is set to \code{"group"}, then the termination
+#' signal is sent to the parent and all its descendants (sub-processes).
+#' If termination mode is set to \code{"child-only"}, only the direct
+#' child spawned from R receives the signal.
+#' 
+#' In Windows this is implemented with the job API, namely
+#' \code{CreateJobObject()}, \code{AssignProcessToJobObject()} and
+#' \code{TerminateJobObject()}. In Linux, the child calls \code{setsid()}
+#' after \code{fork()} but before \code{execve()}, and \code{kill()} is
+#' called with the negate process id.
 #' 
 #' @param command Path to the executable.
 #' @param arguments Optional arguments for the program.
