@@ -109,10 +109,10 @@ spawn_process <- function (command, arguments = character(), environment = chara
 #' \code{"terminated"}.
 #' 
 #' @rdname terminating
-#' @name terminating
 #' @export
 #' 
 #' @seealso \code{\link{spawn_process}}, \code{\link{process_read}}
+#'          \code{\link{signals}}
 #' 
 process_poll <- function (handle, timeout = 0)
 {
@@ -126,7 +126,6 @@ process_poll <- function (handle, timeout = 0)
 #' \code{"terminated"}, \code{process_return_code} returns \code{NA}.
 #' 
 #' @rdname terminating
-#' @name terminating
 #' @export
 #' 
 process_return_code <- function (handle)
@@ -140,7 +139,6 @@ process_return_code <- function (handle)
 #' then returns its exit code.
 #' 
 #' @rdname terminating
-#' @name terminating
 #' @export
 #' 
 process_wait <- function (handle, timeout = -1)
@@ -148,3 +146,18 @@ process_wait <- function (handle, timeout = -1)
   process_poll(handle, timeout)
   process_return_code(handle)
 }
+
+
+#' @description \code{TIMEOUT_INFINITE} denotes an "infinite" timeout
+#' (that is, wait until response is available) when waiting for an
+#' operation to complete.
+#'
+#' @rdname terminated
+#' @export
+TIMEOUT_INFINITE  <- -1
+
+#' @description \code{TIMEOUT_IMMEDIATE} denotes an "immediate" timeout
+#' (in other words, no timeout) when waiting for an operation to
+#' complete.
+TIMEOUT_IMMEDIATE <-  0
+
