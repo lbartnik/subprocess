@@ -8,7 +8,7 @@
 \alias{process_return_code}
 \alias{process_wait}
 \title{Terminating a Child Process.}
-\format{An object of class \code{numeric} of length 1.}
+\format{An object of class \code{integer} of length 1.}
 \usage{
 process_poll(handle, timeout = TIMEOUT_IMMEDIATE)
 

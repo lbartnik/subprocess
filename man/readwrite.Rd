@@ -6,7 +6,8 @@
 \alias{readwrite}
 \title{Communicating with a Child Process}
 \usage{
-process_read(handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE)
+process_read(handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE,
+  flush = FALSE)
 
 process_write(handle, message)
 }
@@ -16,6 +17,9 @@ process_write(handle, message)
 \item{pipe}{Output stream name, \code{"stdout"} or \code{"stderr"}.}
 
 \item{timeout}{Optional timeout in milliseconds.}
+
+\item{flush}{If there is any data within the given \code{timeout}
+try again with \code{timeout=0} until C buffer is empty.}
 
 \item{message}{Input for the child process.}
 }
@@ -35,6 +39,10 @@ it as a \code{character} vector.
 \emph{standard input} stream.
 }
 \details{
+If \code{flush=TRUE} in \code{process_read()} then the invocation of
+the underlying \code{read()} \emph{system-call} will be repeated until
+the pipe buffer is empty.
+
 For details on \code{timeout} see \code{\link{terminating}}.
 }
 

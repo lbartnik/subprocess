@@ -8,11 +8,13 @@ is_linux <- function ()
   identical(tolower(Sys.info()[["sysname"]]), 'linux')
 }
 
-
 root_dir <- function ()
 {
   ifelse(is_windows(), "c:\\", "/")
 }
+
+
+# --- R child ----------------------------------------------------------
 
 R_binary <- function ()
 {
@@ -22,7 +24,6 @@ R_binary <- function ()
   binary
 }
 
-
 R_child <- function(...)
 {
   handle <- spawn_process(R_binary(), '--slave', ...)
@@ -31,6 +32,8 @@ R_child <- function(...)
   handle
 }
 
+
+# --- OS interface -----------------------------------------------------
 
 process_exists <- function (handle)
 {

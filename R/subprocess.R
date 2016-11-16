@@ -188,7 +188,7 @@ process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 #'
 #' @rdname terminating
 #' @export
-TIMEOUT_INFINITE  <- -1
+TIMEOUT_INFINITE  <- -1L
 
 
 #' @description \code{TIMEOUT_IMMEDIATE} denotes an "immediate" timeout
@@ -197,7 +197,7 @@ TIMEOUT_INFINITE  <- -1
 #' 
 #' @rdname terminating
 #' @export
-TIMEOUT_IMMEDIATE <-  0
+TIMEOUT_IMMEDIATE <-  0L
 
 
 #' @description \code{TERMINATION_GROUP}: \code{process_terminate(handle)}
