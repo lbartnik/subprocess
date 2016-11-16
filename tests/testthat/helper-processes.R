@@ -27,8 +27,8 @@ R_binary <- function ()
 R_child <- function(...)
 {
   handle <- spawn_process(R_binary(), '--slave', ...)
-  # give the child a chance to start
-  Sys.sleep(0.3)
+  # give the child a chance to start; Windows tends to be considerably slower
+  Sys.sleep(ifelse(is_windows(), 2, .3))
   handle
 }
 
