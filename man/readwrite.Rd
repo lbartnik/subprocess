@@ -7,7 +7,7 @@
 \title{Communicating with a Child Process}
 \usage{
 process_read(handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE,
-  flush = FALSE)
+  flush = TRUE)
 
 process_write(handle, message)
 }
