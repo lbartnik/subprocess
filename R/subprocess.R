@@ -58,7 +58,9 @@ NULL
 #' @return \code{spawn_process()} returns an object of the
 #'         \emph{process handle} class.
 #' @rdname spawn_process
-#' @format 
+#' 
+#' @format \code{TERMINATION_GROUP} and \code{TERMINATION_CHILD_ONLY}
+#'         are single \code{character} values.
 #' 
 #' @export
 spawn_process <- function (command, arguments = character(), environment = character(),
@@ -92,6 +94,9 @@ spawn_process <- function (command, arguments = character(), environment = chara
 }
 
 
+#' @param x Object to be printed or tested.
+#' @param ... Other parameters passed to the \code{print} method.
+#' 
 #' @export
 #' @rdname spawn_process
 print.process_handle <- function (x, ...)
@@ -139,6 +144,7 @@ is_process_handle <- function (x)
 #' \code{"not-started"}. \code{"running"}, \code{"exited"},
 #' \code{"terminated"}.
 #' 
+#' @name terminating
 #' @rdname terminating
 #' @export
 #' 

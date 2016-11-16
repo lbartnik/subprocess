@@ -8,7 +8,8 @@
 \alias{print.process_handle}
 \alias{spawn_process}
 \title{Start a new child process.}
-\format{}
+\format{\code{TERMINATION_GROUP} and \code{TERMINATION_CHILD_ONLY}
+        are single \code{character} values.}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
   workdir = "", termination_mode = TERMINATION_GROUP)
@@ -32,6 +33,10 @@ TERMINATION_CHILD_ONLY
 
 \item{termination_mode}{Either \code{TERMINATION_GROUP} or
 \code{TERMINATION_CHILD_ONLY}.}
+
+\item{x}{Object to be printed or tested.}
+
+\item{...}{Other parameters passed to the \code{print} method.}
 }
 \value{
 \code{spawn_process()} returns an object of the
