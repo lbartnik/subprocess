@@ -6,7 +6,7 @@
 \alias{readwrite}
 \title{Communicating with a Child Process}
 \usage{
-process_read(handle, pipe = "stdout", timeout = 0)
+process_read(handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE)
 
 process_write(handle, message)
 }
