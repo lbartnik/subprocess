@@ -10,6 +10,11 @@ library(subprocess)
 
 ssh_path <- '/usr/bin/ssh'
 handle <- spawn_process(ssh_path, c('-T', 'test@localhost'))
+
+## ------------------------------------------------------------------------
+print(handle)
+
+## ------------------------------------------------------------------------
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 
@@ -29,7 +34,8 @@ process_return_code(handle)
 
 ## ------------------------------------------------------------------------
 R_binary <- file.path(R.home("bin"), "R")
-handle <- spawn_process(R_binary, c('--slave', '-e', 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'))
+sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
+handle <- spawn_process(R_binary, c('--slave', '-e', sub_command))
 
 # process is hung
 process_poll(handle, 1000)
