@@ -36,10 +36,11 @@ NULL
 #' 
 #' The \code{termination_mode} specifies what should happen when
 #' \code{process_terminate()} or \code{process_kill()} is called on a
-#' subprocess. If it is set to \code{"group"}, then the termination
-#' signal is sent to the parent and all its descendants (sub-processes).
-#' If termination mode is set to \code{"child-only"}, only the direct
-#' child spawned from R receives the signal.
+#' subprocess. If it is set to \code{TERMINATION_GROUP}, then the
+#' termination signal is sent to the parent and all its descendants
+#' (sub-processes). If termination mode is set to
+#' \code{TERMINATION_CHILD_ONLY}, only the child process spawned
+#' directly from the R session receives the signal.
 #' 
 #' In Windows this is implemented with the job API, namely
 #' \code{CreateJobObject()}, \code{AssignProcessToJobObject()} and
@@ -54,10 +55,11 @@ NULL
 #' @param termination_mode Either \code{"group"} or \code{"child-only"}.
 #'
 #' @return A process handle.
+#' @rdname spawn_process
 #' 
 #' @export
 spawn_process <- function (command, arguments = character(), environment = character(),
-                           workdir = "", termination_mode = "group")
+                           workdir = "", termination_mode = TERMINATION_GROUP)
 {
   command <- as.character(command)
   stopifnot(file.exists(command))
@@ -156,6 +158,7 @@ process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 #' @export
 TIMEOUT_INFINITE  <- -1
 
+
 #' @description \code{TIMEOUT_IMMEDIATE} denotes an "immediate" timeout
 #' (in other words, no timeout) when waiting for an operation to
 #' complete.
@@ -164,3 +167,21 @@ TIMEOUT_INFINITE  <- -1
 #' @export
 TIMEOUT_IMMEDIATE <-  0
 
+
+#' @description \code{TERMINATION_GROUP}: \code{process_terminate(handle)}
+#' and \code{process_kill(handle)} deliver the signal to the child
+#' process pointed to by \code{handle} and all of its descendants.
+#' 
+#' @rdname spawn_process
+#' @export
+TERMINATION_GROUP <- "group"
+
+
+#' @description \code{TERMINATION_CHILD_ONLY}:
+#' \code{process_terminate(handle)} and \code{process_kill(handle)}
+#' deliver the signal only to the child process pointed to by
+#' \code{handle} but to none of its descendants.
+#' 
+#' @rdname spawn_process
+#' @export
+TERMINATION_CHILD_ONLY <- "child-only"
