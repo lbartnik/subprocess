@@ -4,6 +4,8 @@
 \name{spawn_process}
 \alias{TERMINATION_CHILD_ONLY}
 \alias{TERMINATION_GROUP}
+\alias{is_process_handle}
+\alias{print.process_handle}
 \alias{spawn_process}
 \title{Start a new child process.}
 \format{}
@@ -14,6 +16,10 @@ spawn_process(command, arguments = character(), environment = character(),
 TERMINATION_GROUP
 
 TERMINATION_CHILD_ONLY
+
+\method{print}{process_handle}(x, ...)
+
+is_process_handle(x)
 }
 \arguments{
 \item{command}{Path to the executable.}
@@ -28,7 +34,8 @@ TERMINATION_CHILD_ONLY
 \code{TERMINATION_CHILD_ONLY}.}
 }
 \value{
-A process handle.
+\code{spawn_process()} returns an object of the
+        \emph{process handle} class.
 }
 \description{
 In Linux, the usual combination of \code{fork()} and \code{exec()}
@@ -51,6 +58,9 @@ process pointed to by \code{handle} and all of its descendants.
 \code{process_terminate(handle)} and \code{process_kill(handle)}
 deliver the signal only to the child process pointed to by
 \code{handle} but to none of its descendants.
+
+\code{is_process_handle()} verifies that an object is a
+valid \emph{process handle} as returned by \code{spawn_process()}.
 }
 \details{
 \code{command} is always prepended to \code{arguments} so that the

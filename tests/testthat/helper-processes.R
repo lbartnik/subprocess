@@ -32,9 +32,9 @@ R_child <- function(...)
 }
 
 
-process_exists <- function (pid)
+process_exists <- function (handle)
 {
-  pid <- as.integer(pid)
+  pid <- ifelse (is_process_handle(handle), as.integer(handle$c_handle), handle)
   
   if (is_windows()) {
     output <- system2("tasklist", c("/FI", paste0('"PID eq ', pid, '"')),

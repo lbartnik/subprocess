@@ -55,7 +55,8 @@ NULL
 #' @param termination_mode Either \code{TERMINATION_GROUP} or
 #'        \code{TERMINATION_CHILD_ONLY}.
 #'
-#' @return A process handle.
+#' @return \code{spawn_process()} returns an object of the
+#'         \emph{process handle} class.
 #' @rdname spawn_process
 #' @format 
 #' 
@@ -82,11 +83,35 @@ spawn_process <- function (command, arguments = character(), environment = chara
   }
   
   # hand over to C
-  .Call("C_process_spawn", command, c(command, as.character(arguments)),
-        as.character(environment), as.character(workdir),
-        as.character(termination_mode))
+  handle <- .Call("C_process_spawn", command, c(command, as.character(arguments)),
+                  as.character(environment), as.character(workdir),
+                  as.character(termination_mode))
+
+  structure(list(c_handle = handle, command = command, arguments = arguments),
+            class = 'process_handle')
 }
 
+
+#' @export
+#' @rdname spawn_process
+print.process_handle <- function (x, ...)
+{
+  cat('Process Handle\n')
+  cat('command   : ', x$command, paste(x$arguments, collapse = ' '), '\n')
+  cat('system id : ', as.integer(x$c_handle), '\n')
+  cat('state     : ', process_poll(x), '\n')
+}
+
+
+#' @description \code{is_process_handle()} verifies that an object is a
+#' valid \emph{process handle} as returned by \code{spawn_process()}.
+#' 
+#' @export
+#' @rdname spawn_process
+is_process_handle <- function (x)
+{
+  inherits(x, 'process_handle')
+}
 
 
 #' Terminating a Child Process.
@@ -120,7 +145,8 @@ spawn_process <- function (command, arguments = character(), environment = chara
 #' 
 process_poll <- function (handle, timeout = TIMEOUT_IMMEDIATE)
 {
-  .Call("C_process_poll", handle, as.integer(timeout))
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_poll", handle$c_handle, as.integer(timeout))
 }
 
 
@@ -134,7 +160,8 @@ process_poll <- function (handle, timeout = TIMEOUT_IMMEDIATE)
 #' 
 process_return_code <- function (handle)
 {
-  .Call("C_process_return_code", handle)
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_return_code", handle$c_handle)
 }
 
 
@@ -147,6 +174,7 @@ process_return_code <- function (handle)
 #' 
 process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 {
+  stopifnot(is_process_handle(handle))
   process_poll(handle, timeout)
   process_return_code(handle)
 }
