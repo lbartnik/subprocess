@@ -12,7 +12,7 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-11" />
+<meta name="date" content="2016-11-15" />
 
 <title>Subprocesses in R</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Subprocesses in R</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-11</em></h4>
+<h4 class="date"><em>2016-11-15</em></h4>
 
 
 
@@ -96,15 +96,22 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(subprocess)
 
 ssh_path &lt;-<span class="st"> '/usr/bin/ssh'</span>
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_path, <span class="kw">c</span>(<span class="st">'-T'</span>, <span class="st">'test@localhost'</span>))
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_path, <span class="kw">c</span>(<span class="st">'-T'</span>, <span class="st">'test@localhost'</span>))</code></pre></div>
+<p>Let’s see the description:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
+<span class="co">#&gt; Process Handle</span>
+<span class="co">#&gt; command   :  /usr/bin/ssh -T test@localhost </span>
+<span class="co">#&gt; system id :  11566 </span>
+<span class="co">#&gt; state     :  running</span></code></pre></div>
+<p>And now let’s see what we can find it the child’s output:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-27-generic x86_64)&quot;</span>
 <span class="co">#&gt; [2] &quot;&quot;                                                           </span>
 <span class="co">#&gt; [3] &quot; * Documentation:  https://help.ubuntu.com&quot;                 </span>
 <span class="co">#&gt; [4] &quot; * Management:     https://landscape.canonical.com&quot;         </span>
 <span class="co">#&gt; [5] &quot; * Support:        https://ubuntu.com/advantage&quot;            </span>
 <span class="co">#&gt; [6] &quot;&quot;                                                           </span>
-<span class="co">#&gt; [7] &quot;1 package can be updated.&quot;                                  </span>
+<span class="co">#&gt; [7] &quot;2 packages can be updated.&quot;                                 </span>
 <span class="co">#&gt; [8] &quot;0 updates are security updates.&quot;                            </span>
 <span class="co">#&gt; [9] &quot;&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
@@ -144,7 +151,8 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <p>Assume the child R process is hung and there is no way to stop it gracefully. Again, this example can be run on <strong>Windows</strong> if <code>&quot;R&quot;</code> is replaced with <code>&quot;R.exe&quot;</code><a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
 <p><code>process_wait(handle, 1000)</code> will wait for 1 second (1000 milliseconds) for the process to exit and then return <code>NA</code>. <code>process_terminate()</code> will give <code>R</code> a chance to exit graceully, and then <code>process_kill()</code> will force it to exit.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">R_binary &lt;-<span class="st"> </span><span class="kw">file.path</span>(<span class="kw">R.home</span>(<span class="st">&quot;bin&quot;</span>), <span class="st">&quot;R&quot;</span>)
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="kw">c</span>(<span class="st">'--slave'</span>, <span class="st">'-e'</span>, <span class="st">'library(subprocess); .Call(&quot;C_signal&quot;, 15L, &quot;ignore&quot;); Sys.sleep(1000)'</span>))
+sub_command &lt;-<span class="st"> 'library(subprocess); .Call(&quot;C_signal&quot;, 15L, &quot;ignore&quot;); Sys.sleep(1000)'</span>
+handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="kw">c</span>(<span class="st">'--slave'</span>, <span class="st">'-e'</span>, sub_command))
 
 <span class="co"># process is hung</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
@@ -154,7 +162,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 
 <span class="co"># ask nicely to exit</span>
 <span class="kw">process_terminate</span>(handle)
-<span class="co">#&gt; [1] 1</span>
+<span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;terminated&quot;</span>
 <span class="kw">process_return_code</span>(handle)
@@ -162,7 +170,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 
 <span class="co"># forced exit</span>
 <span class="kw">process_kill</span>(handle)
-<span class="co">#&gt; [1] 1</span>
+<span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;terminated&quot;</span>
 <span class="kw">process_return_code</span>(handle)
@@ -194,7 +202,7 @@ signals[<span class="dv">1</span>:<span class="dv">3</span>]
 handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="st">'--slave'</span>)
 
 <span class="kw">process_send_signal</span>(handle, SIGUSR1)
-<span class="co">#&gt; [1] 1</span></code></pre></div>
+<span class="co">#&gt; [1] TRUE</span></code></pre></div>
 </div>
 <div class="footnotes">
 <hr />

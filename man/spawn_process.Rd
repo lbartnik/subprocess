@@ -4,12 +4,18 @@
 \name{spawn_process}
 \alias{TERMINATION_CHILD_ONLY}
 \alias{TERMINATION_GROUP}
+\alias{is_process_handle}
+\alias{print.process_handle}
 \alias{spawn_process}
 \title{Start a new child process.}
 \format{}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
   workdir = "", termination_mode = TERMINATION_GROUP)
+
+\method{print}{process_handle}(x, ...)
+
+is_process_handle(x)
 
 TERMINATION_GROUP
 
@@ -28,7 +34,8 @@ TERMINATION_CHILD_ONLY
 \code{TERMINATION_CHILD_ONLY}.}
 }
 \value{
-A process handle.
+\code{spawn_process()} returns an object of the
+        \emph{process handle} class.
 }
 \description{
 In Linux, the usual combination of \code{fork()} and \code{exec()}
@@ -42,6 +49,9 @@ in Windows-speak) read/write is not supported for unnamed pipes,
 two reader threads are created for each new child process. These
 threads never touch memory allocated by R and thus they will not
 interfere with R interpreter's memory management (garbage collection).
+
+\code{is_process_handle()} verifies that an object is a
+valid \emph{process handle} as returned by \code{spawn_process()}.
 
 \code{TERMINATION_GROUP}: \code{process_terminate(handle)}
 and \code{process_kill(handle)} deliver the signal to the child

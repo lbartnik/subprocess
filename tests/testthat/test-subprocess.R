@@ -8,9 +8,10 @@ test_that("helper works", {
 
 test_that("a subprocess can be spawned and killed", {
   handle <- R_child()
-  expect_true('handle_ptr' %in% names(attributes(handle)))
+  expect_named(handle, c('c_handle', 'command', 'arguments'))
+  expect_true('handle_ptr' %in% names(attributes(handle$c_handle)))
 
-  ptr <- attr(handle, 'handle_ptr')
+  ptr <- attr(handle$c_handle, 'handle_ptr')
   expect_equal(class(ptr), 'externalptr')
   
   expect_true(process_exists(handle))

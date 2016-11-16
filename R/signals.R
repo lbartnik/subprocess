@@ -55,7 +55,8 @@ signals <- character()
 #' 
 process_terminate <- function (handle)
 {
-  .Call("C_process_terminate", handle)
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_terminate", handle$c_handle)
 }
 
 
@@ -68,7 +69,8 @@ process_terminate <- function (handle)
 #' 
 process_kill <- function (handle)
 {
-  .Call("C_process_kill", handle)
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_kill", handle$c_handle)
 }
 
 
@@ -94,7 +96,8 @@ process_kill <- function (handle)
 #' 
 process_send_signal <- function (handle, signal)
 {
-  .Call("C_process_terminate", handle, as.integer(signal))
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_terminate", handle$c_handle, as.integer(signal))
 }
 
 
