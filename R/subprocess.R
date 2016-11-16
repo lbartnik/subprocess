@@ -114,7 +114,7 @@ spawn_process <- function (command, arguments = character(), environment = chara
 #' @seealso \code{\link{spawn_process}}, \code{\link{process_read}}
 #'          \code{\link{signals}}
 #' 
-process_poll <- function (handle, timeout = 0)
+process_poll <- function (handle, timeout = TIMEOUT_IMMEDIATE)
 {
   .Call("C_process_poll", handle, as.integer(timeout))
 }
@@ -141,7 +141,7 @@ process_return_code <- function (handle)
 #' @rdname terminating
 #' @export
 #' 
-process_wait <- function (handle, timeout = -1)
+process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 {
   process_poll(handle, timeout)
   process_return_code(handle)
@@ -152,12 +152,15 @@ process_wait <- function (handle, timeout = -1)
 #' (that is, wait until response is available) when waiting for an
 #' operation to complete.
 #'
-#' @rdname terminated
+#' @rdname terminating
 #' @export
 TIMEOUT_INFINITE  <- -1
 
 #' @description \code{TIMEOUT_IMMEDIATE} denotes an "immediate" timeout
 #' (in other words, no timeout) when waiting for an operation to
 #' complete.
+#' 
+#' @rdname terminating
+#' @export
 TIMEOUT_IMMEDIATE <-  0
 

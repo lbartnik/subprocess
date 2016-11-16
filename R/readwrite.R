@@ -17,7 +17,7 @@
 #' @name readwrite
 #' @export
 #' 
-process_read <- function (handle, pipe = "stdout", timeout = 0)
+process_read <- function (handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE)
 {
   output <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
   if (!is.character(output)) {
