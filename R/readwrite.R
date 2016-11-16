@@ -23,7 +23,7 @@
 #' @name readwrite
 #' @export
 #' 
-process_read <- function (handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE, flush = FALSE)
+process_read <- function (handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE, flush = TRUE)
 {
   stopifnot(is_process_handle(handle))
   output <- .Call("C_process_read", handle$c_handle,
