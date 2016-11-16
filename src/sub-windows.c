@@ -192,7 +192,9 @@ HANDLE create_job_for_process ()
 {
   HANDLE job_handle = CreateJobObject(NULL, NULL);
   
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = { };
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+  memset(&info, 0, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+
   info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   SetInformationJobObject(job_handle,
                           JobObjectExtendedLimitInformation,

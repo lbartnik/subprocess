@@ -14,7 +14,13 @@ WINBASEAPI BOOL WINAPI SleepConditionVariableCS(PCONDITION_VARIABLE ConditionVar
 struct chunk {
   struct chunk * next;
   size_t length;
-  char data[0]; 
+
+  /*
+   * C99 6.7.2.1, 16: As a special case, the last element of a structure with
+   * more than one named member may have an incomplete array type; this is
+   * called a flexible array member.
+   */
+  char data[]; 
 };
 
 

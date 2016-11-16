@@ -1,9 +1,9 @@
 Package: subprocess
 Type: Package
-Title: Manage Subprocesses in R
-Version: 0.7.0
+Title: Manage Sub-processes in R
+Version: 0.7.1
 Authors@R: person("Lukasz", "Bartnik", email = "l.bartnik@gmail.com", role = c("aut", "cre"))
-Description: Create and handle subprocesses in R.
+Description: Create and handle sub-processes in R.
 License: MIT + file LICENSE
 URL: https://github.com/lbartnik/subprocess
 BugReports: https://github.com/lbartnik/subprocess/issues
