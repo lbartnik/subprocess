@@ -56,14 +56,15 @@ test_that("error when no executable", {
 })
 
 test_that("canExpandPaths", {
-  proc1 <- tempfile(fileext = ".sh", tmpdir = "~")
-  on.exit(unlink(proc1))
   if(is_windows()){
+    proc1 <- tempfile(fileext = ".bat", tmpdir = "~")
     cat("ping -n 120 127.0.0.1 >nul", file = proc1)
   }else{
+    proc1 <- tempfile(fileext = ".sh", tmpdir = "~")
     cat("#!/bin/sh\n", file = proc1)
     cat("sleep 120\n", file = proc1, append = TRUE)
   }
+  on.exit(unlink(proc1))
   Sys.chmod(proc1, "700")
   expect_silent(handle1 <- spawn_process(proc1))
   expect_silent(process_kill(handle1))
