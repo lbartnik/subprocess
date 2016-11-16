@@ -54,3 +54,17 @@ test_that("write returns the number of characters", {
 test_that("error when no executable", {
   expect_error(spawn_process("xxx"))
 })
+
+test_that("canExpandPaths", {
+  proc1 <- tempfile(fileext = ".sh", tmpdir = "~")
+  on.exit(unlink(proc1))
+  if(is_windows()){
+    cat("ping -n 120 127.0.0.1 >nul", file = proc1)
+  }else{
+    cat("#!/bin/sh\n", file = proc1)
+    cat("sleep 120\n", file = proc1, append = TRUE)
+  }
+  Sys.chmod(proc1, "700")
+  expect_silent(handle1 <- spawn_process(proc1))
+  expect_silent(process_kill(handle1))
+})
