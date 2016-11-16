@@ -26,7 +26,7 @@ test_that("child process is terminated in Windows", {
   # start the parent process which in turn spawns a child process
   parent_handle <- spawn_process("c:\\Windows\\System32\\cmd.exe",
                                  c("/k", shell_script_parent))
-  expect_true(process_exists(as.integer(parent_handle)))
+  expect_true(process_exists(parent_handle))
 
   # find the child process' id and make sure it exists now...
   child_id <- windows_process_id(basename(shell_script_child))
@@ -35,7 +35,7 @@ test_that("child process is terminated in Windows", {
   
   # ... and not after we kill the parent
   process_kill(parent_handle)
-  expect_false(process_exists(as.integer(parent_handle)))
+  expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })
 
@@ -67,7 +67,7 @@ test_that("child process is terminated in Linux", {
   
   # start the parent process which in turn spawns a child process
   parent_handle <- spawn_process(shell, shell_script_parent)
-  expect_true(process_exists(as.integer(parent_handle)))
+  expect_true(process_exists(parent_handle))
   
   # make sure the child exists
   child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
@@ -75,6 +75,6 @@ test_that("child process is terminated in Linux", {
 
   # ... and not after we kill the parent
   process_kill(parent_handle)
-  expect_false(process_exists(as.integer(parent_handle)))
+  expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })

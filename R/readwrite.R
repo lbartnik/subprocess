@@ -19,7 +19,10 @@
 #' 
 process_read <- function (handle, pipe = "stdout", timeout = 0)
 {
-  output <- .Call("C_process_read", handle, as.character(pipe), as.integer(timeout))
+  stopifnot(is_process_handle(handle))
+  output <- .Call("C_process_read", handle$c_handle,
+                  as.character(pipe), as.integer(timeout))
+
   if (!is.character(output)) {
     return(output)
   }
@@ -44,6 +47,7 @@ process_read <- function (handle, pipe = "stdout", timeout = 0)
 #' 
 process_write <- function (handle, message)
 {
-  .Call("C_process_write", handle, as.character(message))
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_write", handle$c_handle, as.character(message))
 }
 
