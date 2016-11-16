@@ -13,13 +13,13 @@
 spawn_process(command, arguments = character(), environment = character(),
   workdir = "", termination_mode = TERMINATION_GROUP)
 
-TERMINATION_GROUP
-
-TERMINATION_CHILD_ONLY
-
 \method{print}{process_handle}(x, ...)
 
 is_process_handle(x)
+
+TERMINATION_GROUP
+
+TERMINATION_CHILD_ONLY
 }
 \arguments{
 \item{command}{Path to the executable.}
@@ -50,6 +50,9 @@ two reader threads are created for each new child process. These
 threads never touch memory allocated by R and thus they will not
 interfere with R interpreter's memory management (garbage collection).
 
+\code{is_process_handle()} verifies that an object is a
+valid \emph{process handle} as returned by \code{spawn_process()}.
+
 \code{TERMINATION_GROUP}: \code{process_terminate(handle)}
 and \code{process_kill(handle)} deliver the signal to the child
 process pointed to by \code{handle} and all of its descendants.
@@ -58,9 +61,6 @@ process pointed to by \code{handle} and all of its descendants.
 \code{process_terminate(handle)} and \code{process_kill(handle)}
 deliver the signal only to the child process pointed to by
 \code{handle} but to none of its descendants.
-
-\code{is_process_handle()} verifies that an object is a
-valid \emph{process handle} as returned by \code{spawn_process()}.
 }
 \details{
 \code{command} is always prepended to \code{arguments} so that the
