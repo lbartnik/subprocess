@@ -40,8 +40,7 @@ process_exists <- function (handle)
   pid <- ifelse (is_process_handle(handle), as.integer(handle$c_handle), handle)
   
   if (is_windows()) {
-    output <- system2("tasklist", c("/FI", paste0('"PID eq ', pid, '"')),
-                      stdout = TRUE, stderr = NULL)
+    output <- system2("tasklist", stdout = TRUE, stderr = TRUE)
     return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
   }
   else {
