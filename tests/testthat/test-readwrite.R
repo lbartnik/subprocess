@@ -9,8 +9,9 @@ test_that("output buffer is flushed", {
   handle <- R_child()
   expect_true(process_exists(handle))
 
-  # send the command
+  # send the command and give the process a moment to produce the output
   process_write(handle, paste(command, "\n"))
+  Sys.sleep(.3)
   
   # read everything
   output <- process_read(handle, 'stdout', TIMEOUT_INFINITE, flush = TRUE)
