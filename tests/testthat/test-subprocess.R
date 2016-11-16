@@ -15,14 +15,14 @@ test_that("a subprocess can be spawned and killed", {
   
   expect_true(process_exists(handle))
   
-  process_terminate(handle)
+  process_kill(handle)
   process_wait(handle, 1000)
   expect_false(process_exists(handle))
 })
 
 
 test_that("exchange data", {
-  on.exit(process_terminate(handle))
+  on.exit(process_kill(handle))
   handle <- R_child()
   
   expect_true(process_exists(handle))
@@ -33,7 +33,7 @@ test_that("exchange data", {
 
 
 test_that("read from standard error output", {
-  on.exit(process_terminate(handle))
+  on.exit(process_kill(handle))
   handle <- R_child()
 
   process_write(handle, 'cat("A", file = stderr())\n')
@@ -43,7 +43,7 @@ test_that("read from standard error output", {
 
 
 test_that("write returns the number of characters", {
-  on.exit(process_terminate(handle))
+  on.exit(process_kill(handle))
   handle <- R_child()
   
   expect_equal(process_write(handle, 'cat("A")\n'), 9)

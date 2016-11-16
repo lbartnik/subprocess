@@ -41,3 +41,6 @@ vignettes/*.pdf
 
 # VS code
 .vscode
+
+# Vim
+*.swp

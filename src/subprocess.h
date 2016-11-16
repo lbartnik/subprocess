@@ -22,9 +22,12 @@ typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
+typedef enum { TERMINATION_GROUP, TERMINATION_CHILD_ONLY } termination_mode_t;
+
 struct process_handle {
 #ifdef SUBPROCESS_WINDOWS
   reader_t stdout_reader, stderr_reader;
+  HANDLE process_job;
 #endif
 
   // OS-specific handles
@@ -38,6 +41,9 @@ struct process_handle {
   int child_id;
   state_t state;
   int return_code;
+
+  /* how should the process be terminated */
+  termination_mode_t termination_mode;
 };
 
 typedef struct process_handle process_handle_t;
@@ -46,7 +52,7 @@ void full_error_message(char * _buffer, size_t _length);
 
 
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir);
+	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode);
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 

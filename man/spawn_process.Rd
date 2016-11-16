@@ -5,7 +5,7 @@
 \title{Start a new child process.}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
-  workdir = "")
+  workdir = "", termination_mode = "group")
 }
 \arguments{
 \item{command}{Path to the executable.}
@@ -15,6 +15,8 @@ spawn_process(command, arguments = character(), environment = character(),
 \item{environment}{Optional environment.}
 
 \item{workdir}{Optional new working directory.}
+
+\item{termination_mode}{Either \code{"group"} or \code{"child-only"}.}
 }
 \value{
 A process handle.
@@ -45,5 +47,21 @@ vector or a named \code{list}.
 \code{workdir} is the path to the directory where the new process is
 ought to be started. \code{NULL} and \code{""} mean that working
 directory is inherited from the parent.
+}
+\section{Termination}{
+
+
+The \code{termination_mode} specifies what should happen when
+\code{process_terminate()} or \code{process_kill()} is called on a
+subprocess. If it is set to \code{"group"}, then the termination
+signal is sent to the parent and all its descendants (sub-processes).
+If termination mode is set to \code{"child-only"}, only the direct
+child spawned from R receives the signal.
+
+In Windows this is implemented with the job API, namely
+\code{CreateJobObject()}, \code{AssignProcessToJobObject()} and
+\code{TerminateJobObject()}. In Linux, the child calls \code{setsid()}
+after \code{fork()} but before \code{execve()}, and \code{kill()} is
+called with the negate process id.
 }
 

@@ -6,9 +6,8 @@
 
 
 /* min_gw that comes with Rtools 3.4 doesn't have these functions */
-BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
-BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
-
+WINBASEAPI BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
+WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 
 /*
  * There are probably many places that need to be adapted to make this
@@ -33,6 +32,9 @@ int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si);
 int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
 
 char * prepare_environment(char *const* _environment);
+
+HANDLE create_job_for_process ();
+
 
 
 
@@ -62,7 +64,7 @@ int duplicate_handle(HANDLE src, HANDLE * dst)
 // https://support.microsoft.com/en-us/kb/190351
 //
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir)
+	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
   memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
@@ -101,6 +103,20 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  // creation flags
+  DWORD creation_flags = CREATE_NO_WINDOW;
+
+  // if termination is set to "group", create a job for this process;
+  // attempt at it at the beginning and not even try to start the process
+  // if it fails
+  if (_termination_mode == TERMINATION_GROUP) {
+    creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
+    _handle->process_job = create_job_for_process();
+    if (_handle->process_job == NULL) {
+      return -1;
+    }
+  }
+
   // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
   //      so that CTRL_C_EVENT can be sent in process_send_signal()
   BOOL rc = CreateProcess(_command,         // lpApplicationName
@@ -108,7 +124,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
                           NULL,             // lpProcessAttributes, process security attributes
                           NULL,             // lpThreadAttributes, primary thread security attributes
                           TRUE,             // bInheritHandles, handles are inherited
-                          CREATE_NO_WINDOW, // dwCreationFlags, creation flags
+                          creation_flags,   // dwCreationFlags, creation flags
                           environment,      // lpEnvironment
                           _workdir,         // lpCurrentDirectory
                           &si,              // lpStartupInfo
@@ -126,12 +142,36 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     return -1;
   }
 
+  /* if termination mode is "group" add process to the job; see here
+   * for more details:
+   * https://msdn.microsoft.com/en-us/library/windows/desktop/ms684161(v=vs.85).aspx
+   * 
+   * "After a process is associated with a job, by default any child
+   *  processes it creates using CreateProcess are also associated
+   *  with the job."
+   */
+  if (_termination_mode == TERMINATION_GROUP) {
+    BOOL rc = AssignProcessToJobObject(_handle->process_job, pi.hProcess);
+    if (rc == FALSE) {
+      int error_code = GetLastError();
+      _handle->state = RUNNING;
+      process_terminate(_handle);
+      SetLastError(error_code);
+      return -1;
+    }
+
+    if (ResumeThread(pi.hThread) == (DWORD)-1) {
+      return -1;
+    }
+  }
+
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
   
-  _handle->state        = RUNNING;
-  _handle->child_handle = pi.hProcess;
-  _handle->child_id     = pi.dwProcessId;
+  _handle->state            = RUNNING;
+  _handle->child_handle     = pi.hProcess;
+  _handle->child_id         = pi.dwProcessId;
+  _handle->termination_mode = _termination_mode;
 
   /* start reader threads */
   if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
@@ -144,6 +184,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
   /* again, in Linux 0 is "good" */
   return 0;
+}
+
+
+// see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
+HANDLE create_job_for_process ()
+{
+  HANDLE job_handle = CreateJobObject(NULL, NULL);
+  
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = { };
+  info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  SetInformationJobObject(job_handle,
+                          JobObjectExtendedLimitInformation,
+                          &info, sizeof(info));
+  
+  return job_handle;
 }
 
 
@@ -375,6 +430,8 @@ int process_poll (process_handle_t * _handle, int _timeout)
   return -1;
 }
 
+
+// compare with: https://github.com/andreisavu/python-process/blob/master/killableprocess.py
 int process_terminate(process_handle_t * _handle)
 {
   // first make sure it's even still running
@@ -383,15 +440,27 @@ int process_terminate(process_handle_t * _handle)
   if (_handle->state != RUNNING)
     return 0;
 
-  // first terminate the child process
-  HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
-  if (!to_terminate)
-    return -1;
+  // first terminate the child process; if mode is "group" terminate
+  // the whole job
+  if (_handle->termination_mode == TERMINATION_GROUP) {
+    if (TerminateJobObject(_handle->process_job, 127) == FALSE) {
+      return -1;
+    }
+    if (CloseHandle(_handle->process_job) == FALSE) {
+      return -1;
+    }
+  }
+  else {
+    // now terminate just the process itself
+    HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
+    if (!to_terminate)
+      return -1;
 
-  BOOL rc = TerminateProcess(to_terminate, 0);
-  CloseHandle(to_terminate);
-  if (rc == FALSE)
-    return -1;
+    BOOL rc = TerminateProcess(to_terminate, 127);
+    CloseHandle(to_terminate);
+    if (rc == FALSE)
+      return -1;
+  }
 
   // clean up
   teardown_process(_handle);
