@@ -52,10 +52,12 @@ NULL
 #' @param arguments Optional arguments for the program.
 #' @param environment Optional environment.
 #' @param workdir Optional new working directory.
-#' @param termination_mode Either \code{"group"} or \code{"child-only"}.
+#' @param termination_mode Either \code{TERMINATION_GROUP} or
+#'        \code{TERMINATION_CHILD_ONLY}.
 #'
 #' @return A process handle.
 #' @rdname spawn_process
+#' @format 
 #' 
 #' @export
 spawn_process <- function (command, arguments = character(), environment = character(),

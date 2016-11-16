@@ -6,7 +6,7 @@
 \alias{TERMINATION_GROUP}
 \alias{spawn_process}
 \title{Start a new child process.}
-\format{An object of class \code{character} of length 1.}
+\format{}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
   workdir = "", termination_mode = TERMINATION_GROUP)
@@ -24,7 +24,8 @@ TERMINATION_CHILD_ONLY
 
 \item{workdir}{Optional new working directory.}
 
-\item{termination_mode}{Either \code{"group"} or \code{"child-only"}.}
+\item{termination_mode}{Either \code{TERMINATION_GROUP} or
+\code{TERMINATION_CHILD_ONLY}.}
 }
 \value{
 A process handle.
