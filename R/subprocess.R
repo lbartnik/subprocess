@@ -100,6 +100,8 @@ print.process_handle <- function (x, ...)
   cat('command   : ', x$command, paste(x$arguments, collapse = ' '), '\n')
   cat('system id : ', as.integer(x$c_handle), '\n')
   cat('state     : ', process_poll(x), '\n')
+  
+  invisible(x)
 }
 
 
