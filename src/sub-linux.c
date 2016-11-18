@@ -8,6 +8,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <unistd.h>
@@ -65,7 +66,7 @@ static void exit_on_failure ()
     *(int*)exit_handle = 0;
   }
   
-  typedef (void * exit_t)(int);
+  typedef void (* exit_t)(int);
   exit_t exit_fun = (exit_t)exit_handle;
   exit_fun(EXIT_FAILURE);
 }
