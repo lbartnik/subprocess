@@ -67,15 +67,8 @@ spawn_process <- function (command, arguments = character(), environment = chara
                            workdir = "", termination_mode = TERMINATION_GROUP)
 {
   command <- as.character(command)
-  stopifnot(file.exists(command))
-  
-  # apps from C:\Rtools\bin accepted "/" as delimiter but even R itself
-  # didn't; I'm not sure why this happened but it seems the replacement
-  # below is necessary
-  if (is_windows()) {
-    command <- chartr('/', '\\', command)
-  }
-  
+  command <- normalizePath(command, mustWork = TRUE)
+
   # handle named environment
   if (!is.null(names(environment))) {
     if (any(names(environment) == "")) {
