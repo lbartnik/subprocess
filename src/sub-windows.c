@@ -38,12 +38,14 @@ HANDLE create_job_for_process ();
 
 
 
-void full_error_message (char * _buffer, size_t _length)
+int full_error_message (char * _buffer, size_t _length)
 {
   DWORD code = GetLastError();
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
 	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 	                        _buffer, (DWORD)_length, NULL);
+  if (ret == 0) return -1;
+  return 0;
 }
 
 

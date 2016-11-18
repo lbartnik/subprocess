@@ -24,9 +24,11 @@ static const int TRUE = 1, FALSE = 0;
 
 
 
-void full_error_message (char * _buffer, size_t _length)
+int full_error_message (char * _buffer, size_t _length)
 {
-  strerror_r(errno, _buffer, _length);
+  if (strerror_r(errno, _buffer, _length) == 0)
+    return 0;
+  return -1;
 }
 
 
