@@ -12,8 +12,8 @@ NULL
 
 #' @description Operating-System-level signals that can be sent via
 #' \code{\link[subprocess]{process_send_signal}()} are defined in the
-#' \code{subprocess::signals}. It is a list that is generated when the
-#' package is loaded and it contains only signals supported by the
+#' \code{subprocess::signals} list. It is a list that is generated when
+#' the package is loaded and it contains only signals supported by the
 #' current platform (Windows or Linux).
 #' 
 #' All signals, both supported and not supported by the current
@@ -28,6 +28,14 @@ NULL
 #' process. Calling \code{process_send_signal()} is not accompanied by
 #' such clean-up and if the child process exits it needs to be followed
 #' by a call to \code{\link{process_poll}()}.
+#' 
+#' @details
+#' In Windows, signals are delivered either only to the child process or
+#' to the child process and all its descendants. This behavior is
+#' controlled by the \code{termination_mode} argument of the
+#' \code{\link[subprocess]{spawn_process}()} function. Setting it to
+#' \code{TERMINATION_GROUP} results in signals being delivered to the
+#' child and its descendants.
 #' 
 #' @rdname signals
 #' @export

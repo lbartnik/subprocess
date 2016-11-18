@@ -55,17 +55,15 @@ test_that("error when no executable", {
   expect_error(spawn_process("xxx"))
 })
 
-test_that("canExpandPaths", {
-  if(is_windows()){
-    proc1 <- tempfile(fileext = ".bat", tmpdir = "~")
-    cat("ping -n 120 127.0.0.1 >nul", file = proc1)
-  }else{
-    proc1 <- tempfile(fileext = ".sh", tmpdir = "~")
-    cat("#!/bin/sh\n", file = proc1)
-    cat("sleep 120\n", file = proc1, append = TRUE)
-  }
-  on.exit(unlink(proc1))
-  Sys.chmod(proc1, "700")
-  expect_silent(handle1 <- spawn_process(proc1))
-  expect_silent(process_kill(handle1))
+
+test_that("can expand paths", {
+  normalizePathMock <- mock('/full/path/to/local/executable')
+  dotCallMock <- mock(1)
+  
+  stub(spawn_process, 'normalizePath', normalizePathMock)
+  stub(spawn_process, '.Call', dotCallMock)
+  handle <- spawn_process("~/local/executable")
+
+  expect_no_calls(normalizePathMock, 1)
+  expect_no_calls(dotCallMock, 1)
 })

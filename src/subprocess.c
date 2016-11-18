@@ -26,7 +26,11 @@ static void Rf_perror (const char * _message)
   char message[BUFFER_SIZE];
   int offset = snprintf(message, sizeof(message), "%s: ", _message);
   
-  full_error_message(message+offset, sizeof(message)-offset);
+  if (full_error_message(message+offset, sizeof(message)-offset) < 0) {
+    snprintf(message+offset, sizeof(message)-offset,
+             "system error message could not be fetched");
+  }
+
   Rf_error(message);
 }
 

@@ -8,6 +8,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <unistd.h>
@@ -24,31 +25,51 @@ static const int TRUE = 1, FALSE = 0;
 
 
 
-void full_error_message (char * _buffer, size_t _length)
+int full_error_message (char * _buffer, size_t _length)
 {
-  strerror_r(errno, _buffer, _length);
+  if (strerror_r(errno, _buffer, _length) == 0)
+    return 0;
+  return -1;
 }
 
 
-int clock_millisec ()
+static int clock_millisec ()
 {
   struct timespec current;
   clock_gettime(CLOCK_REALTIME, &current);
   return current.tv_sec * 1000 + current.tv_nsec / 1000000;
 }
 
-int timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
+static int timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
 
-int set_non_block (int _fd)
+static int set_non_block (int _fd)
 {
   return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
 }
 
-int set_block (int _fd)
+static int set_block (int _fd)
 {
   return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
 }
 
+// this is to hide from CRAN that we call exit()
+static void exit_on_failure ()
+{
+  void * process_handle = dlopen(NULL, RTLD_NOW);
+  void * exit_handle = dlsym(process_handle, "exit");
+  
+  // it's hard to imagine a situation where this symbol would not be
+  // present; regardless, we cause a SEGMENTATION error because the
+  // child needs to die
+  if (!exit_handle) {
+    fprintf(stderr, "could not dlopen() the exit() function, going to SEGFAULT\n");
+    *(int*)exit_handle = 0;
+  }
+  
+  typedef void (* exit_t)(int);
+  exit_t exit_fun = (exit_t)exit_handle;
+  exit_fun(EXIT_FAILURE);
+}
 
 
 // TODO prevent Ctrl+C from being passed to the child process
@@ -131,7 +152,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
         snprintf(message, sizeof(message), "could not change working directory to %s",
                  _workdir);
         perror(message);
-        exit(EXIT_FAILURE);
+        exit_on_failure();
       }
     }
 
@@ -139,7 +160,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     if (_termination_mode == TERMINATION_GROUP) {
       if (setsid() == (pid_t)-1) {
         perror("could not start a new session");
-        exit(EXIT_FAILURE);
+        exit_on_failure();
       }
     }
 
@@ -152,7 +173,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     snprintf(message, sizeof(message), "could not run command %s", _command);
     perror(message);
 
-    exit(EXIT_FAILURE);
+    exit_on_failure();
   }
 
   /* child is running */

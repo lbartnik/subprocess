@@ -90,8 +90,8 @@ Sending signals to the child process.
 
 Operating-System-level signals that can be sent via
 \code{\link[subprocess]{process_send_signal}()} are defined in the
-\code{subprocess::signals}. It is a list that is generated when the
-package is loaded and it contains only signals supported by the
+\code{subprocess::signals} list. It is a list that is generated when
+the package is loaded and it contains only signals supported by the
 current platform (Windows or Linux).
 
 All signals, both supported and not supported by the current
@@ -121,6 +121,14 @@ numbers are supported. On Windows supported signals are
 \code{SIGTERM}, \code{CTRL_C_EVENT} and \code{CTRL_BREAK_EVENT}.
 Those values will be available via the \code{signals} list which
 is also attached in the package namespace.
+}
+\details{
+In Windows, signals are delivered either only to the child process or
+to the child process and all its descendants. This behavior is
+controlled by the \code{termination_mode} argument of the
+\code{\link[subprocess]{spawn_process}()} function. Setting it to
+\code{TERMINATION_GROUP} results in signals being delivered to the
+child and its descendants.
 }
 \examples{
 \dontrun{

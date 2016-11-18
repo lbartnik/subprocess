@@ -38,12 +38,14 @@ HANDLE create_job_for_process ();
 
 
 
-void full_error_message (char * _buffer, size_t _length)
+int full_error_message (char * _buffer, size_t _length)
 {
   DWORD code = GetLastError();
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
 	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 	                        _buffer, (DWORD)_length, NULL);
+  if (ret == 0) return -1;
+  return 0;
 }
 
 
@@ -117,8 +119,6 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     }
   }
 
-  // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
-  //      so that CTRL_C_EVENT can be sent in process_send_signal()
   BOOL rc = CreateProcess(_command,         // lpApplicationName
                           command_line,     // lpCommandLine, command line
                           NULL,             // lpProcessAttributes, process security attributes
