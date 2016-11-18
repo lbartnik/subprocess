@@ -117,8 +117,6 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     }
   }
 
-  // TODO add CREATE_NEW_PROCESS_GROUP to creation flags
-  //      so that CTRL_C_EVENT can be sent in process_send_signal()
   BOOL rc = CreateProcess(_command,         // lpApplicationName
                           command_line,     // lpCommandLine, command line
                           NULL,             // lpProcessAttributes, process security attributes
