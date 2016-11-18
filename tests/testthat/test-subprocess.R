@@ -55,7 +55,7 @@ test_that("error when no executable", {
   expect_error(spawn_process("xxx"))
 })
 
-test_that("canExpandPaths", {
+test_that("can expand paths", {
   if(is_windows()){
     proc1 <- tempfile(fileext = ".bat", tmpdir = "~")
     cat("ping -n 120 127.0.0.1 >nul", file = proc1)
