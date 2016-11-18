@@ -8,6 +8,7 @@ License: MIT + file LICENSE
 URL: https://github.com/lbartnik/subprocess
 BugReports: https://github.com/lbartnik/subprocess/issues
 Suggests:
+  mockery,
   testthat,
   knitr,
   rmarkdown (>= 1.0)
