@@ -60,9 +60,11 @@ static void exit_on_failure ()
   
   // it's hard to imagine a situation where this symbol would not be
   // present; regardless, we cause a SEGMENTATION error because the
-  // child needs to die
+  // child needs to die;
+  // also, we use write because CRAN will warn about fprintf(stderr)
   if (!exit_handle) {
-    fprintf(stderr, "could not dlopen() the exit() function, going to SEGFAULT\n");
+    const char * message = "could not dlopen() the exit() function, going to SEGFAULT\n";
+    write(STDERR_FILENO, message, strlen(message));
     *(int*)exit_handle = 0;
   }
   
@@ -126,15 +128,15 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   if (_handle->child_id == 0) {
     if (dup2(pipe_stdin[PIPE_READ], STDIN_FILENO) < 0) {
       perror("redirecting stdin failed, abortnig");
-      exit(EXIT_FAILURE);
+      exit_on_failure();
     }
     if (dup2(pipe_stdout[PIPE_WRITE], STDOUT_FILENO) < 0) {
       perror("redirecting stdout failed, abortnig");
-      exit(EXIT_FAILURE);
+      exit_on_failure();
     }
     if (dup2(pipe_stderr[PIPE_WRITE], STDERR_FILENO) < 0) {
       perror("redirecting stderr failed, abortnig");
-      exit(EXIT_FAILURE);
+      exit_on_failure();
     }
 
     /* redirection succeeded, now close all other descriptors */

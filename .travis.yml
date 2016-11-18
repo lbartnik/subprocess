@@ -3,7 +3,6 @@
 language: r
 cache: packages
 sudo: false
-warnings_are_errors: false
 r_build_args: --no-build-vignettes
 r_check_args: --no-build-vignettes --no-manual --timings
 r:
