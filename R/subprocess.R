@@ -98,9 +98,9 @@ spawn_process <- function (command, arguments = character(), environment = chara
 print.process_handle <- function (x, ...)
 {
   cat('Process Handle\n')
-  cat('command   : ', x$command, paste(x$arguments, collapse = ' '), '\n')
-  cat('system id : ', as.integer(x$c_handle), '\n')
-  cat('state     : ', process_poll(x), '\n')
+  cat('command   : ', x$command, ' ', paste(x$arguments, collapse = ' '), '\n', sep = '')
+  cat('system id : ', as.integer(x$c_handle), '\n', sep = '')
+  cat('state     : ', process_poll(x), '\n', sep = '')
   
   invisible(x)
 }

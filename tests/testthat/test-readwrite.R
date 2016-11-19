@@ -19,3 +19,32 @@ test_that("output buffer is flushed", {
   expect_length(output, lines)
   expect_true(all(nchar(output) == 60))
 })
+
+
+test_that("exchange data", {
+  on.exit(process_kill(handle))
+  handle <- R_child()
+  
+  expect_true(process_exists(handle))
+  
+  process_write(handle, 'cat("A")\n')
+  expect_equal(process_read(handle, timeout = 1000), 'A')
+})
+
+
+test_that("read from standard error output", {
+  on.exit(process_kill(handle))
+  handle <- R_child()
+  
+  process_write(handle, 'cat("A", file = stderr())\n')
+  expect_equal(process_read(handle, 'stderr', timeout = 1000), 'A')
+  expect_equal(process_read(handle), character())
+})
+
+
+test_that("write returns the number of characters", {
+  on.exit(process_kill(handle))
+  handle <- R_child()
+  
+  expect_equal(process_write(handle, 'cat("A")\n'), 9)
+})
