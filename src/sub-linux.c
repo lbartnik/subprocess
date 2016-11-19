@@ -245,6 +245,9 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
 int teardown_process (process_handle_t * _handle)
 {
+  if (_handle->state == TORNDOWN) {
+    return 0;
+  }
   if (!_handle || !_handle->child_id) {
     errno = ECHILD;
     return -1;

@@ -186,7 +186,9 @@ static void C_child_process_finalizer(SEXP ptr)
     Rf_perror("error while finalizing child process");
   }
 
+  teardown_process(addr);
   Free(addr);
+  
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 

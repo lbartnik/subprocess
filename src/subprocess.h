@@ -16,7 +16,7 @@
 
 typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
 
-typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
+typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED, TORNDOWN } state_t;
 
 typedef enum { TERMINATION_GROUP, TERMINATION_CHILD_ONLY } termination_mode_t;
 
@@ -56,6 +56,8 @@ int full_error_message(char * _buffer, size_t _length);
 
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
 	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode);
+
+int teardown_process (process_handle_t * _handle);
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 

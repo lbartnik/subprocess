@@ -328,7 +328,7 @@ error:
 
 int teardown_process (process_handle_t * _handle)
 {
-  if (_handle->state != RUNNING) {
+  if (_handle->state != RUNNING || _handle->state == TORNDOWN) {
     return 0;
   }
 

@@ -32,6 +32,9 @@ test_that("waiting for a child to exit", {
   # TODO expect the right code on Windows
   expect_equal(process_poll(handle, TIMEOUT_INFINITE), "terminated")
   expect_equal(process_return_code(handle), 9)
+
+  # wait() combines poll() and return_code()
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 9)
 })
 
 
