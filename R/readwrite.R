@@ -29,10 +29,8 @@ process_read <- function (handle, pipe = "stdout", timeout = TIMEOUT_IMMEDIATE, 
   output <- .Call("C_process_read", handle$c_handle,
                   as.character(pipe), as.integer(timeout))
 
-  if (!is.character(output)) {
-    return(output)
-  }
-  
+  stopifnot(is.character(output))
+
   # there is some output, maybe there will be more?
   if (isTRUE(flush)) {
     while (TRUE) {
