@@ -1,12 +1,6 @@
-is_windows <- function ()
-{
-  identical(tolower(Sys.info()[["sysname"]]), 'windows')
-}
+is_windows <- function () subprocess:::is_windows()
 
-is_linux <- function ()
-{
-  identical(tolower(Sys.info()[["sysname"]]), 'linux')
-}
+is_linux <- function () subprocess:::is_linux()
 
 is_mac <- function ()
 {

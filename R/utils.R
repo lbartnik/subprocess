@@ -1,6 +1,11 @@
 is_windows <- function ()
 {
-  identical(.Platform$OS.type, 'windows')
+  identical(tolower(Sys.info()[["sysname"]]), 'windows')
+}
+
+is_linux <- function ()
+{
+  identical(tolower(Sys.info()[["sysname"]]), 'linux')
 }
 
 known_signals <- function ()
