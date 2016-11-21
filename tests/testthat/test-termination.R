@@ -36,6 +36,9 @@ test_that("child process is terminated in Windows", {
   # ... and not after we kill the parent
   process_kill(parent_handle)
   expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
+  
+  # give the child a moment to dissapear from OS tables
+  Sys.sleep(1)
   expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })
