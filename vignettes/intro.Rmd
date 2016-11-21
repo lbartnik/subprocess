@@ -1,10 +1,10 @@
 ---
-title: "Subprocesses in R"
+title: "Introduction to Sub-Processes in R: Linux"
 author: "Lukasz A. Bartnik"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Subprocesses in R}
+  %\VignetteIndexEntry{Introduction to Sub-Processes in R: Linux}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -14,22 +14,25 @@ library(subprocess)
 library(knitr)
 
 # if Windows, don't evaluate any code
-eval_ssh <- tolower(.Platform$OS.type != "windows")
+eval_vignette <- (tolower(.Platform$OS.type) != "windows")
+eval_ssh      <- FALSE
 
 # if not Windows, make sure ssh can connect with the account
-if (eval_ssh) {
+if (eval_vignette) {
   rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no"),
                 stdout = FALSE, stderr = FALSE, input = "")
   eval_ssh <- (rc == 0)
 }
 
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval_vignette)
 ```
-```{r include=!eval_ssh, eval=!eval_ssh, echo=FALSE, results='asis'}
+
+```{r include=!eval_vignette, eval=!eval_vignette, echo=FALSE, results='asis'}
 cat("##Important!\n")
-cat("This vignette has been evaluated in an environment where the _ssh_\n")
-cat("connection to _test&#64;localhost_ cannot be established and thus the\n")
-cat("code in the _ssh_ example is not evaluated but simply printed.")
+cat("This vignette has been evaluated in Windows or in an environment\n")
+cat("where the _ssh_ connection to _test&#64;localhost_ cannot be established.\n")
+cat("Thus, the code in the examples that require certain executables or\n")
+cat("signals is not evaluated but simply printed.")
 ```
 
 ## Introduction
@@ -210,8 +213,8 @@ example.
 ## Sending a signal to the child process
 
 The last topic we want to cover here is sending an arbitrary[^windowssignals]
-signal to the child process. **Linux** signals can be listed by looking
-at the `signals` variable present in the package. It is constructed
+signal to the child process. Signals can be listed by looking at the
+`signals` variable present in the package. It is constructed
 automatically when the package is loaded and its value on **Linux** is
 different than on **Windows**. In the example below we see the first
 three elements of the **Linux** list of signals.
@@ -222,8 +225,10 @@ signals[1:3]
 ```
 
 
-`signals` is a `list` and its values are exported under their names in
-the `subprocess` namespace.
+All possible signal identifiers are supported directly from the
+`subprocess` package. Signals not supported on the current platform
+are set to `NA` and the rest have their OS-specific numbers as their
+values.
 
 ```{r}
 ls(pattern = 'SIG', envir = asNamespace('subprocess'))
@@ -234,13 +239,12 @@ Now we can create a new child process and send an arbitrary using its
 handle.
 
 ```{r}
-R_binary <- file.path(R.home("bin"), "R")
 handle <- spawn_process(R_binary, '--slave')
 
 process_send_signal(handle, SIGUSR1)
 ```
 
 
-[^windowssignals]: The only signal currently supported in **Windows** is
-`SIGTERM`. In the future versions of this package two additional signals
-will be supported: `CTRL_C_EVENT` and `CTRL_BREAK_EVENT`.
+[^windowssignals]: The list of signals supported in **Windows** is much
+shorter than the list of signals supported in **Linux** and contains the
+following three signals: `SIGTERM`, `CTRL_C_EVENT` and `CTRL_BREAK_EVENT`.
