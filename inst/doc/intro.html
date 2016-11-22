@@ -101,7 +101,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   : /usr/bin/ssh -T test@localhost</span>
-<span class="co">#&gt; system id : 7498</span>
+<span class="co">#&gt; system id : 17659</span>
 <span class="co">#&gt; state     : running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
@@ -113,13 +113,6 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'ls</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 3</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; character(0)</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
-<span class="co">#&gt; character(0)</span></code></pre></div>
-<p>Finally, we close the connection by exiting the remote <strong>shell</strong>:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'exit</span><span class="ch">\n</span><span class="st">'</span>)
-<span class="co">#&gt; [1] 5</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-27-generic x86_64)&quot;</span>
 <span class="co">#&gt; [2] &quot;&quot;                                                           </span>
 <span class="co">#&gt; [3] &quot; * Documentation:  https://help.ubuntu.com&quot;                 </span>
@@ -129,6 +122,14 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <span class="co">#&gt; [7] &quot;0 packages can be updated.&quot;                                 </span>
 <span class="co">#&gt; [8] &quot;0 updates are security updates.&quot;                            </span>
 <span class="co">#&gt; [9] &quot;&quot;</span>
+<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="co">#&gt; character(0)</span></code></pre></div>
+<p>Finally, we close the connection by exiting the remote <strong>shell</strong>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'exit</span><span class="ch">\n</span><span class="st">'</span>)
+<span class="co">#&gt; [1] 5</span>
+<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="co">#&gt; [1] &quot;Desktop&quot;          &quot;Download&quot;         &quot;examples.desktop&quot;</span>
+<span class="co">#&gt; [4] &quot;Music&quot;            &quot;Public&quot;           &quot;Video&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The last thing is making sure that the child process is no longer alive:</p>

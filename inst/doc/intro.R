@@ -16,7 +16,7 @@ if (eval_vignette) {
 
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval_vignette)
 
-## ----include=!eval_vignette, eval=!eval_vignette, echo=FALSE, results='asis'----
+## ----include=!eval_ssh, eval=!eval_ssh, echo=FALSE, results='asis'-------
 #  cat("##Important!\n")
 #  cat("This vignette has been evaluated in Windows or in an environment\n")
 #  cat("where the _ssh_ connection to _test&#64;localhost_ cannot be established.\n")
