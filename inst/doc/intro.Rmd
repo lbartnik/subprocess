@@ -19,7 +19,8 @@ eval_ssh      <- FALSE
 
 # if not Windows, make sure ssh can connect with the account
 if (eval_vignette) {
-  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no"),
+  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no",
+                         "-o", "StrictHostKeyChecking=no"),
                 stdout = FALSE, stderr = FALSE, input = "")
   eval_ssh <- (rc == 0)
 }
