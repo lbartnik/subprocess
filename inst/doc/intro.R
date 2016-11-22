@@ -3,22 +3,25 @@ library(subprocess)
 library(knitr)
 
 # if Windows, don't evaluate any code
-eval_ssh <- tolower(.Platform$OS.type != "windows")
+eval_vignette <- (tolower(.Platform$OS.type) != "windows")
+eval_ssh      <- FALSE
 
 # if not Windows, make sure ssh can connect with the account
-if (eval_ssh) {
-  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no"),
+if (eval_vignette) {
+  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no",
+                         "-o", "StrictHostKeyChecking=no"),
                 stdout = FALSE, stderr = FALSE, input = "")
   eval_ssh <- (rc == 0)
 }
 
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval_vignette)
 
-## ----include=!eval_ssh, eval=!eval_ssh, echo=FALSE, results='asis'-------
+## ----include=!eval_vignette, eval=!eval_vignette, echo=FALSE, results='asis'----
 #  cat("##Important!\n")
-#  cat("This vignette has been evaluated in an environment where the _ssh_\n")
-#  cat("connection to _test&#64;localhost_ cannot be established and thus the\n")
-#  cat("code in the _ssh_ example is not evaluated but simply printed.")
+#  cat("This vignette has been evaluated in Windows or in an environment\n")
+#  cat("where the _ssh_ connection to _test&#64;localhost_ cannot be established.\n")
+#  cat("Thus, the code in the examples that require certain executables or\n")
+#  cat("signals is not evaluated but simply printed.")
 
 ## ----eval=eval_ssh-------------------------------------------------------
 library(subprocess)
@@ -74,7 +77,6 @@ signals[1:3]
 ls(pattern = 'SIG', envir = asNamespace('subprocess'))
 
 ## ------------------------------------------------------------------------
-R_binary <- file.path(R.home("bin"), "R")
 handle <- spawn_process(R_binary, '--slave')
 
 process_send_signal(handle, SIGUSR1)

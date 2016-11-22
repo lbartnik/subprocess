@@ -12,9 +12,9 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-20" />
+<meta name="date" content="2016-11-21" />
 
-<title>Subprocesses in R</title>
+<title>Introduction to Sub-Processes in R: Linux</title>
 
 
 
@@ -68,9 +68,9 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 
 
-<h1 class="title toc-ignore">Subprocesses in R</h1>
+<h1 class="title toc-ignore">Introduction to Sub-Processes in R: Linux</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-20</em></h4>
+<h4 class="date"><em>2016-11-21</em></h4>
 
 
 
@@ -101,7 +101,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   : /usr/bin/ssh -T test@localhost</span>
-<span class="co">#&gt; system id : 7446</span>
+<span class="co">#&gt; system id : 7498</span>
 <span class="co">#&gt; state     : running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
@@ -113,6 +113,13 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'ls</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 3</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="co">#&gt; character(0)</span>
+<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="co">#&gt; character(0)</span></code></pre></div>
+<p>Finally, we close the connection by exiting the remote <strong>shell</strong>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'exit</span><span class="ch">\n</span><span class="st">'</span>)
+<span class="co">#&gt; [1] 5</span>
+<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-27-generic x86_64)&quot;</span>
 <span class="co">#&gt; [2] &quot;&quot;                                                           </span>
 <span class="co">#&gt; [3] &quot; * Documentation:  https://help.ubuntu.com&quot;                 </span>
@@ -122,14 +129,6 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <span class="co">#&gt; [7] &quot;0 packages can be updated.&quot;                                 </span>
 <span class="co">#&gt; [8] &quot;0 updates are security updates.&quot;                            </span>
 <span class="co">#&gt; [9] &quot;&quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
-<span class="co">#&gt; character(0)</span></code></pre></div>
-<p>Finally, we close the connection by exiting the remote <strong>shell</strong>:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'exit</span><span class="ch">\n</span><span class="st">'</span>)
-<span class="co">#&gt; [1] 5</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;Desktop&quot;          &quot;Download&quot;         &quot;examples.desktop&quot;</span>
-<span class="co">#&gt; [4] &quot;Music&quot;            &quot;Public&quot;           &quot;Video&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The last thing is making sure that the child process is no longer alive:</p>
@@ -180,7 +179,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 </div>
 <div id="sending-a-signal-to-the-child-process" class="section level2">
 <h2>Sending a signal to the child process</h2>
-<p>The last topic we want to cover here is sending an arbitrary<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a> signal to the child process. <strong>Linux</strong> signals can be listed by looking at the <code>signals</code> variable present in the package. It is constructed automatically when the package is loaded and its value on <strong>Linux</strong> is different than on <strong>Windows</strong>. In the example below we see the first three elements of the <strong>Linux</strong> list of signals.</p>
+<p>The last topic we want to cover here is sending an arbitrary<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a> signal to the child process. Signals can be listed by looking at the <code>signals</code> variable present in the package. It is constructed automatically when the package is loaded and its value on <strong>Linux</strong> is different than on <strong>Windows</strong>. In the example below we see the first three elements of the <strong>Linux</strong> list of signals.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">length</span>(signals)
 <span class="co">#&gt; [1] 19</span>
 signals[<span class="dv">1</span>:<span class="dv">3</span>]
@@ -192,14 +191,13 @@ signals[<span class="dv">1</span>:<span class="dv">3</span>]
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $SIGQUIT</span>
 <span class="co">#&gt; [1] 3</span></code></pre></div>
-<p><code>signals</code> is a <code>list</code> and its values are exported under their names in the <code>subprocess</code> namespace.</p>
+<p>All possible signal identifiers are supported directly from the <code>subprocess</code> package. Signals not supported on the current platform are set to <code>NA</code> and the rest have their OS-specific numbers as their values.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">ls</span>(<span class="dt">pattern =</span> <span class="st">'SIG'</span>, <span class="dt">envir =</span> <span class="kw">asNamespace</span>(<span class="st">'subprocess'</span>))
 <span class="co">#&gt;  [1] &quot;SIGABRT&quot; &quot;SIGALRM&quot; &quot;SIGCHLD&quot; &quot;SIGCONT&quot; &quot;SIGFPE&quot;  &quot;SIGHUP&quot;  &quot;SIGILL&quot; </span>
 <span class="co">#&gt;  [8] &quot;SIGINT&quot;  &quot;SIGKILL&quot; &quot;SIGPIPE&quot; &quot;SIGQUIT&quot; &quot;SIGSEGV&quot; &quot;SIGSTOP&quot; &quot;SIGTERM&quot;</span>
 <span class="co">#&gt; [15] &quot;SIGTSTP&quot; &quot;SIGTTIN&quot; &quot;SIGTTOU&quot; &quot;SIGUSR1&quot; &quot;SIGUSR2&quot;</span></code></pre></div>
 <p>Now we can create a new child process and send an arbitrary using its handle.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">R_binary &lt;-<span class="st"> </span><span class="kw">file.path</span>(<span class="kw">R.home</span>(<span class="st">&quot;bin&quot;</span>), <span class="st">&quot;R&quot;</span>)
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="st">'--slave'</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="st">'--slave'</span>)
 
 <span class="kw">process_send_signal</span>(handle, SIGUSR1)
 <span class="co">#&gt; [1] TRUE</span></code></pre></div>
@@ -211,7 +209,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 <li id="fn2"><p>In <strong>Windows</strong>, <code>process_terminate()</code> is an alias for <code>process_kill()</code>. They both lead to immediate termination of the child process.<a href="#fnref2">↩</a></p></li>
 <li id="fn3"><p>The <code>.Call(&quot;C_signal&quot;)</code> in our example is a call to a hidden C function that <code>subprocess</code> provides mainly for the purposes of this example.<a href="#fnref3">↩</a></p></li>
 <li id="fn4"><p>See the <code>waitpid()</code> manual page, e.g. <a href="https://linux.die.net/man/2/waitpid">here</a>.<a href="#fnref4">↩</a></p></li>
-<li id="fn5"><p>The only signal currently supported in <strong>Windows</strong> is <code>SIGTERM</code>. In the future versions of this package two additional signals will be supported: <code>CTRL_C_EVENT</code> and <code>CTRL_BREAK_EVENT</code>.<a href="#fnref5">↩</a></p></li>
+<li id="fn5"><p>The list of signals supported in <strong>Windows</strong> is much shorter than the list of signals supported in <strong>Linux</strong> and contains the following three signals: <code>SIGTERM</code>, <code>CTRL_C_EVENT</code> and <code>CTRL_BREAK_EVENT</code>.<a href="#fnref5">↩</a></p></li>
 </ol>
 </div>
 
