@@ -1,3 +1,5 @@
+* add close_input() function to close the write end of the stdin
+  pipe and sent the child a signal to exit
 * handle differing new-line characters
 * add parameters to spawn_process: stdin, stdout, stderr; enable
   string-based input, output to /dev/null (Linux) or nul (Windows);
