@@ -2,53 +2,54 @@
 library(subprocess)
 library(knitr)
 
-# if Windows, don't evaluate any code
-eval_vignette <- (tolower(.Platform$OS.type) != "windows")
-eval_ssh      <- FALSE
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
-# if not Windows, make sure ssh can connect with the account
-if (eval_vignette) {
-  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no",
-                         "-o", "StrictHostKeyChecking=no"),
-                stdout = FALSE, stderr = FALSE, input = "")
-  eval_ssh <- (rc == 0)
-}
-
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval_vignette)
-
-## ----include=!eval_ssh, eval=!eval_ssh, echo=FALSE, results='asis'-------
-#  cat("##Important!\n")
-#  cat("This vignette has been evaluated in Windows or in an environment\n")
-#  cat("where the _ssh_ connection to _test&#64;localhost_ cannot be established.\n")
-#  cat("Thus, the code in the examples that require certain executables or\n")
-#  cat("signals is not evaluated but simply printed.")
-
-## ----eval=eval_ssh-------------------------------------------------------
+## ------------------------------------------------------------------------
 library(subprocess)
 
-ssh_path <- '/usr/bin/ssh'
-handle <- spawn_process(ssh_path, c('-T', 'test@localhost'))
+R_binary <- function () {
+  R_exe <- ifelse (tolower(.Platform$OS.type) == "windows", "R.exe", "R")
+  return(file.path(R.home("bin"), R_exe))
+}
 
-## ----eval=eval_ssh-------------------------------------------------------
+handle <- spawn_process(R_binary(), c('--no-save'))
+
+## ------------------------------------------------------------------------
 print(handle)
 
-## ----eval=eval_ssh-------------------------------------------------------
+## ------------------------------------------------------------------------
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 
-## ----eval=eval_ssh-------------------------------------------------------
-process_write(handle, 'ls\n')
+## ------------------------------------------------------------------------
+process_write(handle, 'n <- 10\n')
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 
-## ----eval=eval_ssh-------------------------------------------------------
-process_write(handle, 'exit\n')
+## ------------------------------------------------------------------------
+process_write(handle, 'rnorm(n)\n')
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 
-## ----eval=eval_ssh-------------------------------------------------------
+## ------------------------------------------------------------------------
+process_write(handle, 'q(save = "no")\n')
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
+
+## ------------------------------------------------------------------------
 process_poll(handle)
 process_return_code(handle)
+
+## ------------------------------------------------------------------------
+shell_binary <- function () {
+  ifelse (tolower(.Platform$OS.type) == "windows",
+          "C:/Windows/System32/cmd.exe", "/bin/sh")
+}
+
+handle <- spawn_process(shell_binary())
+process_write(handle, "ls\n")
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
 
 ## ------------------------------------------------------------------------
 R_binary <- file.path(R.home("bin"), "R")
@@ -59,12 +60,12 @@ handle <- spawn_process(R_binary, c('--slave', '-e', sub_command))
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# ask nicely to exit
+# ask nicely to exit; will be ignored in Linux but not in Windows
 process_terminate(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# forced exit
+# forced exit; in Windows the same as the previous signal
 process_kill(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
@@ -76,8 +77,8 @@ signals[1:3]
 ## ------------------------------------------------------------------------
 ls(pattern = 'SIG', envir = asNamespace('subprocess'))
 
-## ------------------------------------------------------------------------
-handle <- spawn_process(R_binary, '--slave')
-
-process_send_signal(handle, SIGUSR1)
+## ----eval=FALSE----------------------------------------------------------
+#  handle <- spawn_process(R_binary, '--slave')
+#  
+#  process_send_signal(handle, SIGUSR1)
 
