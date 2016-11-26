@@ -52,9 +52,8 @@ process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 
 ## ------------------------------------------------------------------------
-R_binary <- file.path(R.home("bin"), "R")
 sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
-handle <- spawn_process(R_binary, c('--slave', '-e', sub_command))
+handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
 
 # process is hung
 process_poll(handle, 1000)

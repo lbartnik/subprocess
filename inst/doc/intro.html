@@ -12,7 +12,7 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-25" />
+<meta name="date" content="2016-11-26" />
 
 <title>Introduction to Sub-Processes in R: Linux</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to Sub-Processes in R: Linux</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-25</em></h4>
+<h4 class="date"><em>2016-11-26</em></h4>
 
 
 
@@ -104,7 +104,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   :  /usr/lib/R/bin/R --no-save </span>
-<span class="co">#&gt; system id :  4665 </span>
+<span class="co">#&gt; system id :  9846 </span>
 <span class="co">#&gt; state     :  running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
@@ -140,8 +140,8 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="co">#&gt; [1] 9</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
-<span class="co">#&gt; [2] &quot; [1]  0.36978305  1.79642294 -0.07813186 -0.60987855  0.53354843  0.78993897&quot;</span>
-<span class="co">#&gt; [3] &quot; [7]  1.26976747 -0.28267752 -0.85297915 -0.85302753&quot;                        </span>
+<span class="co">#&gt; [2] &quot; [1]  0.04640381  0.50849684 -0.22651827 -1.34720194 -1.19209923 -0.90191957&quot;</span>
+<span class="co">#&gt; [3] &quot; [7] -0.05961348 -0.47980507  0.16423677  0.01349345&quot;                        </span>
 <span class="co">#&gt; [4] &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
@@ -183,9 +183,8 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 </ul>
 <p>Assume the child R process is hung and there is no way to stop it gracefully. Again, this example can be run on <strong>Windows</strong> if <code>&quot;R&quot;</code> is replaced with <code>&quot;R.exe&quot;</code><a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
 <p><code>process_wait(handle, 1000)</code> will wait for 1 second (1000 milliseconds) for the process to exit and then return <code>NA</code>. <code>process_terminate()</code> will give <code>R</code> a chance to exit graceully, and then <code>process_kill()</code> will force it to exit.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">R_binary &lt;-<span class="st"> </span><span class="kw">file.path</span>(<span class="kw">R.home</span>(<span class="st">&quot;bin&quot;</span>), <span class="st">&quot;R&quot;</span>)
-sub_command &lt;-<span class="st"> 'library(subprocess); .Call(&quot;C_signal&quot;, 15L, &quot;ignore&quot;); Sys.sleep(1000)'</span>
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="kw">c</span>(<span class="st">'--slave'</span>, <span class="st">'-e'</span>, sub_command))
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sub_command &lt;-<span class="st"> 'library(subprocess); .Call(&quot;C_signal&quot;, 15L, &quot;ignore&quot;); Sys.sleep(1000)'</span>
+handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">R_binary</span>(), <span class="kw">c</span>(<span class="st">'--slave'</span>, <span class="st">'-e'</span>, sub_command))
 
 <span class="co"># process is hung</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
