@@ -186,7 +186,7 @@ it to exit.
 
 
 ```{r}
-sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
+sub_command <- 'library(subprocess); subprocess:::signal(15, "ignore"); Sys.sleep(1000)'
 handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
 
 # process is hung

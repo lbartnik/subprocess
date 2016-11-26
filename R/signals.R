@@ -192,3 +192,14 @@ CTRL_C_EVENT <- NA
 #' @export
 #' @rdname signals
 CTRL_BREAK_EVENT <- NA
+
+
+#' A helper function used in vignette.
+#' 
+#' @param signal Signal number.
+#' @param handler Either \code{"default"} or \code{"ignore"}.
+#'
+signal <- function (signal, handler)
+{
+  .Call("C_signal", as.integer(signal), as.character(handler))
+}
