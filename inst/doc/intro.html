@@ -12,7 +12,7 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-21" />
+<meta name="date" content="2016-11-25" />
 
 <title>Introduction to Sub-Processes in R: Linux</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to Sub-Processes in R: Linux</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-21</em></h4>
+<h4 class="date"><em>2016-11-25</em></h4>
 
 
 
@@ -89,47 +89,67 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p>In <strong>Linux</strong> these are regular pipes created with the <code>pipe()</code> system call and opened in the <strong>non-blocking</strong> mode. All communication takes place on request and follows the usual OS rules (e.g. the sub-process will sleep if its output buffer gets filled).</p>
 <p>In <strong>Windows</strong> these pipes are created with the <code>CreatePipe()</code> call and opened in the <strong>blocking</strong> mode. <strong>Windows</strong> does not support <strong>non-blocking</strong> (<strong>overlapped</strong> in <strong>Windows</strong>-speak) mode for anonymous pipes. For that reason each stream has an accompanying reader thread. Reader threads are separated from R interpreter, do not exchange memory with the R interpreter and will not break the single-thread assumption under which R operates.</p>
 </div>
-<div id="example-ssh-connection" class="section level2">
-<h2>Example: SSH connection</h2>
-<p>In this simple example we start a <code>ssh</code> client and connect to the local ssh server. The connection is password-less, based on the public key. Then, we list files in the remote account. The example can be run in both <strong>Linux</strong> and <strong>Windows</strong>, as long as a <code>ssh</code> <strong>daemon</strong> is running on <code>localhost</code> and a correct path to the <code>ssh</code> client is passed to <code>spawn_process()</code>.</p>
-<p>Open the connection:</p>
+<div id="example-controlling-chlid-r-process" class="section level2">
+<h2>Example: controlling chlid R process</h2>
+<p>In this example we spawn a new R process, send a few commands to its standard input and read the responses from its standard output. First, we need to determine the path to R executable and spawn the child process:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(subprocess)
 
-ssh_path &lt;-<span class="st"> '/usr/bin/ssh'</span>
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_path, <span class="kw">c</span>(<span class="st">'-T'</span>, <span class="st">'test@localhost'</span>))</code></pre></div>
-<p>Let’s see the description:</p>
+R_binary &lt;-<span class="st"> </span>function () {
+  R_exe &lt;-<span class="st"> </span><span class="kw">ifelse</span> (<span class="kw">tolower</span>(.Platform$OS.type) ==<span class="st"> &quot;windows&quot;</span>, <span class="st">&quot;R.exe&quot;</span>, <span class="st">&quot;R&quot;</span>)
+  <span class="kw">return</span>(<span class="kw">file.path</span>(<span class="kw">R.home</span>(<span class="st">&quot;bin&quot;</span>), R_exe))
+}
+
+handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">R_binary</span>(), <span class="kw">c</span>(<span class="st">'--no-save'</span>))</code></pre></div>
+<p>Let’s see the description of the child process:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
-<span class="co">#&gt; command   : /usr/bin/ssh -T test@localhost</span>
-<span class="co">#&gt; system id : 17659</span>
-<span class="co">#&gt; state     : running</span></code></pre></div>
+<span class="co">#&gt; command   :  /usr/lib/R/bin/R --no-save </span>
+<span class="co">#&gt; system id :  4665 </span>
+<span class="co">#&gt; state     :  running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; character(0)</span>
+<span class="co">#&gt;  [1] &quot;&quot;                                                             </span>
+<span class="co">#&gt;  [2] &quot;R version 3.3.2 (2016-10-31) -- \&quot;Sincere Pumpkin Patch\&quot;&quot;    </span>
+<span class="co">#&gt;  [3] &quot;Copyright (C) 2016 The R Foundation for Statistical Computing&quot;</span>
+<span class="co">#&gt;  [4] &quot;Platform: x86_64-pc-linux-gnu (64-bit)&quot;                       </span>
+<span class="co">#&gt;  [5] &quot;&quot;                                                             </span>
+<span class="co">#&gt;  [6] &quot;R is free software and comes with ABSOLUTELY NO WARRANTY.&quot;    </span>
+<span class="co">#&gt;  [7] &quot;You are welcome to redistribute it under certain conditions.&quot; </span>
+<span class="co">#&gt;  [8] &quot;Type 'license()' or 'licence()' for distribution details.&quot;    </span>
+<span class="co">#&gt;  [9] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [10] &quot;R is a collaborative project with many contributors.&quot;         </span>
+<span class="co">#&gt; [11] &quot;Type 'contributors()' for more information and&quot;               </span>
+<span class="co">#&gt; [12] &quot;'citation()' on how to cite R or R packages in publications.&quot; </span>
+<span class="co">#&gt; [13] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [14] &quot;Type 'demo()' for some demos, 'help()' for on-line help, or&quot;  </span>
+<span class="co">#&gt; [15] &quot;'help.start()' for an HTML browser interface to help.&quot;        </span>
+<span class="co">#&gt; [16] &quot;Type 'q()' to quit R.&quot;                                        </span>
+<span class="co">#&gt; [17] &quot;&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The first number in the output is the value returned by <code>process_write</code> which is the number of characters written to standard input of the child process. The final <code>character(0)</code> is the output read from the standard error stream.</p>
-<p>Next, list files in the remote account:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'ls</span><span class="ch">\n</span><span class="st">'</span>)
-<span class="co">#&gt; [1] 3</span>
+<p>Next, we create a new variable in child’s session. Please notice the new-line character at the end of the command. It triggers the child process to process its input.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'n &lt;- 10</span><span class="ch">\n</span><span class="st">'</span>)
+<span class="co">#&gt; [1] 8</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-27-generic x86_64)&quot;</span>
-<span class="co">#&gt; [2] &quot;&quot;                                                           </span>
-<span class="co">#&gt; [3] &quot; * Documentation:  https://help.ubuntu.com&quot;                 </span>
-<span class="co">#&gt; [4] &quot; * Management:     https://landscape.canonical.com&quot;         </span>
-<span class="co">#&gt; [5] &quot; * Support:        https://ubuntu.com/advantage&quot;            </span>
-<span class="co">#&gt; [6] &quot;&quot;                                                           </span>
-<span class="co">#&gt; [7] &quot;0 packages can be updated.&quot;                                 </span>
-<span class="co">#&gt; [8] &quot;0 updates are security updates.&quot;                            </span>
-<span class="co">#&gt; [9] &quot;&quot;</span>
+<span class="co">#&gt; [1] &quot;&gt; n &lt;- 10&quot; &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
-<p>Finally, we close the connection by exiting the remote <strong>shell</strong>:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'exit</span><span class="ch">\n</span><span class="st">'</span>)
-<span class="co">#&gt; [1] 5</span>
+<p>Now it’s time to use this variable in a function call:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'rnorm(n)</span><span class="ch">\n</span><span class="st">'</span>)
+<span class="co">#&gt; [1] 9</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;Desktop&quot;          &quot;Download&quot;         &quot;examples.desktop&quot;</span>
-<span class="co">#&gt; [4] &quot;Music&quot;            &quot;Public&quot;           &quot;Video&quot;</span>
+<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
+<span class="co">#&gt; [2] &quot; [1]  0.36978305  1.79642294 -0.07813186 -0.60987855  0.53354843  0.78993897&quot;</span>
+<span class="co">#&gt; [3] &quot; [7]  1.26976747 -0.28267752 -0.85297915 -0.85302753&quot;                        </span>
+<span class="co">#&gt; [4] &quot;&gt; &quot;</span>
+<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="co">#&gt; character(0)</span></code></pre></div>
+<p>Finally, we exit the child process:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'q(save = &quot;no&quot;)</span><span class="ch">\n</span><span class="st">'</span>)
+<span class="co">#&gt; [1] 15</span>
+<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="co">#&gt; [1] &quot;q(save = \&quot;no\&quot;)&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The last thing is making sure that the child process is no longer alive:</p>
@@ -137,6 +157,19 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(ssh_p
 <span class="co">#&gt; [1] &quot;exited&quot;</span>
 <span class="kw">process_return_code</span>(handle)
 <span class="co">#&gt; [1] 0</span></code></pre></div>
+<p>Of course there is little value in running a child R process since there are multiple other tools that let you do that, like <code>parallel</code>, <code>Rserve</code> and <code>opencpu</code> to name just a few. However, it’s quite easy to imagine how running a remote shell in this manner enables new ways of interacting with the environment. Consider running a local shell:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">shell_binary &lt;-<span class="st"> </span>function () {
+  <span class="kw">ifelse</span> (<span class="kw">tolower</span>(.Platform$OS.type) ==<span class="st"> &quot;windows&quot;</span>,
+          <span class="st">&quot;C:/Windows/System32/cmd.exe&quot;</span>, <span class="st">&quot;/bin/sh&quot;</span>)
+}
+
+handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">shell_binary</span>())
+<span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)
+<span class="co">#&gt; [1] 3</span>
+<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="co">#&gt; [1] &quot;intro.Rmd&quot;</span>
+<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="co">#&gt; character(0)</span></code></pre></div>
 </div>
 <div id="advanced-techniques" class="section level2">
 <h2>Advanced techniques</h2>
@@ -160,7 +193,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 <span class="kw">process_return_code</span>(handle)
 <span class="co">#&gt; [1] NA</span>
 
-<span class="co"># ask nicely to exit</span>
+<span class="co"># ask nicely to exit; will be ignored in Linux but not in Windows</span>
 <span class="kw">process_terminate</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
@@ -168,7 +201,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_bin
 <span class="kw">process_return_code</span>(handle)
 <span class="co">#&gt; [1] 15</span>
 
-<span class="co"># forced exit</span>
+<span class="co"># forced exit; in Windows the same as the previous signal</span>
 <span class="kw">process_kill</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
@@ -200,8 +233,7 @@ signals[<span class="dv">1</span>:<span class="dv">3</span>]
 <p>Now we can create a new child process and send an arbitrary using its handle.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(R_binary, <span class="st">'--slave'</span>)
 
-<span class="kw">process_send_signal</span>(handle, SIGUSR1)
-<span class="co">#&gt; [1] TRUE</span></code></pre></div>
+<span class="kw">process_send_signal</span>(handle, SIGUSR1)</code></pre></div>
 </div>
 <div class="footnotes">
 <hr />
