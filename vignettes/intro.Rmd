@@ -78,17 +78,13 @@ with the R interpreter and will not break the single-thread assumption
 under which R operates.
 
 
-## Example: controlling chlid R process
+## Introduction to Examples
 
-In this example we spawn a new R process, send a few commands to its
-standard input and read the responses from its standard output. First,
-let's load the `subprocess` package and define a few helper functions
+Before we move on to examples, let's define a few helper functions
 that abstract out the underlying operating system. We will use them
 throughout this vignette.
 
 ```{r}
-library(subprocess)
-
 is_windows <- function () (tolower(.Platform$OS.type) == "windows")
 
 R_binary <- function () {
@@ -97,12 +93,30 @@ R_binary <- function () {
 }
 ```
 
+Just for the record, vignette has been built in
+`r ifelse(is_windows(), "Windows", "Linux")`.
 
-Now we can correctly identify the path to the executable and spawn the
-child process:
+```{r}
+ifelse(is_windows(), "Windows", "Linux")
+```
+
+Now we can load the package and move on to the next section.
+
+```{r}
+library(subprocess)
+```
+
+
+## Example: controlling chlid R process
+
+In this example we spawn a new R process, send a few commands to its
+standard input and read the responses from its standard output. First,
+let's spawn the child process (and give it a moment to complete the
+start-up sequence):
 
 ```{r}
 handle <- spawn_process(R_binary(), c('--no-save'))
+Sys.sleep(1)
 ```
 
 Let's see the description of the child process:
@@ -234,7 +248,7 @@ example.
 [^status]: See the `waitpid()` manual page, e.g. [here](https://linux.die.net/man/2/waitpid). 
 
 
-## Sending a signal to the child process
+### Sending a signal to the child process
 
 The last topic we want to cover here is sending an arbitrary[^windowssignals]
 signal to the child process. Signals can be listed by looking at the
