@@ -13,27 +13,7 @@ vignette: >
 library(subprocess)
 library(knitr)
 
-# if Windows, don't evaluate any code
-eval_vignette <- (tolower(.Platform$OS.type) != "windows")
-eval_ssh      <- FALSE
-
-# if not Windows, make sure ssh can connect with the account
-if (eval_vignette) {
-  rc <- system2("ssh", c("test@localhost", "-o", "PasswordAuthentication=no",
-                         "-o", "StrictHostKeyChecking=no"),
-                stdout = FALSE, stderr = FALSE, input = "")
-  eval_ssh <- (rc == 0)
-}
-
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = eval_vignette)
-```
-
-```{r include=!eval_ssh, eval=!eval_ssh, echo=FALSE, results='asis'}
-cat("##Important!\n")
-cat("This vignette has been evaluated in Windows or in an environment\n")
-cat("where the _ssh_ connection to _test&#64;localhost_ cannot be established.\n")
-cat("Thus, the code in the examples that require certain executables or\n")
-cat("signals is not evaluated but simply printed.")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
 ## Introduction
@@ -57,8 +37,9 @@ Python package which goes by the same. Its documentation can be found
 examples of how it can be used can be found on the Web.
 
 The R `subprocess` package has been implemented for both **Linux** and
-**Windows** but since the author doesn't have access to a MacOSX machine
-the extent to which it is compatible with Mac is unknown.
+**Windows** but since the author doesn't have access to a **MacOS**
+machine the extent to which it is compatible with **MacOS** is unknown
+to him.
 
 
 [^systemslanguage]: "By systems programming I mean writing code that
@@ -98,32 +79,59 @@ with the R interpreter and will not break the single-thread assumption
 under which R operates.
 
 
-## Example: SSH connection
+## Introduction to Examples
 
-In this simple example we start a `ssh` client and connect to the local
-ssh server. The connection is password-less, based on the public key.
-Then, we list files in the remote  account. The example can be run in
-both **Linux** and **Windows**, as long as a `ssh` __daemon__ is running
-on `localhost` and a correct path to the `ssh` client is passed to
-`spawn_process()`.
+Before we move on to examples, let's define a few helper functions
+that abstract out the underlying operating system. We will use them
+throughout this vignette.
 
+```{r}
+is_windows <- function () (tolower(.Platform$OS.type) == "windows")
 
-Open the connection:
-
-```{r eval=eval_ssh}
-library(subprocess)
-
-ssh_path <- '/usr/bin/ssh'
-handle <- spawn_process(ssh_path, c('-T', 'test@localhost'))
+R_binary <- function () {
+  R_exe <- ifelse (is_windows(), "R.exe", "R")
+  return(file.path(R.home("bin"), R_exe))
+}
 ```
 
-Let's see the description:
-```{r eval=eval_ssh}
+Just for the record, vignette has been built in
+`r ifelse(is_windows(), "Windows", "Linux")`.
+
+```{r}
+ifelse(is_windows(), "Windows", "Linux")
+```
+
+Now we can load the package and move on to the next section.
+
+```{r}
+library(subprocess)
+```
+
+
+## Example: controlling chlid R process
+
+In this example we spawn a new R process, send a few commands to its
+standard input and read the responses from its standard output. First,
+let's spawn the child process (and give it a moment to complete the
+start-up sequence[^syssleep]):
+
+```{r}
+handle <- spawn_process(R_binary(), c('--no-save'))
+Sys.sleep(1)
+```
+
+[^syssleep]: Depending on the system load, R can take a few seconds
+to start and be ready for input. This is true also for other processes.
+Thus, you will see `Sys.sleep()` following `spawn_process()` in almost
+every example in this vignette.
+
+Let's see the description of the child process:
+```{r}
 print(handle)
 ```
 
 And now let's see what we can find it the child's output:
-```{r eval=eval_ssh}
+```{r}
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 ```
@@ -133,28 +141,67 @@ which is the number of characters written to standard input of the
 child process. The final `character(0)` is the output read from the
 standard error stream.
 
-Next, list files in the remote account:
+Next, we create a new variable in child's session. Please notice the
+new-line character at the end of the command. It triggers the child
+process to process its input.
 
-```{r eval=eval_ssh}
-process_write(handle, 'ls\n')
+```{r}
+process_write(handle, 'n <- 10\n')
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 ```
 
-Finally, we close the connection by exiting the remote __shell__:
+Now it's time to use this variable in a function call:
 
-```{r eval=eval_ssh}
-process_write(handle, 'exit\n')
+```{r}
+process_write(handle, 'rnorm(n)\n')
+process_read(handle, timeout = 1000)
+process_read(handle, 'stderr')
+```
+
+Finally, we exit the child process:
+
+```{r}
+process_write(handle, 'q(save = "no")\n')
 process_read(handle, timeout = 1000)
 process_read(handle, 'stderr')
 ```
 
 The last thing is making sure that the child process is no longer alive:
 
-```{r eval=eval_ssh}
+```{r}
 process_poll(handle)
 process_return_code(handle)
 ```
+
+Of course there is little value in running a child R process since there
+are multiple other tools that let you do that, like `parallel`, `Rserve`
+and `opencpu` to name just a few. However, it's quite easy to imagine
+how running a remote shell in this manner enables new ways of
+interacting with the environment. Consider running a local shell:
+
+```{r}
+shell_binary <- function () {
+  ifelse (tolower(.Platform$OS.type) == "windows",
+          "C:/Windows/System32/cmd.exe", "/bin/sh")
+}
+
+handle <- spawn_process(shell_binary())
+print(handle)
+```
+
+Now we can interact with the shell sub-process. We send a request to
+list the current directory, then give it a moment to process the command
+and produce the output (and maybe finish its start-up, too). Finally,
+we check its output streams.
+
+```{r}
+process_write(handle, "ls\n")
+Sys.sleep(1)
+process_read(handle)
+process_read(handle, 'stderr')
+```
+
 
 ## Advanced techniques
 
@@ -167,30 +214,27 @@ If the child process needs to be terminated one can choose to:
   - send the kill signal, `SIGKILL` (**Linux** only)
 
 Assume the child R process is hung and there is no way to stop it
-gracefully. Again, this example can be run on **Windows** if `"R"` is
-replaced with `"R.exe"`[^termination].
-
-`process_wait(handle, 1000)` will wait for 1 second (1000 milliseconds)
-for the process to exit and then return `NA`. `process_terminate()` will
-give `R` a chance to exit graceully, and then `process_kill()` will force
-it to exit.
+gracefully. `process_wait(handle, 1000)` waits for 1 second (1000
+milliseconds) for the child process to exit. It then returns `NA` and
+`process_terminate()` gives `R` a chance to exit graceully. Finally,
+`process_kill()` forces it to exit.
 
 
 ```{r}
-R_binary <- file.path(R.home("bin"), "R")
-sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
-handle <- spawn_process(R_binary, c('--slave', '-e', sub_command))
+sub_command <- "library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)"
+handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
+Sys.sleep(1)
 
 # process is hung
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# ask nicely to exit
+# ask nicely to exit; will be ignored in Linux but not in Windows
 process_terminate(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# forced exit
+# forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
@@ -211,7 +255,7 @@ example.
 [^status]: See the `waitpid()` manual page, e.g. [here](https://linux.die.net/man/2/waitpid). 
 
 
-## Sending a signal to the child process
+### Sending a signal to the child process
 
 The last topic we want to cover here is sending an arbitrary[^windowssignals]
 signal to the child process. Signals can be listed by looking at the
@@ -239,7 +283,7 @@ ls(pattern = 'SIG', envir = asNamespace('subprocess'))
 Now we can create a new child process and send an arbitrary using its
 handle.
 
-```{r}
+```{r eval=FALSE}
 handle <- spawn_process(R_binary, '--slave')
 
 process_send_signal(handle, SIGUSR1)

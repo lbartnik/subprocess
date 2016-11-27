@@ -17,4 +17,4 @@ PackageUseDevtools: Yes
 PackageInstallArgs: --no-multiarch --with-keep.source --debug
 PackageBuildArgs: --debug
 PackageBuildBinaryArgs: --debug
-PackageRoxygenize: rd,collate,namespace,vignette
+PackageRoxygenize: rd,collate,namespace
