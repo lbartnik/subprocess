@@ -5,14 +5,22 @@ library(knitr)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 ## ------------------------------------------------------------------------
-library(subprocess)
+is_windows <- function () (tolower(.Platform$OS.type) == "windows")
 
 R_binary <- function () {
-  R_exe <- ifelse (tolower(.Platform$OS.type) == "windows", "R.exe", "R")
+  R_exe <- ifelse (is_windows(), "R.exe", "R")
   return(file.path(R.home("bin"), R_exe))
 }
 
+## ------------------------------------------------------------------------
+ifelse(is_windows(), "Windows", "Linux")
+
+## ------------------------------------------------------------------------
+library(subprocess)
+
+## ------------------------------------------------------------------------
 handle <- spawn_process(R_binary(), c('--no-save'))
+Sys.sleep(1)
 
 ## ------------------------------------------------------------------------
 print(handle)
@@ -47,13 +55,18 @@ shell_binary <- function () {
 }
 
 handle <- spawn_process(shell_binary())
+print(handle)
+
+## ------------------------------------------------------------------------
 process_write(handle, "ls\n")
-process_read(handle, timeout = 1000)
+Sys.sleep(1)
+process_read(handle)
 process_read(handle, 'stderr')
 
 ## ------------------------------------------------------------------------
-sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
+sub_command <- "library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)"
 handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
+Sys.sleep(1)
 
 # process is hung
 process_poll(handle, 1000)
@@ -64,7 +77,7 @@ process_terminate(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# forced exit; in Windows the same as the previous signal
+# forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
 process_poll(handle, 1000)
 process_return_code(handle)

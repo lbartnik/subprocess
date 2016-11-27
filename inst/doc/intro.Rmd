@@ -37,8 +37,9 @@ Python package which goes by the same. Its documentation can be found
 examples of how it can be used can be found on the Web.
 
 The R `subprocess` package has been implemented for both **Linux** and
-**Windows** but since the author doesn't have access to a MacOSX machine
-the extent to which it is compatible with Mac is unknown.
+**Windows** but since the author doesn't have access to a **MacOS**
+machine the extent to which it is compatible with **MacOS** is unknown
+to him.
 
 
 [^systemslanguage]: "By systems programming I mean writing code that
@@ -78,24 +79,51 @@ with the R interpreter and will not break the single-thread assumption
 under which R operates.
 
 
+## Introduction to Examples
+
+Before we move on to examples, let's define a few helper functions
+that abstract out the underlying operating system. We will use them
+throughout this vignette.
+
+```{r}
+is_windows <- function () (tolower(.Platform$OS.type) == "windows")
+
+R_binary <- function () {
+  R_exe <- ifelse (is_windows(), "R.exe", "R")
+  return(file.path(R.home("bin"), R_exe))
+}
+```
+
+Just for the record, vignette has been built in
+`r ifelse(is_windows(), "Windows", "Linux")`.
+
+```{r}
+ifelse(is_windows(), "Windows", "Linux")
+```
+
+Now we can load the package and move on to the next section.
+
+```{r}
+library(subprocess)
+```
+
+
 ## Example: controlling chlid R process
 
 In this example we spawn a new R process, send a few commands to its
 standard input and read the responses from its standard output. First,
-we need to determine the path to R executable and spawn the child
-process:
-
+let's spawn the child process (and give it a moment to complete the
+start-up sequence[^syssleep]):
 
 ```{r}
-library(subprocess)
-
-R_binary <- function () {
-  R_exe <- ifelse (tolower(.Platform$OS.type) == "windows", "R.exe", "R")
-  return(file.path(R.home("bin"), R_exe))
-}
-
 handle <- spawn_process(R_binary(), c('--no-save'))
+Sys.sleep(1)
 ```
+
+[^syssleep]: Depending on the system load, R can take a few seconds
+to start and be ready for input. This is true also for other processes.
+Thus, you will see `Sys.sleep()` following `spawn_process()` in almost
+every example in this vignette.
 
 Let's see the description of the child process:
 ```{r}
@@ -159,8 +187,18 @@ shell_binary <- function () {
 }
 
 handle <- spawn_process(shell_binary())
+print(handle)
+```
+
+Now we can interact with the shell sub-process. We send a request to
+list the current directory, then give it a moment to process the command
+and produce the output (and maybe finish its start-up, too). Finally,
+we check its output streams.
+
+```{r}
 process_write(handle, "ls\n")
-process_read(handle, timeout = 1000)
+Sys.sleep(1)
+process_read(handle)
 process_read(handle, 'stderr')
 ```
 
@@ -176,18 +214,16 @@ If the child process needs to be terminated one can choose to:
   - send the kill signal, `SIGKILL` (**Linux** only)
 
 Assume the child R process is hung and there is no way to stop it
-gracefully. Again, this example can be run on **Windows** if `"R"` is
-replaced with `"R.exe"`[^termination].
-
-`process_wait(handle, 1000)` will wait for 1 second (1000 milliseconds)
-for the process to exit and then return `NA`. `process_terminate()` will
-give `R` a chance to exit graceully, and then `process_kill()` will force
-it to exit.
+gracefully. `process_wait(handle, 1000)` waits for 1 second (1000
+milliseconds) for the child process to exit. It then returns `NA` and
+`process_terminate()` gives `R` a chance to exit graceully. Finally,
+`process_kill()` forces it to exit.
 
 
 ```{r}
-sub_command <- 'library(subprocess); .Call("C_signal", 15L, "ignore"); Sys.sleep(1000)'
+sub_command <- "library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)"
 handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
+Sys.sleep(1)
 
 # process is hung
 process_poll(handle, 1000)
@@ -198,7 +234,7 @@ process_terminate(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# forced exit; in Windows the same as the previous signal
+# forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
@@ -219,7 +255,7 @@ example.
 [^status]: See the `waitpid()` manual page, e.g. [here](https://linux.die.net/man/2/waitpid). 
 
 
-## Sending a signal to the child process
+### Sending a signal to the child process
 
 The last topic we want to cover here is sending an arbitrary[^windowssignals]
 signal to the child process. Signals can be listed by looking at the
