@@ -79,7 +79,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p>Since R is not really a systems-programming language<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a> some facilities present in other such languages (e.g. C/C++, Python) haven’t been yet brought to R. One of such features is process management which is understood here as the capability to create, interact with and control the lifetime of child processes.</p>
 <p>The R package <code>subprocess</code> aims at filling this gap by providing the few basic operations to carry out the aforementioned tasks. The <code>spawn_subprocess()</code> function starts a new child process and returns a handle which can be later used in <code>process_read()</code> and <code>process_write()</code> to send and receive data or in <code>process_wait()</code> or <code>process_terminate()</code> to stop the such a process.</p>
 <p>The R <code>subprocess</code> package has been designed after the exemplary Python package which goes by the same. Its documentation can be found <a href="https://docs.python.org/3/library/subprocess.html">here</a> and numerous examples of how it can be used can be found on the Web.</p>
-<p>The R <code>subprocess</code> package has been implemented for both <strong>Linux</strong> and <strong>Windows</strong> but since the author doesn’t have access to a MacOSX machine the extent to which it is compatible with Mac is unknown.</p>
+<p>The R <code>subprocess</code> package has been implemented for both <strong>Linux</strong> and <strong>Windows</strong> but since the author doesn’t have access to a <strong>MacOS</strong> machine the extent to which it is compatible with <strong>MacOS</strong> is unknown to him.</p>
 </div>
 <div id="design-and-implementation" class="section level2">
 <h2>Design and Implementation</h2>
@@ -89,22 +89,31 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p>In <strong>Linux</strong> these are regular pipes created with the <code>pipe()</code> system call and opened in the <strong>non-blocking</strong> mode. All communication takes place on request and follows the usual OS rules (e.g. the sub-process will sleep if its output buffer gets filled).</p>
 <p>In <strong>Windows</strong> these pipes are created with the <code>CreatePipe()</code> call and opened in the <strong>blocking</strong> mode. <strong>Windows</strong> does not support <strong>non-blocking</strong> (<strong>overlapped</strong> in <strong>Windows</strong>-speak) mode for anonymous pipes. For that reason each stream has an accompanying reader thread. Reader threads are separated from R interpreter, do not exchange memory with the R interpreter and will not break the single-thread assumption under which R operates.</p>
 </div>
-<div id="example-controlling-chlid-r-process" class="section level2">
-<h2>Example: controlling chlid R process</h2>
-<p>In this example we spawn a new R process, send a few commands to its standard input and read the responses from its standard output. First, we need to determine the path to R executable and spawn the child process:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(subprocess)
+<div id="introduction-to-examples" class="section level2">
+<h2>Introduction to Examples</h2>
+<p>Before we move on to examples, let’s define a few helper functions that abstract out the underlying operating system. We will use them throughout this vignette.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">is_windows &lt;-<span class="st"> </span>function () (<span class="kw">tolower</span>(.Platform$OS.type) ==<span class="st"> &quot;windows&quot;</span>)
 
 R_binary &lt;-<span class="st"> </span>function () {
-  R_exe &lt;-<span class="st"> </span><span class="kw">ifelse</span> (<span class="kw">tolower</span>(.Platform$OS.type) ==<span class="st"> &quot;windows&quot;</span>, <span class="st">&quot;R.exe&quot;</span>, <span class="st">&quot;R&quot;</span>)
+  R_exe &lt;-<span class="st"> </span><span class="kw">ifelse</span> (<span class="kw">is_windows</span>(), <span class="st">&quot;R.exe&quot;</span>, <span class="st">&quot;R&quot;</span>)
   <span class="kw">return</span>(<span class="kw">file.path</span>(<span class="kw">R.home</span>(<span class="st">&quot;bin&quot;</span>), R_exe))
-}
-
-handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">R_binary</span>(), <span class="kw">c</span>(<span class="st">'--no-save'</span>))</code></pre></div>
+}</code></pre></div>
+<p>Just for the record, vignette has been built in Linux.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">ifelse</span>(<span class="kw">is_windows</span>(), <span class="st">&quot;Windows&quot;</span>, <span class="st">&quot;Linux&quot;</span>)
+<span class="co">#&gt; [1] &quot;Linux&quot;</span></code></pre></div>
+<p>Now we can load the package and move on to the next section.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(subprocess)</code></pre></div>
+</div>
+<div id="example-controlling-chlid-r-process" class="section level2">
+<h2>Example: controlling chlid R process</h2>
+<p>In this example we spawn a new R process, send a few commands to its standard input and read the responses from its standard output. First, let’s spawn the child process (and give it a moment to complete the start-up sequence<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>):</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">R_binary</span>(), <span class="kw">c</span>(<span class="st">'--no-save'</span>))
+<span class="kw">Sys.sleep</span>(<span class="dv">1</span>)</code></pre></div>
 <p>Let’s see the description of the child process:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   :  /usr/lib/R/bin/R --no-save </span>
-<span class="co">#&gt; system id :  9846 </span>
+<span class="co">#&gt; system id :  3929 </span>
 <span class="co">#&gt; state     :  running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
@@ -124,7 +133,8 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="co">#&gt; [14] &quot;Type 'demo()' for some demos, 'help()' for on-line help, or&quot;  </span>
 <span class="co">#&gt; [15] &quot;'help.start()' for an HTML browser interface to help.&quot;        </span>
 <span class="co">#&gt; [16] &quot;Type 'q()' to quit R.&quot;                                        </span>
-<span class="co">#&gt; [17] &quot;&quot;</span>
+<span class="co">#&gt; [17] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [18] &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The first number in the output is the value returned by <code>process_write</code> which is the number of characters written to standard input of the child process. The final <code>character(0)</code> is the output read from the standard error stream.</p>
@@ -132,16 +142,16 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'n &lt;- 10</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 8</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;&gt; n &lt;- 10&quot; &quot;&gt; &quot;</span>
+<span class="co">#&gt; [1] &quot;n &lt;- 10&quot; &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>Now it’s time to use this variable in a function call:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'rnorm(n)</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 9</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
-<span class="co">#&gt; [2] &quot; [1]  0.04640381  0.50849684 -0.22651827 -1.34720194 -1.19209923 -0.90191957&quot;</span>
-<span class="co">#&gt; [3] &quot; [7] -0.05961348 -0.47980507  0.16423677  0.01349345&quot;                        </span>
+<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                              </span>
+<span class="co">#&gt; [2] &quot; [1] -0.1292514 -0.8090838  0.5379578  0.2171135 -0.2305358 -0.0182352&quot;</span>
+<span class="co">#&gt; [3] &quot; [7] -1.4132377  0.7433110 -2.1443772  0.6082704&quot;                      </span>
 <span class="co">#&gt; [4] &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
@@ -164,9 +174,16 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 }
 
 handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">shell_binary</span>())
-<span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)
+<span class="kw">print</span>(handle)
+<span class="co">#&gt; Process Handle</span>
+<span class="co">#&gt; command   :  /bin/dash  </span>
+<span class="co">#&gt; system id :  3934 </span>
+<span class="co">#&gt; state     :  running</span></code></pre></div>
+<p>Now we can interact with the shell sub-process. We send a request to list the current directory, then give it a moment to process the command and produce the output (and maybe finish its start-up, too). Finally, we check its output streams.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)
 <span class="co">#&gt; [1] 3</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="kw">Sys.sleep</span>(<span class="dv">1</span>)
+<span class="kw">process_read</span>(handle)
 <span class="co">#&gt; [1] &quot;intro.Rmd&quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
@@ -181,10 +198,10 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <li>send the termination signal, <code>SIGTERM</code> (<strong>Linux</strong>, <strong>Windows</strong>)</li>
 <li>send the kill signal, <code>SIGKILL</code> (<strong>Linux</strong> only)</li>
 </ul>
-<p>Assume the child R process is hung and there is no way to stop it gracefully. Again, this example can be run on <strong>Windows</strong> if <code>&quot;R&quot;</code> is replaced with <code>&quot;R.exe&quot;</code><a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
-<p><code>process_wait(handle, 1000)</code> will wait for 1 second (1000 milliseconds) for the process to exit and then return <code>NA</code>. <code>process_terminate()</code> will give <code>R</code> a chance to exit graceully, and then <code>process_kill()</code> will force it to exit.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sub_command &lt;-<span class="st"> 'library(subprocess); .Call(&quot;C_signal&quot;, 15L, &quot;ignore&quot;); Sys.sleep(1000)'</span>
+<p>Assume the child R process is hung and there is no way to stop it gracefully. <code>process_wait(handle, 1000)</code> waits for 1 second (1000 milliseconds) for the child process to exit. It then returns <code>NA</code> and <code>process_terminate()</code> gives <code>R</code> a chance to exit graceully. Finally, <code>process_kill()</code> forces it to exit.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sub_command &lt;-<span class="st"> &quot;library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)&quot;</span>
 handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">R_binary</span>(), <span class="kw">c</span>(<span class="st">'--slave'</span>, <span class="st">'-e'</span>, sub_command))
+<span class="kw">Sys.sleep</span>(<span class="dv">1</span>)
 
 <span class="co"># process is hung</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
@@ -196,22 +213,21 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="kw">process_terminate</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;terminated&quot;</span>
+<span class="co">#&gt; [1] &quot;running&quot;</span>
 <span class="kw">process_return_code</span>(handle)
-<span class="co">#&gt; [1] 15</span>
+<span class="co">#&gt; [1] NA</span>
 
-<span class="co"># forced exit; in Windows the same as the previous signal</span>
+<span class="co"># forced exit; in Windows the same as the previous call to process_terminate()</span>
 <span class="kw">process_kill</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
 <span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;terminated&quot;</span>
 <span class="kw">process_return_code</span>(handle)
-<span class="co">#&gt; [1] 15</span></code></pre></div>
+<span class="co">#&gt; [1] 9</span></code></pre></div>
 <p>We see that the child process remains running until it receives the <code>SIGKILL</code> signal<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a>. The final return code (exit status) is the number of the signal that caused the child process to exit<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a>.</p>
 </div>
-</div>
-<div id="sending-a-signal-to-the-child-process" class="section level2">
-<h2>Sending a signal to the child process</h2>
+<div id="sending-a-signal-to-the-child-process" class="section level3">
+<h3>Sending a signal to the child process</h3>
 <p>The last topic we want to cover here is sending an arbitrary<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a> signal to the child process. Signals can be listed by looking at the <code>signals</code> variable present in the package. It is constructed automatically when the package is loaded and its value on <strong>Linux</strong> is different than on <strong>Windows</strong>. In the example below we see the first three elements of the <strong>Linux</strong> list of signals.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">length</span>(signals)
 <span class="co">#&gt; [1] 19</span>
@@ -234,11 +250,12 @@ signals[<span class="dv">1</span>:<span class="dv">3</span>]
 
 <span class="kw">process_send_signal</span>(handle, SIGUSR1)</code></pre></div>
 </div>
+</div>
 <div class="footnotes">
 <hr />
 <ol>
 <li id="fn1"><p>“By systems programming I mean writing code that directly uses hardware resources, has serious resource constraints, or closely interacts with code that does.” Bjarne Stroustrup, “The C++ Programming Language”<a href="#fnref1">↩</a></p></li>
-<li id="fn2"><p>In <strong>Windows</strong>, <code>process_terminate()</code> is an alias for <code>process_kill()</code>. They both lead to immediate termination of the child process.<a href="#fnref2">↩</a></p></li>
+<li id="fn2"><p>Depending on the system load, R can take a few seconds to start and be ready for input. This is true also for other processes. Thus, you will see <code>Sys.sleep()</code> following <code>spawn_process()</code> in almost every example in this vignette.<a href="#fnref2">↩</a></p></li>
 <li id="fn3"><p>The <code>.Call(&quot;C_signal&quot;)</code> in our example is a call to a hidden C function that <code>subprocess</code> provides mainly for the purposes of this example.<a href="#fnref3">↩</a></p></li>
 <li id="fn4"><p>See the <code>waitpid()</code> manual page, e.g. <a href="https://linux.die.net/man/2/waitpid">here</a>.<a href="#fnref4">↩</a></p></li>
 <li id="fn5"><p>The list of signals supported in <strong>Windows</strong> is much shorter than the list of signals supported in <strong>Linux</strong> and contains the following three signals: <code>SIGTERM</code>, <code>CTRL_C_EVENT</code> and <code>CTRL_BREAK_EVENT</code>.<a href="#fnref5">↩</a></p></li>

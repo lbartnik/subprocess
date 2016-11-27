@@ -37,8 +37,9 @@ Python package which goes by the same. Its documentation can be found
 examples of how it can be used can be found on the Web.
 
 The R `subprocess` package has been implemented for both **Linux** and
-**Windows** but since the author doesn't have access to a MacOSX machine
-the extent to which it is compatible with Mac is unknown.
+**Windows** but since the author doesn't have access to a **MacOS**
+machine the extent to which it is compatible with **MacOS** is unknown
+to him.
 
 
 [^systemslanguage]: "By systems programming I mean writing code that
@@ -112,12 +113,17 @@ library(subprocess)
 In this example we spawn a new R process, send a few commands to its
 standard input and read the responses from its standard output. First,
 let's spawn the child process (and give it a moment to complete the
-start-up sequence):
+start-up sequence[^syssleep]):
 
 ```{r}
 handle <- spawn_process(R_binary(), c('--no-save'))
 Sys.sleep(1)
 ```
+
+[^syssleep]: Depending on the system load, R can take a few seconds
+to start and be ready for input. This is true also for other processes.
+Thus, you will see `Sys.sleep()` following `spawn_process()` in almost
+every example in this vignette.
 
 Let's see the description of the child process:
 ```{r}
@@ -217,6 +223,7 @@ milliseconds) for the child process to exit. It then returns `NA` and
 ```{r}
 sub_command <- "library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)"
 handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
+Sys.sleep(1)
 
 # process is hung
 process_poll(handle, 1000)
@@ -227,7 +234,7 @@ process_terminate(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
 
-# forced exit; in Windows the same as the previous signal
+# forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
 process_poll(handle, 1000)
 process_return_code(handle)
