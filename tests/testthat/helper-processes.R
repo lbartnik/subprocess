@@ -8,12 +8,6 @@ is_linux <- function ()
   identical(tolower(Sys.info()[["sysname"]]), 'linux')
 }
 
-root_dir <- function ()
-{
-  ifelse(is_windows(), "c:\\", "/")
-}
-
-
 # --- R child ----------------------------------------------------------
 
 R_binary <- function ()
