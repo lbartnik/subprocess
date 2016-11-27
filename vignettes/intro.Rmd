@@ -92,7 +92,7 @@ library(subprocess)
 is_windows <- function () (tolower(.Platform$OS.type) == "windows")
 
 R_binary <- function () {
-  R_exe <- ifelse (is_window(), "R.exe", "R")
+  R_exe <- ifelse (is_windows(), "R.exe", "R")
   return(file.path(R.home("bin"), R_exe))
 }
 ```
@@ -167,8 +167,18 @@ shell_binary <- function () {
 }
 
 handle <- spawn_process(shell_binary())
+print(handle)
+```
+
+Now we can interact with the shell sub-process. We send a request to
+list the current directory, then give it a moment to process the command
+and produce the output (and maybe finish its start-up, too). Finally,
+we check its output streams.
+
+```{r}
 process_write(handle, "ls\n")
-process_read(handle, timeout = 1000)
+Sys.sleep(1)
+process_read(handle)
 process_read(handle, 'stderr')
 ```
 
