@@ -12,9 +12,9 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-26" />
+<meta name="date" content="2016-11-28" />
 
-<title>Introduction to Sub-Processes in R: Linux</title>
+<title>Introduction to Sub-Processes in R</title>
 
 
 
@@ -68,9 +68,9 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 
 
-<h1 class="title toc-ignore">Introduction to Sub-Processes in R: Linux</h1>
+<h1 class="title toc-ignore">Introduction to Sub-Processes in R</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-26</em></h4>
+<h4 class="date"><em>2016-11-28</em></h4>
 
 
 
@@ -113,7 +113,7 @@ R_binary &lt;-<span class="st"> </span>function () {
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   :  /usr/lib/R/bin/R --no-save </span>
-<span class="co">#&gt; system id :  3929 </span>
+<span class="co">#&gt; system id :  4248 </span>
 <span class="co">#&gt; state     :  running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
@@ -149,9 +149,9 @@ R_binary &lt;-<span class="st"> </span>function () {
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'rnorm(n)</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 9</span>
 <span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                              </span>
-<span class="co">#&gt; [2] &quot; [1] -0.1292514 -0.8090838  0.5379578  0.2171135 -0.2305358 -0.0182352&quot;</span>
-<span class="co">#&gt; [3] &quot; [7] -1.4132377  0.7433110 -2.1443772  0.6082704&quot;                      </span>
+<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
+<span class="co">#&gt; [2] &quot; [1]  0.63690322 -0.29050062 -1.39251008 -1.17108702  0.10301654 -0.47321051&quot;</span>
+<span class="co">#&gt; [3] &quot; [7]  0.33793674  1.06951387 -0.55820712 -0.07924711&quot;                        </span>
 <span class="co">#&gt; [4] &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
 <span class="co">#&gt; character(0)</span></code></pre></div>
@@ -177,7 +177,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   :  /bin/dash  </span>
-<span class="co">#&gt; system id :  3934 </span>
+<span class="co">#&gt; system id :  4252 </span>
 <span class="co">#&gt; state     :  running</span></code></pre></div>
 <p>Now we can interact with the shell sub-process. We send a request to list the current directory, then give it a moment to process the command and produce the output (and maybe finish its start-up, too). Finally, we check its output streams.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)

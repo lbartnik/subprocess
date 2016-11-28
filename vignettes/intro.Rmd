@@ -1,10 +1,10 @@
 ---
-title: "Introduction to Sub-Processes in R: Linux"
+title: "Introduction to Sub-Processes in R"
 author: "Lukasz A. Bartnik"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Introduction to Sub-Processes in R: Linux}
+  %\VignetteIndexEntry{Introduction to Sub-Processes in R}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
