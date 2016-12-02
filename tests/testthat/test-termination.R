@@ -73,8 +73,20 @@ test_that("child process is terminated in Linux", {
   parent_handle <- spawn_process(shell, shell_script_parent)
   expect_true(process_exists(parent_handle))
   
-  # make sure the child exists
+  # make sure the child exists; this sometimes fails in Linux (seen only
+  # in runs performed by other people), I'm not really sure why but one
+  # possibility is that the first shell script already knows its child's
+  # PID but pgrep cannot see it just yet - that is, a RACE condition;
+  # we address it by adding a timeout...
+  start <- proc.time()
   child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
+
+  # give the child 2 minutes to appear
+  while (!process_exists(child_id) && (proc.time() - start)[3] < 120) {
+    Sys.sleep(1)
+  }
+
+  # now make sure it actually has appeared
   expect_true(process_exists(child_id))
 
   # ... and not after we kill the parent
@@ -83,3 +95,4 @@ test_that("child process is terminated in Linux", {
   expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })
+
