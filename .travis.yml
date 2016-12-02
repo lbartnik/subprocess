@@ -8,6 +8,9 @@ r_check_args: --no-manual --timings
 r:
   - release
   - devel
+os:
+  - linux
+  - osx
 r_packages:
   - covr
 after_success:
