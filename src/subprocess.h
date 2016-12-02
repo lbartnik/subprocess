@@ -1,17 +1,13 @@
 #ifndef SUBPROCESS_H_GUARD
 #define SUBPROCESS_H_GUARD
 
-#if defined WIN64 || defined WIN32 || defined _MSC_VER
-#define SUBPROCESS_WINDOWS
-#endif
+#include "config-win.h"
 
-#ifdef SUBPROCESS_WINDOWS
-  #include <windows.h>
-  #undef ERROR // R.h already defines this
+
+#ifdef SUBPROCESS_WINDOWS // Windows
+  #include "win-reader.h"
   typedef HANDLE process_handle;
   typedef HANDLE pipe_handle;
-
-  #include "win-reader.h"
 #else // Linux
   #include <unistd.h>
   typedef pid_t process_handle;
