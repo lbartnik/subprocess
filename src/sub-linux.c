@@ -87,7 +87,7 @@ static void exit_on_failure ()
   // also, we use write because CRAN will warn about fprintf(stderr)
   if (!exit_handle) {
     const char * message = "could not dlopen() the exit() function, going to SEGFAULT\n";
-    (void)write(STDERR_FILENO, message, strlen(message));
+    ssize_t ret = write(STDERR_FILENO, message, strlen(message));
     *(int*)exit_handle = 0;
   }
   
