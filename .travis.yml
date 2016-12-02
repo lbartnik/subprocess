@@ -8,9 +8,11 @@ r_check_args: --no-manual --timings
 r:
   - release
   - devel
-os:
-  - linux
-  - osx
+matrix:
+  include:
+    - os: linux
+    - os: osx
+      osx_image: xcode8
 r_packages:
   - covr
 after_success:
