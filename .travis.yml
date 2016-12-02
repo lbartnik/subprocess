@@ -5,9 +5,15 @@ cache: packages
 sudo: false
 r_build_args: --no-build-vignettes
 r_check_args: --no-manual --timings
-r:
-  - release
-  - devel
+matrix:
+  include:
+    - os: linux
+      r: release
+    - os: linux
+      r: devel
+    - os: osx
+      osx_image: xcode8
+      r: release
 r_packages:
   - covr
 after_success:
