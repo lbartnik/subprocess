@@ -6,9 +6,9 @@ r_check_args: --no-manual --timings
 matrix:
   include:
     - os: linux
-      r:
-        - release
-        - devel
+      r: release
+    - os: linux
+      r: devel
     - os: osx
       osx_image: xcode8
       r: release
