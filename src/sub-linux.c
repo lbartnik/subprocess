@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -13,8 +14,14 @@
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <unistd.h>
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 
 #include "subprocess.h"
+
 
 // this cannot be a "const int" - it's only C++
 #define BUFFER_SIZE 1024
@@ -34,10 +41,25 @@ int full_error_message (char * _buffer, size_t _length)
 }
 
 
+
+// MacOS implementation according to
+// http://stackoverflow.com/questions/5167269/clock-gettime-alternative-in-mac-os-x/6725161#6725161
 static time_t clock_millisec ()
 {
   struct timespec current;
+
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  ts.tv_sec = mts.tv_sec;
+  ts.tv_nsec = mts.tv_nsec;
+#else // Linux
   clock_gettime(CLOCK_REALTIME, &current);
+#endif
+
   return (int)current.tv_sec * 1000 + (int)(current.tv_nsec / 1000000);
 }
 
