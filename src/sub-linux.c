@@ -16,12 +16,13 @@
 
 #include "subprocess.h"
 
-static const int BUFFER_SIZE = 1024;
+// this cannot be a "const int" - it's only C++
+#define BUFFER_SIZE 1024
 
 static const int PIPE_READ  = 0;
 static const int PIPE_WRITE = 1;
 
-static const int TRUE = 1, FALSE = 0;
+static const int TRUE = 1;
 
 
 
@@ -33,14 +34,14 @@ int full_error_message (char * _buffer, size_t _length)
 }
 
 
-static int clock_millisec ()
+static time_t clock_millisec ()
 {
   struct timespec current;
   clock_gettime(CLOCK_REALTIME, &current);
-  return current.tv_sec * 1000 + current.tv_nsec / 1000000;
+  return (int)current.tv_sec * 1000 + (int)(current.tv_nsec / 1000000);
 }
 
-static int timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
+static ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
 
 static int set_non_block (int _fd)
 {
@@ -64,7 +65,7 @@ static void exit_on_failure ()
   // also, we use write because CRAN will warn about fprintf(stderr)
   if (!exit_handle) {
     const char * message = "could not dlopen() the exit() function, going to SEGFAULT\n";
-    write(STDERR_FILENO, message, strlen(message));
+    (void)write(STDERR_FILENO, message, strlen(message));
     *(int*)exit_handle = 0;
   }
   
@@ -86,7 +87,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
   int err;
-  int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
+  int pipe_stdin[2] = { 0, 0 }, pipe_stdout[2] = { 0, 0 }, pipe_stderr[2] = { 0, 0 };
+
+  // we initialize them to 0 to everythin non-zero should be closed;
+  // preserve the errno value, too
+  #define CLOSE_ALL_PIPES                                          \
+    do {                                                           \
+      err = errno;                                                 \
+      if (pipe_stdin[PIPE_READ])   close(pipe_stdin[PIPE_READ]);   \
+      if (pipe_stdin[PIPE_WRITE])  close(pipe_stdin[PIPE_WRITE]);  \
+      if (pipe_stdout[PIPE_READ])  close(pipe_stdout[PIPE_READ]);  \
+      if (pipe_stdout[PIPE_WRITE]) close(pipe_stdout[PIPE_WRITE]); \
+      if (pipe_stderr[PIPE_READ])  close(pipe_stderr[PIPE_READ]);  \
+      if (pipe_stderr[PIPE_WRITE]) close(pipe_stderr[PIPE_WRITE]); \
+      errno = err;                                                 \
+   } while (0);                                                    \
 
   memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
@@ -97,21 +112,20 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   }
 
   /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe2(pipe_stdout, O_NONBLOCK) < 0)) {
-    err = errno;
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    errno = err;
+  if ((pipe(pipe_stdout) < 0)) {
+    CLOSE_ALL_PIPES
     return -1;
   }
 
-  if ((pipe2(pipe_stderr, O_NONBLOCK) < 0)) {
-    err = errno;
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    close(pipe_stdout[PIPE_READ]);
-    close(pipe_stdout[PIPE_WRITE]);
-    errno = err;
+  if ((pipe(pipe_stderr) < 0)) {
+    CLOSE_ALL_PIPES
+    return -1;
+  }
+
+  if (set_non_block(pipe_stdout[PIPE_READ]) < 0 ||
+      set_non_block(pipe_stderr[PIPE_READ]) < 0)
+  {
+    CLOSE_ALL_PIPES
     return -1;
   }
 
@@ -140,12 +154,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     }
 
     /* redirection succeeded, now close all other descriptors */
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    close(pipe_stdout[PIPE_READ]);
-    close(pipe_stdout[PIPE_WRITE]);
-    close(pipe_stderr[PIPE_READ]);
-    close(pipe_stderr[PIPE_WRITE]);
+    CLOSE_ALL_PIPES
 
     /* change directory */
     if (_workdir != NULL) {
@@ -252,13 +261,13 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   // infinite timeout
   if (_timeout < 0) {
     set_block(fd);
-    int rc = read(fd, _buffer, _count);
+    ssize_t rc = read(fd, _buffer, _count);
     set_non_block(fd);
     return rc;
   }
 
   // no timeout
-  int rc = read(fd, _buffer, _count);
+  ssize_t rc = read(fd, _buffer, _count);
   if (rc < 0 && errno == EAGAIN) {
     /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
     errno = 0;
@@ -354,7 +363,7 @@ int process_kill(process_handle_t * _handle)
 
 /* --- library ------------------------------------------------------ */
 
-int timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
+ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
 {
   // this should never be called with "infinite" timeout
   if (_timeout < 0)

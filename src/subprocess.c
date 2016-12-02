@@ -215,9 +215,9 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  int ret = process_write(process_handle, message, strlen(message));
+  ssize_t ret = process_write(process_handle, message, strlen(message));
 
-  return allocate_single_int(ret);
+  return allocate_single_int((int)ret);
 }
 
 
