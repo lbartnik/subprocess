@@ -215,5 +215,5 @@ TERMINATION_GROUP <- "group"
 #' 
 #' @rdname spawn_process
 #' @export
-TERMINATION_CHILD_ONLY <- "child-only"
+TERMINATION_CHILD_ONLY <- "child_only"
 
