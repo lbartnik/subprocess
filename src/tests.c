@@ -49,5 +49,13 @@ SEXP test_consume_utf8 ()
   expect_equal(consume_utf8("a\xE2\x82", 3), 1);
   expect_equal(consume_utf8("a\xE2", 2), 1);
 
+  // 𐍈 https://en.wikipedia.org/wiki/Hwair
+
+  expect_equal(consume_utf8("a\xF0\x90\x8D\x88", 5), 5);
+  expect_equal(consume_utf8("a\xF0\x90\x8D", 4), 1);
+  expect_equal(consume_utf8("a\xF0\x90", 3), 1);
+  expect_equal(consume_utf8("a\xF0", 2), 1);
+  expect_equal(consume_utf8("a\xF0", 2), 1);
+
   return allocate_single_int(errors);
 }
