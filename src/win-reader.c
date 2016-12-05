@@ -1,13 +1,5 @@
-#include <windows.h>
-#include <synchapi.h>
-
-/* min_gw that comes with Rtools 3.4 doesn't have these functions */
-WINBASEAPI VOID WINAPI InitializeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
-WINBASEAPI VOID WINAPI WakeConditionVariable(PCONDITION_VARIABLE ConditionVariable);
-WINBASEAPI BOOL WINAPI SleepConditionVariableCS(PCONDITION_VARIABLE ConditionVariable, PCRITICAL_SECTION CriticalSection, DWORD dwMilliseconds);
-
-
 #include "win-reader.h"
+
 
 #define BUFFER_SIZE 4096
 

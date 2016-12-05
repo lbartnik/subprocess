@@ -2,22 +2,25 @@ context("child process parameters")
 
 
 test_that("working directory can be set", {
-  work_dir <- tempdir()
-
-  expect_false(identical(work_dir, getwd()))
   print_wd <- 'cat(normalizePath(getwd()))\n'
+
+  work_dir <- normalizePath(tempdir())
+  norm_wd  <- normalizePath(getwd())
+  expect_false(identical(work_dir, getwd()))
   
   on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child()
   
   process_write(handle, print_wd)
-  expect_equal(process_read(handle, timeout = 1000), normalizePath(getwd()))
+  expect_equal(normalizePath(process_read(handle, timeout = 1000)),
+               norm_wd)
   
   on.exit(process_terminate(handle_2), add = TRUE)
   handle_2 <- R_child(workdir = work_dir)
   
   process_write(handle_2, print_wd)
-  expect_equal(process_read(handle_2, timeout = 1000), work_dir)
+  expect_equal(normalizePath(process_read(handle_2, timeout = 1000)),
+               work_dir)
 })
 
 

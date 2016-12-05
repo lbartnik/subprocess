@@ -8,6 +8,12 @@ is_linux <- function ()
   identical(tolower(Sys.info()[["sysname"]]), 'linux')
 }
 
+is_mac <- function ()
+{
+  identical(tolower(Sys.info()[["sysname"]]), 'darwin')
+}
+
+
 # --- R child ----------------------------------------------------------
 
 R_binary <- function ()
@@ -41,7 +47,8 @@ process_exists <- function (handle)
     return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
   }
   else {
-    rc <- system2("ps", c("--pid", as.character(pid)), stdout = NULL, 
+    flag <- ifelse(is_mac(), "-p", "--pid")
+    rc <- system2("ps", c(flag, as.character(pid)), stdout = NULL, 
                   stderr = NULL)
     return(rc == 0)
   }

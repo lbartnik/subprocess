@@ -160,9 +160,13 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 static void C_child_process_finalizer(SEXP ptr)
 {
   if (!R_ExternalPtrAddr(ptr)) return;
-  if (process_terminate(R_ExternalPtrAddr(ptr)) < 0) {
+  
+  if (process_poll(R_ExternalPtrAddr(ptr), 0) < 0 ||
+      process_terminate(R_ExternalPtrAddr(ptr)) < 0)
+  {
     Rf_perror("error while finalizing child process");
   }
+
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 
@@ -193,9 +197,15 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
     Rf_error("unrecognized `pipe` value");
   }
 
-  /* read into this buffer */
-  char * buffer = (char*)Calloc(BUFFER_SIZE, char);
-  process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
+  /* read into this buffer; leave one character for final \0 */
+  char * buffer = (char*)Calloc(BUFFER_SIZE+1, char);
+  ssize_t rc = process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
+  if (rc < 0) {
+    Rf_error("error while reading from child process");
+  }
+  
+  // put the final 0, there's always room for that
+  buffer[rc] = 0;
 
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
@@ -215,9 +225,9 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  int ret = process_write(process_handle, message, strlen(message));
+  ssize_t ret = process_write(process_handle, message, strlen(message));
 
-  return allocate_single_int(ret);
+  return allocate_single_int((int)ret);
 }
 
 

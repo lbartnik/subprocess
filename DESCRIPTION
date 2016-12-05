@@ -1,13 +1,15 @@
 Package: subprocess
 Type: Package
 Title: Manage Sub-Processes in R
-Version: 0.7.4
+Version: 0.8.0
 Authors@R: person("Lukasz", "Bartnik", email = "l.bartnik@gmail.com", role = c("aut", "cre"))
 Description: Create and handle multiple sub-processes in R, exchange
   data over standard input and output streams, control their life cycle.
 License: MIT + file LICENSE
 URL: https://github.com/lbartnik/subprocess
 BugReports: https://github.com/lbartnik/subprocess/issues
+Depends:
+  R (>= 3.2.0)
 Suggests:
   mockery,
   testthat,
@@ -18,6 +20,7 @@ Collate:
   'readwrite.R'
   'signals.R'
   'subprocess.R'
+  'tests.R'
   'utils.R'
 RoxygenNote: 5.0.1
 VignetteBuilder: knitr

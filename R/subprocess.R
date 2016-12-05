@@ -77,6 +77,9 @@ spawn_process <- function (command, arguments = character(), environment = chara
     environment <- paste(names(environment), as.character(environment), sep = '=')
   }
   
+  if(!(is.null(workdir) || identical(workdir, ""))){
+    workdir <- normalizePath(workdir, mustWork = TRUE)
+  }
   # hand over to C
   handle <- .Call("C_process_spawn", command, c(command, as.character(arguments)),
                   as.character(environment), as.character(workdir),
@@ -215,5 +218,5 @@ TERMINATION_GROUP <- "group"
 #' 
 #' @rdname spawn_process
 #' @export
-TERMINATION_CHILD_ONLY <- "child-only"
+TERMINATION_CHILD_ONLY <- "child_only"
 

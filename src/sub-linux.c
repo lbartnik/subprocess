@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -13,15 +14,27 @@
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <unistd.h>
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 
 #include "subprocess.h"
+#include "utf8.h"
 
-static const int BUFFER_SIZE = 1024;
+// this cannot be a "const int" - it's only C++
+#define BUFFER_SIZE 1024
+
+#ifdef TRUE
+#undef TRUE
+#endif
+
+#define TRUE 1
+
 
 static const int PIPE_READ  = 0;
 static const int PIPE_WRITE = 1;
-
-static const int TRUE = 1, FALSE = 0;
 
 
 
@@ -33,14 +46,29 @@ int full_error_message (char * _buffer, size_t _length)
 }
 
 
-static int clock_millisec ()
+
+// MacOS implementation according to
+// http://stackoverflow.com/questions/5167269/clock-gettime-alternative-in-mac-os-x/6725161#6725161
+static time_t clock_millisec ()
 {
   struct timespec current;
+
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  current.tv_sec = mts.tv_sec;
+  current.tv_nsec = mts.tv_nsec;
+#else // Linux
   clock_gettime(CLOCK_REALTIME, &current);
-  return current.tv_sec * 1000 + current.tv_nsec / 1000000;
+#endif
+
+  return (int)current.tv_sec * 1000 + (int)(current.tv_nsec / 1000000);
 }
 
-static int timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
+static ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
 
 static int set_non_block (int _fd)
 {
@@ -64,8 +92,9 @@ static void exit_on_failure ()
   // also, we use write because CRAN will warn about fprintf(stderr)
   if (!exit_handle) {
     const char * message = "could not dlopen() the exit() function, going to SEGFAULT\n";
-    write(STDERR_FILENO, message, strlen(message));
+    ssize_t ret = write(STDERR_FILENO, message, strlen(message));
     *(int*)exit_handle = 0;
+    ++ret; // hide compiler warning
   }
   
   typedef void (* exit_t)(int);
@@ -86,7 +115,21 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
   int err;
-  int pipe_stdin[2], pipe_stdout[2], pipe_stderr[2];
+  int pipe_stdin[2] = { 0, 0 }, pipe_stdout[2] = { 0, 0 }, pipe_stderr[2] = { 0, 0 };
+
+  // we initialize them to 0 to everythin non-zero should be closed;
+  // preserve the errno value, too
+  #define CLOSE_ALL_PIPES                                          \
+    do {                                                           \
+      err = errno;                                                 \
+      if (pipe_stdin[PIPE_READ])   close(pipe_stdin[PIPE_READ]);   \
+      if (pipe_stdin[PIPE_WRITE])  close(pipe_stdin[PIPE_WRITE]);  \
+      if (pipe_stdout[PIPE_READ])  close(pipe_stdout[PIPE_READ]);  \
+      if (pipe_stdout[PIPE_WRITE]) close(pipe_stdout[PIPE_WRITE]); \
+      if (pipe_stderr[PIPE_READ])  close(pipe_stderr[PIPE_READ]);  \
+      if (pipe_stderr[PIPE_WRITE]) close(pipe_stderr[PIPE_WRITE]); \
+      errno = err;                                                 \
+   } while (0);                                                    \
 
   memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
@@ -97,21 +140,20 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   }
 
   /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe2(pipe_stdout, O_NONBLOCK) < 0)) {
-    err = errno;
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    errno = err;
+  if ((pipe(pipe_stdout) < 0)) {
+    CLOSE_ALL_PIPES
     return -1;
   }
 
-  if ((pipe2(pipe_stderr, O_NONBLOCK) < 0)) {
-    err = errno;
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    close(pipe_stdout[PIPE_READ]);
-    close(pipe_stdout[PIPE_WRITE]);
-    errno = err;
+  if ((pipe(pipe_stderr) < 0)) {
+    CLOSE_ALL_PIPES
+    return -1;
+  }
+
+  if (set_non_block(pipe_stdout[PIPE_READ]) < 0 ||
+      set_non_block(pipe_stderr[PIPE_READ]) < 0)
+  {
+    CLOSE_ALL_PIPES
     return -1;
   }
 
@@ -140,12 +182,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
     }
 
     /* redirection succeeded, now close all other descriptors */
-    close(pipe_stdin[PIPE_READ]);
-    close(pipe_stdin[PIPE_WRITE]);
-    close(pipe_stdout[PIPE_READ]);
-    close(pipe_stdout[PIPE_WRITE]);
-    close(pipe_stderr[PIPE_READ]);
-    close(pipe_stderr[PIPE_WRITE]);
+    CLOSE_ALL_PIPES
 
     /* change directory */
     if (_workdir != NULL) {
@@ -235,36 +272,78 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   }
 
   int fd;
-  if (_pipe == PIPE_STDOUT)
+  struct leftover * left = NULL;
+  ssize_t rc;
+
+  // choose pipe
+  if (_pipe == PIPE_STDOUT) {
     fd = _handle->pipe_stdout;
-  else if (_pipe == PIPE_STDERR)
+    left = &_handle->stdout_left;
+  }
+  else if (_pipe == PIPE_STDERR) {
     fd = _handle->pipe_stderr;
+    left = &_handle->stderr_left;
+  }
   else {
     errno = EINVAL;
     return -1;
   }
+  
+  // if there is anything left from the last read, place it in the buffer
+  if (left->len) {
+    if (_count < left->len) {
+      errno = EMSGSIZE;
+      return -1;
+    }
+
+    // copy what's left from the last read
+    memcpy(_buffer, left->data, left->len);
+    _buffer += left->len;
+    _count  -= left->len;
+  }
 
   // finite timeout
   if (_timeout > 0) {
-    return timed_read(fd, _buffer, _count, _timeout);
+    rc = timed_read(fd, _buffer, _count, _timeout);
   }
-
   // infinite timeout
-  if (_timeout < 0) {
+  else if (_timeout < 0) {
     set_block(fd);
-    int rc = read(fd, _buffer, _count);
+    rc = read(fd, _buffer, _count);
     set_non_block(fd);
-    return rc;
+  }
+  // no timeout
+  else {
+    rc = read(fd, _buffer, _count);
+    if (rc < 0 && errno == EAGAIN) {
+      /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
+      errno = 0;
+      *((char*)_buffer) = 0;
+      return 0;
+    }
   }
 
-  // no timeout
-  int rc = read(fd, _buffer, _count);
-  if (rc < 0 && errno == EAGAIN) {
-    /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
-    errno = 0;
-    *((char*)_buffer) = 0;
-    return 0;
-  }
+  // if R detected multi-byte locale, see if there are
+  // any non-UTF8 bytes in the input buffer
+  if (mbcslocale) {
+    // move the buffer back to its original position, update the count
+    // of bytes in the buffer; finally, clean the leftover buffer
+    _buffer -= left->len;
+    rc += left->len;
+    left->len = 0;
+    
+    // check if all bytes are correct UTF8 content
+    size_t consumed = consume_utf8(_buffer, rc);
+    if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
+      errno = EIO;
+      return -1;
+    }
+    if (consumed < rc) {
+      left->len = rc-consumed;
+      memcpy(left->data, _buffer+consumed, left->len);
+      rc = consumed;
+    }
+  } // if (mbcslocale)
 
   return rc;
 }
@@ -354,7 +433,7 @@ int process_kill(process_handle_t * _handle)
 
 /* --- library ------------------------------------------------------ */
 
-int timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
+ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
 {
   // this should never be called with "infinite" timeout
   if (_timeout < 0)

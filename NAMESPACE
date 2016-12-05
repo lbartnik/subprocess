@@ -3,6 +3,7 @@
 S3method(print,process_handle)
 export(CTRL_BREAK_EVENT)
 export(CTRL_C_EVENT)
+export(C_tests)
 export(SIGABRT)
 export(SIGALRM)
 export(SIGCHLD)
