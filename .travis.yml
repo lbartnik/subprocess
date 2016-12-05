@@ -9,9 +9,6 @@ matrix:
       r: release
     - os: linux
       r: devel
-    - os: osx
-      osx_image: xcode8
-      r: release
 r_packages:
   - covr
 after_success:
