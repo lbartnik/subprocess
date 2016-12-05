@@ -1,6 +1,10 @@
 #ifndef WIN_READER_H_GUARD
 #define WIN_READER_H_GUARD
 
+
+#include "config-win.h"
+#include <winbase.h>
+
 typedef enum { THREAD_RUNNING, THREAD_EXITED, THREAD_TERMINATED } reader_state_t; 
 
 typedef struct chunk chunk_t; 
