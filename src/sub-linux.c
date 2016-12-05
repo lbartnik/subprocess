@@ -26,10 +26,15 @@
 // this cannot be a "const int" - it's only C++
 #define BUFFER_SIZE 1024
 
+#ifdef TRUE
+#undef TRUE
+#endif
+
+#define TRUE 1
+
+
 static const int PIPE_READ  = 0;
 static const int PIPE_WRITE = 1;
-
-static const int TRUE = 1;
 
 
 
@@ -54,8 +59,8 @@ static time_t clock_millisec ()
   host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
   clock_get_time(cclock, &mts);
   mach_port_deallocate(mach_task_self(), cclock);
-  ts.tv_sec = mts.tv_sec;
-  ts.tv_nsec = mts.tv_nsec;
+  current.tv_sec = mts.tv_sec;
+  current.tv_nsec = mts.tv_nsec;
 #else // Linux
   clock_gettime(CLOCK_REALTIME, &current);
 #endif
