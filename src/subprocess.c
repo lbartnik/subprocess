@@ -199,7 +199,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 
   /* read into this buffer; leave one character for final \0 */
   char * buffer = (char*)Calloc(BUFFER_SIZE+1, char);
-  size_t rc = process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
+  ssize_t rc = process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
   if (rc < 0) {
     Rf_error("error while reading from child process");
   }
