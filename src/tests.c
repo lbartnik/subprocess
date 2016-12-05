@@ -29,6 +29,9 @@ static SEXP allocate_single_int (int _value)
 SEXP test_consume_utf8 ()
 {
   int errors = 0;
+  if (!mbcslocale) {
+    return allocate_single_int(0);
+  }
 
   // correct ASCII input
   expect_equal(consume_utf8("", 0), 0);
