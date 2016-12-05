@@ -281,6 +281,7 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   struct leftover * left = NULL;
   ssize_t rc;
 
+  // choose pipe
   if (_pipe == PIPE_STDOUT) {
     fd = _handle->pipe_stdout;
     left = &_handle->stdout_left;
@@ -300,10 +301,11 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
       errno = EMSGSIZE;
       return -1;
     }
-    
+
+    // copy what's left from the last read
     memcpy(_buffer, left->data, left->len);
     _buffer += left->len;
-    left->len = 0;
+    _count  -= left->len;
   }
 
   // finite timeout
@@ -330,6 +332,13 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   // if R detected multi-byte locale, see if there are
   // any non-UTF8 bytes in the input buffer
   if (mbcslocale) {
+    // move the buffer back to its original position, update the count
+    // of bytes in the buffer; finally, clean the leftover buffer
+    _buffer -= left->len;
+    rc += left->len;
+    left->len = 0;
+    
+    // check if all bytes are correct UTF8 content
     size_t consumed = consume_utf8(_buffer, rc);
     if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
       errno = EIO;
