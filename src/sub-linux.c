@@ -20,6 +20,12 @@
 #endif
 
 
+// mbcslocale
+#include <Rdefines.h>
+#include <R_ext/GraphicsEngine.h>
+#include <R_ext/GraphicsDevice.h>
+
+
 #include "subprocess.h"
 #include "utf8.h"
 
@@ -321,17 +327,20 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
     }
   }
 
-  // see if there are any non-UTF8 bytes in the input buffer
-  size_t consumed = consume_utf8(_buffer, rc);
-  if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
-    errno = EIO;
-    return -1;
-  }
-  if (consumed < rc) {
-    left->len = rc-consumed;
-    memcpy(left->data, _buffer+consumed, left->len);
-    rc = consumed;
-  }
+  // if R detected multi-byte locale, see if there are
+  // any non-UTF8 bytes in the input buffer
+  if (mbcslocale) {
+    size_t consumed = consume_utf8(_buffer, rc);
+    if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
+      errno = EIO;
+      return -1;
+    }
+    if (consumed < rc) {
+      left->len = rc-consumed;
+      memcpy(left->data, _buffer+consumed, left->len);
+      rc = consumed;
+    }
+  } // if (mbcslocale)
 
   return rc;
 }
