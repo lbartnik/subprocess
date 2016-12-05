@@ -20,10 +20,17 @@ typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED } state_t;
 
 typedef enum { TERMINATION_GROUP, TERMINATION_CHILD_ONLY } termination_mode_t;
 
+struct leftover {
+  size_t len;
+  char data[4];
+};
+
 struct process_handle {
 #ifdef SUBPROCESS_WINDOWS
   reader_t stdout_reader, stderr_reader;
   HANDLE process_job;
+#else
+  struct leftover stdout_left, stderr_left;
 #endif
 
   // OS-specific handles

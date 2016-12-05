@@ -20,6 +20,7 @@ Collate:
   'readwrite.R'
   'signals.R'
   'subprocess.R'
+  'tests.R'
   'utils.R'
 RoxygenNote: 5.0.1
 VignetteBuilder: knitr

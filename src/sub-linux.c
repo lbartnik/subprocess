@@ -21,7 +21,7 @@
 
 
 #include "subprocess.h"
-
+#include "utf8.h"
 
 // this cannot be a "const int" - it's only C++
 #define BUFFER_SIZE 1024
@@ -94,6 +94,7 @@ static void exit_on_failure ()
     const char * message = "could not dlopen() the exit() function, going to SEGFAULT\n";
     ssize_t ret = write(STDERR_FILENO, message, strlen(message));
     *(int*)exit_handle = 0;
+    ++ret; // hide compiler warning
   }
   
   typedef void (* exit_t)(int);
@@ -271,35 +272,65 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
   }
 
   int fd;
-  if (_pipe == PIPE_STDOUT)
+  struct leftover * left = NULL;
+  ssize_t rc;
+
+  if (_pipe == PIPE_STDOUT) {
     fd = _handle->pipe_stdout;
-  else if (_pipe == PIPE_STDERR)
+    left = &_handle->stdout_left;
+  }
+  else if (_pipe == PIPE_STDERR) {
     fd = _handle->pipe_stderr;
+    left = &_handle->stderr_left;
+  }
   else {
     errno = EINVAL;
     return -1;
   }
+  
+  // if there is anything left from the last read, place it in the buffer
+  if (left->len) {
+    if (_count < left->len) {
+      errno = EMSGSIZE;
+      return -1;
+    }
+    
+    memcpy(_buffer, left->data, left->len);
+    _buffer += left->len;
+    left->len = 0;
+  }
 
   // finite timeout
   if (_timeout > 0) {
-    return timed_read(fd, _buffer, _count, _timeout);
+    rc = timed_read(fd, _buffer, _count, _timeout);
   }
-
   // infinite timeout
-  if (_timeout < 0) {
+  else if (_timeout < 0) {
     set_block(fd);
-    ssize_t rc = read(fd, _buffer, _count);
+    rc = read(fd, _buffer, _count);
     set_non_block(fd);
-    return rc;
+  }
+  // no timeout
+  else {
+    rc = read(fd, _buffer, _count);
+    if (rc < 0 && errno == EAGAIN) {
+      /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
+      errno = 0;
+      *((char*)_buffer) = 0;
+      return 0;
+    }
   }
 
-  // no timeout
-  ssize_t rc = read(fd, _buffer, _count);
-  if (rc < 0 && errno == EAGAIN) {
-    /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
-    errno = 0;
-    *((char*)_buffer) = 0;
-    return 0;
+  // see if there are any non-UTF8 bytes in the input buffer
+  size_t consumed = consume_utf8(_buffer, rc);
+  if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
+    errno = EIO;
+    return -1;
+  }
+  if (consumed < rc) {
+    left->len = rc-consumed;
+    memcpy(left->data, _buffer+consumed, left->len);
+    rc = consumed;
   }
 
   return rc;
