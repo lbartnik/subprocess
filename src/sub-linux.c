@@ -17,6 +17,9 @@
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
+
+// for some reason is accessible via unistd.h
+extern char ** environ;
 #endif
 
 
