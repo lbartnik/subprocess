@@ -202,6 +202,11 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
         exit_on_failure();
       }
     }
+    
+    /* if environment is empty, use parent's environment */
+    if (!_environment) {
+      _environment = environ;
+    }
 
     /* finally start the new process */
     execve(_command, _arguments, _environment);

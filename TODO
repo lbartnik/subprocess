@@ -1,3 +1,6 @@
+* process_poll() should be renamed - its "timeout" parameter is not
+  really consistent with the idea of poll() because it means "wait
+  until the child exits"
 * add close_input() function to close the write end of the stdin
   pipe and sent the child a signal to exit
 * handle differing new-line characters
