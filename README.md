@@ -7,17 +7,18 @@ subprocess
 
 
 
-Now you can run and interact with a child process in R! `subprocess`
-brings to R new API to create, control and shutdown a child process
+Run and interact with a child process in R! `subprocess` brings a new
+R API to create, control the life cycle and shutdown a child process
 in **Linux**, **Windows** and **Mac OS**. Check this out.
 
 
-Let's start with spawning a `ssh` client child process. It connects to
-a ssh server using public key (thus, no password is needed). Then we
-list files in the remote account and finally gracefully shutdown the
-child process.
+## Remote shell example
 
-Start a new child process and open the connection:
+Here's an example of running a `ssh` client child process. It connects
+to a ssh server using public key (thus, no password). Then we list files
+in the remote account and finally gracefully shutdown the child process.
+
+Load the `subprocess` package and start a new child process:
 
 ```r
 library(subprocess)
