@@ -21,6 +21,7 @@ Collate:
   'signals.R'
   'subprocess.R'
   'tests.R'
+  'terminal.R'
   'utils.R'
 RoxygenNote: 5.0.1
 VignetteBuilder: knitr
