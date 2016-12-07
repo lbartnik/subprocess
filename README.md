@@ -31,8 +31,6 @@ handle <- spawn_process(ssh_path, c('-T', 'test@localhost'))
 Let's see the description:
 ```r
 print(handle)
-```
-```
 #> Process Handle
 #> command   : /usr/bin/ssh -T test@localhost
 #> system id : 17659
@@ -55,7 +53,7 @@ standard error stream.
 
 Next, list files in the remote account:
 
-```{r}
+```r
 process_write(handle, 'ls\n')
 #> [1] 3
 process_read(handle, timeout = 1000)
@@ -74,7 +72,7 @@ process_read(handle, 'stderr')
 
 We are ready to close the connection by exiting the remote __shell__:
 
-```{r}
+```r
 process_write(handle, 'exit\n')
 #> [1] 5
 process_read(handle, timeout = 1000)
@@ -86,7 +84,7 @@ process_read(handle, 'stderr')
 
 The last thing is making sure that the child process is no longer alive:
 
-```{r}
+```r
 process_poll(handle)
 #> [1] "exited"
 process_return_code(handle)
