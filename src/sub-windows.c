@@ -78,7 +78,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   /* if the environment is empty (most cases) don't bother with passing
    * just this single NULLed element */
   char * environment = NULL;
-  if (*_environment != NULL) {
+  if (_environment != NULL && *_environment != NULL) {
     environment = prepare_environment(_environment);
   }
 

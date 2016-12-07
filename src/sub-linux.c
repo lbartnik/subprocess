@@ -17,6 +17,9 @@
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
+
+// for some reason is accessible via unistd.h
+extern char ** environ;
 #endif
 
 
@@ -201,6 +204,11 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
         perror("could not start a new session");
         exit_on_failure();
       }
+    }
+    
+    /* if environment is empty, use parent's environment */
+    if (!_environment) {
+      _environment = environ;
     }
 
     /* finally start the new process */

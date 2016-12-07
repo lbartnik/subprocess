@@ -24,7 +24,21 @@ test_that("working directory can be set", {
 })
 
 
-test_that("environment", {
+# --- new environment --------------------------------------------------
+
+test_that("inherits environment from parent", {
+  on.exit(Sys.unsetenv("PARENT_VAR"), add = TRUE)
+  Sys.setenv(PARENT_VAR="PARENT_VAL")
+  
+  on.exit(process_terminate(handle), add = TRUE)
+  handle <- spawn_process(R_binary(), c("--slave", "-e", "cat(Sys.getenv('PARENT_VAR'))"))
+  
+  expect_equal(process_read(handle, timeout = TIMEOUT_INFINITE), 'PARENT_VAL')
+  expect_equal(process_poll(handle, timeout = TIMEOUT_INFINITE), "exited")
+})
+
+
+test_that("passing new environment", {
   on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child(environment = "VAR=SOME_VALUE")
   
@@ -33,7 +47,7 @@ test_that("environment", {
 })
 
 
-test_that("environment via named vector", {
+test_that("new environment via named vector", {
   on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child(environment = c(VAR="SOME_VALUE"))
   
@@ -42,7 +56,7 @@ test_that("environment via named vector", {
 })
 
 
-test_that("environment via list", {
+test_that("new environment via list", {
   on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child(environment = list(VAR="SOME_VALUE"))
   

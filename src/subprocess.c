@@ -112,6 +112,14 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
   char ** arguments   = to_C_array(_arguments);
   char ** environment = to_C_array(_environment);
+  
+  /* if environment if empty, simply ignore it */
+  if (!environment || !*environment) {
+    // allocated with Calloc() so Free() is redundant but why not just
+    // release it
+    Free(environment);
+    environment = NULL;
+  }
 
   /* if workdir is NULL or an empty string, inherit from parent */
   const char * workdir = NULL;
