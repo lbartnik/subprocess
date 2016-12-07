@@ -31,7 +31,7 @@ Here is the description of the child process:
 ```r
 print(handle)
 #> Process Handle
-#> command   : /usr/bin/ssh -T test@localhost
+#> command   : /usr/bin/ssh -T test@example
 #> system id : 17659
 #> state     : running
 ```
@@ -72,7 +72,7 @@ child process. The final `character(0)` is the output read from the
 standard error stream.
 
 
-We are now ready to close the connection by exiting the remote __shell__:
+We are now ready to close the connection by exiting the remote shell:
 
 ```r
 process_write(handle, 'exit\n')
