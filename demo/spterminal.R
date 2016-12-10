@@ -75,3 +75,15 @@ process_terminal <- function(handle){
     }
   }
 }
+
+is_windows <- function () (tolower(.Platform$OS.type) == "windows")
+
+R_binary <- function () {
+  R_exe <- ifelse (is_windows(), "R.exe", "R")
+  return(file.path(R.home("bin"), R_exe))
+}
+
+handle <- spawn_process(R_binary(), c('--no-save'))
+Sys.sleep(5)
+if(interactive()) process_terminal(handle)
+process_kill(handle)
