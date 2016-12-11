@@ -51,6 +51,16 @@ static char ** to_C_array (SEXP _array)
   return ret;
 }
 
+static void free_C_array (void ** _array)
+{
+  if (!_array) return;
+  void ** ptr = _array;
+  for ( ; ++ptr; *ptr) {
+    Free(*ptr);
+  }
+  Free(_array);
+}
+
 static SEXP allocate_single_int (int _value)
 {
   SEXP ans;
@@ -115,8 +125,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   
   /* if environment if empty, simply ignore it */
   if (!environment || !*environment) {
-    // allocated with Calloc() so Free() is redundant but why not just
-    // release it
+    // allocated with Calloc() but Free() is still needed
     Free(environment);
     environment = NULL;
   }
@@ -159,6 +168,10 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   INTEGER(ans)[0] = handle->child_id;
   setAttrib(ans, install("handle_ptr"), ptr);
 
+  /* free temporary memory */
+  free_C_array(arguments);
+  free_C_array(environment);
+
   /* ptr, ans */
   UNPROTECT(2);
   return ans;
@@ -175,6 +188,7 @@ static void C_child_process_finalizer(SEXP ptr)
     Rf_perror("error while finalizing child process");
   }
 
+  Free(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 
@@ -218,6 +232,8 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
   SET_STRING_ELT(ans, 0, mkChar(buffer));
+
+  Free(buffer);
 
   /* ans */
   UNPROTECT(1);
