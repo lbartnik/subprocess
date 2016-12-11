@@ -51,7 +51,7 @@ static char ** to_C_array (SEXP _array)
   return ret;
 }
 
-static void free_C_array (void ** _array)
+static void free_C_array (char ** _array)
 {
   if (!_array) return;
   void ** ptr = _array;
