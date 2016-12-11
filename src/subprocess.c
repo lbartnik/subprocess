@@ -54,8 +54,7 @@ static char ** to_C_array (SEXP _array)
 static void free_C_array (char ** _array)
 {
   if (!_array) return;
-  void ** ptr = _array;
-  for ( ; ++ptr; *ptr) {
+  for (char ** ptr = _array; *ptr; ++ptr) {
     Free(*ptr);
   }
   Free(_array);
@@ -180,15 +179,14 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
 static void C_child_process_finalizer(SEXP ptr)
 {
-  if (!R_ExternalPtrAddr(ptr)) return;
+  void * addr = R_ExternalPtrAddr(ptr);
+  if (!addr) return;
   
-  if (process_poll(R_ExternalPtrAddr(ptr), 0) < 0 ||
-      process_terminate(R_ExternalPtrAddr(ptr)) < 0)
-  {
+  if (process_poll(addr, 0) < 0 || process_terminate(addr) < 0) {
     Rf_perror("error while finalizing child process");
   }
 
-  Free(R_ExternalPtrAddr(ptr));
+  Free(addr);
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 
