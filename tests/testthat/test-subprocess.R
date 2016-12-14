@@ -29,12 +29,12 @@ test_that("waiting for a child to exit", {
   expect_equal(process_poll(handle), "running")
   process_kill(handle)
 
-  # TODO expect the right code on Windows
+  expected_code <- ifelse(is_windows(), 127, 9)
   expect_equal(process_poll(handle, TIMEOUT_INFINITE), "terminated")
-  expect_equal(process_return_code(handle), 9)
+  expect_equal(process_return_code(handle), expected_code)
 
   # wait() combines poll() and return_code()
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 9)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), expected_code)
 })
 
 
@@ -60,9 +60,10 @@ test_that("handle can be printed", {
   on.exit(process_kill(handle))
   handle <- R_child()
   
+  path <- gsub("\\\\", "\\\\\\\\", normalizePath(R_binary()))
   expect_output(print(handle),
                 paste0("Process Handle\n",
-                       "command   : ", R_binary(), " --slave\n",
+                       "command   : ", path, " --slave\n",
                        "system id : [0-9]*\n",
                        "state     : running"))
 })
