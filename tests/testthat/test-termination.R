@@ -16,12 +16,12 @@ windows_process_id <- function (command_line)
 test_that("child process is terminated in Windows", {
   skip_if_not(is_windows())
   
+  shell_script_child  <- shell_script  <- tempfile(fileext = '.bat')
+  write(file = shell_script_child, "waitfor SomethingThatIsNeverHappening /t 100 2>NUL")
+
   shell_script_parent <- tempfile(fileext = '.bat')
-  shell_script_child  <- tempfile(fileext = '.bat')
-  
   write(file = shell_script_parent, paste('start "subprocess test child" /b',
                                           shell_script_child))
-  write(file = shell_script_child, "waitfor SomethingThatIsNeverHappening /t 100 2>NUL")
 
   # start the parent process which in turn spawns a child process
   parent_handle <- spawn_process("c:\\Windows\\System32\\cmd.exe",

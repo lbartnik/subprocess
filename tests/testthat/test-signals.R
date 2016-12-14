@@ -22,9 +22,16 @@ test_that("sending signal to a child process", {
   }
 })
 
+
 test_that("sending signal to a child process", {
-  skip_if_not(is_windows())
+  skip("signals do not work in Windows")
+#  skip_if_not(is_windows())
+
+  handle <- spawn_process(R_binary(),
+                          c("--slave", "-e", "tryCatch(Sys.sleep(100))"))
+
+  process_send_signal(handle, CTRL_C_EVENT)
   
-  # TODO fill in this test
-  expect_true(FALSE)
+  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "exited")
+  expect_false(process_exists(handle))
 })
