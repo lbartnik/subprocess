@@ -14,7 +14,7 @@
   typedef int pipe_handle;
 #endif
 
-typedef enum { PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR } pipe_t;
+typedef enum { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 } pipe_t;
 
 typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED, TORNDOWN } state_t;
 
@@ -61,7 +61,16 @@ int teardown_process (process_handle_t * _handle);
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout);
+struct read_buffer {
+  size_t count;
+  char * buffer;
+};
+
+struct pipe_output {
+  struct read_buffer stdout, stderr;
+};
+
+ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, struct pipe_output * _output, int _timeout);
 
 int process_poll (process_handle_t * _handle, int _timeout);
 

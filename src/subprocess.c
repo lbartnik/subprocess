@@ -193,6 +193,21 @@ static void C_child_process_finalizer(SEXP ptr)
 }
 
 
+static int allocate_buffer (struct read_buffer * _buffer)
+{
+  // allocate "size+1" but say "size" so that the last character
+  // is always a ZERO and R string can be correctly constructer
+  // out of it (R expects a ZERO at the end)
+  _buffer->buffer = (char*)malloc(BUFFER_SIZE+1);
+  if (!_buffer->buffer) {
+    return -1;
+  }
+  
+  _buffer->count  = BUFFER_SIZE;
+  return 0;
+}
+
+
 // TODO add wait/timeout
 SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
@@ -211,34 +226,75 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   /* determine which pipe */
   const char * pipe = translateChar(STRING_ELT(_pipe, 0));
   pipe_t which_pipe;
+  
   if (!strncmp(pipe, "stdout", 6))
     which_pipe = PIPE_STDOUT;
   else if (!strncmp(pipe, "stderr", 6))
     which_pipe = PIPE_STDERR;
+  else if (!strncmp(pipe, "both", 4))
+    which_pipe = PIPE_BOTH;
   else {
     Rf_error("unrecognized `pipe` value");
   }
 
+  /* prepare for output */
+  struct pipe_output output;
+  memset(&output, 0, sizeof(output));
+
+  /* don't use Calloc() here in case there's an allocation error */
+  if (which_pipe & PIPE_STDOUT) {
+    if (allocate_buffer(&output.stdout) < 0) {
+      Rf_error("could not allocate output buffer");
+    }
+  }
+  if (which_pipe & PIPE_STDERR) {
+    if (allocate_buffer(&output.stderr) < 0) {
+      free(output.stdout.buffer);
+      Rf_error("could not allocate output buffer");
+    }
+  }
+
   /* read into this buffer; leave one character for final \0 */
-  char * buffer = (char*)Calloc(BUFFER_SIZE+1, char);
-  ssize_t rc = process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
+  char * stdout = (char*)Calloc(BUFFER_SIZE+1, char);
+  ssize_t rc = process_read(process_handle, which_pipe, &output, timeout);
   if (rc < 0) {
+    free(output.stdout.buffer);
+    free(output.stderr.buffer);
     Rf_error("error while reading from child process");
   }
   
-  // put the final 0, there's always room for that
-  buffer[rc] = 0;
+  // put the final 0, there's always room for that (see how a buffer is
+  // allocated in allocate_buffer())
+  #define END_WITH_ZERO(x) if (x.buffer) x.buffer[x.count] = 0;
+  END_WITH_ZERO(output.stdout)
+  END_WITH_ZERO(output.stderr)
+  #undef END_WITH_ZERO
+  
+  // produce the result - a list of one or two elements
+  int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
+  SEXP ans, nms;
+  PROTECT(ans = allocVector(VECSXP, len));
+  PROTECT(nms = allocVector(STRSXP, len));
 
-  SEXP ans;
-  PROTECT(ans = allocVector(STRSXP, 1));
-  SET_STRING_ELT(ans, 0, mkChar(buffer));
+  #define ADD_BUFFER(buffer, name)                            \
+    if (buffer) {                                             \
+      SET_VECTOR_ELT(ans, i, ScalarString(mkChar(buffer)));   \
+      free(buffer);                                           \
+      SET_STRING_ELT(nms, i++, mkChar(name));                 \
+    }                                                         \
+  
+  ADD_BUFFER(output.stdout.buffer, "stdout");
+  ADD_BUFFER(output.stderr.buffer, "stderr");
+  #undef ADD_BUFFER
 
-  Free(buffer);
+  /* set names */
+  setAttrib(ans, R_NamesSymbol, nms);
 
-  /* ans */
-  UNPROTECT(1);
+  /* ans, nms */
+  UNPROTECT(2);
   return ans;
 }
+
 
 SEXP C_process_write (SEXP _handle, SEXP _message)
 {
