@@ -38,9 +38,8 @@ test_that("child process is terminated in Windows", {
   expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
   
   # give the child a moment to dissapear from OS tables
-  Sys.sleep(5)
-  expect_false(process_exists(parent_handle))
-  expect_false(process_exists(child_id))
+  expect_true(wait_until_exits(parent_handle))
+  expect_true(wait_until_exits(child_id))
 })
 
 
@@ -82,9 +81,7 @@ test_that("child process is terminated in Linux", {
   child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
 
   # give the child 2 minutes to appear
-  while (!process_exists(child_id) && (proc.time() - start)[3] < 120) {
-    Sys.sleep(1)
-  }
+  expect_true(wait_until_exits(child_id))
 
   # now make sure it actually has appeared
   expect_true(process_exists(child_id))

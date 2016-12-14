@@ -47,3 +47,14 @@ process_exists <- function (handle)
     return(rc == 0)
   }
 }
+
+
+# Needed in Windows where from time to time timeout is insanely long.
+wait_until_exits <- function (handle)
+{
+  while (process_exists(handle)) {
+    Sys.sleep(1)
+  }
+  return(TRUE)
+}
+
