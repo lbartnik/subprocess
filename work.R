@@ -69,3 +69,35 @@ wait_until_exits <- function (handle)
   return(TRUE)
 }
 
+
+
+
+
+library(subprocess)
+
+spawn_printing_R <- function (...) {
+  cats <- lapply(list(...), function(x) paste0("cat('", x, "');"))
+  code <- paste(unlist(cats), '\n', collapse = '\nSys.sleep(1);\n') # make sure mb chars come in pieces
+  handle <- R_child()
+  cat(code)
+  process_write(handle, code)
+  handle
+}
+
+print_in_R <- function (handle, text) {
+  process_write(handle, paste0("cat('", text, "')\n"))
+}
+
+
+handle1 <- R_child()
+print_in_R(handle1, "a\\xF0\\x90")
+
+process_read(handle1)
+process_read(handle1, 'stderr')
+
+process_read(handle1, timeout = TIMEOUT_INFINITE)
+
+print_in_R(handle1, "\\x8D\\x88b")
+process_read(handle1, timeout = TIMEOUT_INFINITE)
+process_read(handle1, 'stderr', timeout = TIMEOUT_INFINITE)
+#handle1 <- spawn_printing_R("a", "b")
