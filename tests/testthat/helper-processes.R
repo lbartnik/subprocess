@@ -49,7 +49,20 @@ process_exists <- function (handle)
 }
 
 
-# Needed in Windows where from time to time timeout is insanely long.
+# Wait infinitey - on CRAN tests will timeout, locally we can always
+# tell that something is wrong. This is because some systems are simply
+# overloaded and it might take *minutes* for the processes to appear
+# or exit.
+
+wait_until_appears <- function (handle)
+{
+  while (!process_exists(handle)) {
+    Sys.sleep(1)
+  }
+  return(TRUE)
+}
+
+
 wait_until_exits <- function (handle)
 {
   while (process_exists(handle)) {

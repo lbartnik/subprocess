@@ -80,15 +80,16 @@ test_that("child process is terminated in Linux", {
   start <- proc.time()
   child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
 
-  # give the child 2 minutes to appear
-  expect_true(wait_until_exits(child_id))
-
   # now make sure it actually has appeared
-  expect_true(process_exists(child_id))
+  expect_true(wait_until_appears(child_id))
 
   # ... and not after we kill the parent
   process_kill(parent_handle)
+
+  expect_true(wait_until_exits(parent_handle))
   expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
+
+  expect_true(wait_until_exits(child_id))
   expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })
