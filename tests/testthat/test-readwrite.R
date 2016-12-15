@@ -48,3 +48,16 @@ test_that("write returns the number of characters", {
   
   expect_equal(process_write(handle, 'cat("A")\n'), 9)
 })
+
+test_that("non-blocking read", {
+  on.exit(process_kill(handle))
+  
+  handle <- R_child()
+  expect_true(process_exists(handle))
+
+  expect_equal(process_read(handle, PIPE_STDOUT), character(0))
+  expect_equal(process_read(handle, PIPE_STDERR), character(0))
+  expect_equal(process_read(handle, PIPE_BOTH), list(stdout = character(0),
+                                                     stderr = character(0)))
+})
+
