@@ -1,3 +1,5 @@
+* make partial UTF8 handling optional in process_read(); maybe someone
+  is reading bytes and not textual output?
 * process_poll() should be renamed - its "timeout" parameter is not
   really consistent with the idea of poll() because it means "wait
   until the child exits"
