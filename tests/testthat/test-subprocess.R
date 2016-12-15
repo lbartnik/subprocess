@@ -22,32 +22,19 @@ test_that("a subprocess can be spawned and killed", {
 })
 
 
-test_that("exchange data", {
+test_that("waiting for a child to exit", {
   on.exit(process_kill(handle))
   handle <- R_child()
   
-  expect_true(process_exists(handle))
-  
-  process_write(handle, 'cat("A")\n')
-  expect_equal(process_read(handle, timeout = 1000), 'A')
-})
+  expect_equal(process_poll(handle), "running")
+  process_kill(handle)
 
+  expected_code <- ifelse(is_windows(), 127, 9)
+  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "terminated")
+  expect_equal(process_return_code(handle), expected_code)
 
-test_that("read from standard error output", {
-  on.exit(process_kill(handle))
-  handle <- R_child()
-
-  process_write(handle, 'cat("A", file = stderr())\n')
-  expect_equal(process_read(handle, 'stderr', timeout = 1000), 'A')
-  expect_equal(process_read(handle), character())
-})
-
-
-test_that("write returns the number of characters", {
-  on.exit(process_kill(handle))
-  handle <- R_child()
-  
-  expect_equal(process_write(handle, 'cat("A")\n'), 9)
+  # wait() combines poll() and return_code()
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), expected_code)
 })
 
 
@@ -66,4 +53,17 @@ test_that("can expand paths", {
 
   expect_no_calls(normalizePathMock, 1)
   expect_no_calls(dotCallMock, 1)
+})
+
+
+test_that("handle can be printed", {
+  on.exit(process_kill(handle))
+  handle <- R_child()
+  
+  path <- gsub("\\\\", "\\\\\\\\", normalizePath(R_binary()))
+  expect_output(print(handle),
+                paste0("Process Handle\n",
+                       "command   : ", path, " --slave\n",
+                       "system id : [0-9]*\n",
+                       "state     : running"))
 })

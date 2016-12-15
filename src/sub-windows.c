@@ -489,20 +489,30 @@ int process_kill (process_handle_t * _handle)
 }
 
 
+/*
+ * This is tricky. Look here for details:
+ * http://codetitans.pl/blog/post/sending-ctrl-c-signal-to-another-application-on-windows
+ *
+ * Yet, I cannot make it work.
+ */
 int process_send_signal (process_handle_t * _handle, int _signal)
 {
   if (_signal == SIGTERM) {
     return process_terminate(_handle);
   }
+
+  BOOL rc = TRUE;
+  // that's what they do in Python
   if (_signal == CTRL_C_EVENT || _signal == CTRL_BREAK_EVENT) {
-    BOOL rc = GenerateConsoleCtrlEvent(_signal, (DWORD)_handle->child_id);
-    if (rc == FALSE)
-      return -1;
+    rc = GenerateConsoleCtrlEvent(_signal, (DWORD)_handle->child_id);
+  }
+  // unsupported `signal` value
+  else {
+    SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
+    rc = FALSE;
   }
 
-  // unsupported `signal` value
-  SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
-  return -1;
+  return (rc == FALSE) ? -1 : 0;
 }
 
 

@@ -105,7 +105,7 @@ process_kill <- function (handle)
 process_send_signal <- function (handle, signal)
 {
   stopifnot(is_process_handle(handle))
-  .Call("C_process_terminate", handle$c_handle, as.integer(signal))
+  .Call("C_process_send_signal", handle$c_handle, as.integer(signal))
 }
 
 

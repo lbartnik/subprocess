@@ -1,12 +1,6 @@
-is_windows <- function ()
-{
-  identical(tolower(Sys.info()[["sysname"]]), 'windows')
-}
+is_windows <- function () subprocess:::is_windows()
 
-is_linux <- function ()
-{
-  identical(tolower(Sys.info()[["sysname"]]), 'linux')
-}
+is_linux <- function () subprocess:::is_linux()
 
 is_mac <- function ()
 {
@@ -53,3 +47,27 @@ process_exists <- function (handle)
     return(rc == 0)
   }
 }
+
+
+# Wait infinitey - on CRAN tests will timeout, locally we can always
+# tell that something is wrong. This is because some systems are simply
+# overloaded and it might take *minutes* for the processes to appear
+# or exit.
+
+wait_until_appears <- function (handle)
+{
+  while (!process_exists(handle)) {
+    Sys.sleep(1)
+  }
+  return(TRUE)
+}
+
+
+wait_until_exits <- function (handle)
+{
+  while (process_exists(handle)) {
+    Sys.sleep(1)
+  }
+  return(TRUE)
+}
+

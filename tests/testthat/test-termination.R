@@ -16,12 +16,12 @@ windows_process_id <- function (command_line)
 test_that("child process is terminated in Windows", {
   skip_if_not(is_windows())
   
+  shell_script_child  <- shell_script  <- tempfile(fileext = '.bat')
+  write(file = shell_script_child, "waitfor SomethingThatIsNeverHappening /t 100 2>NUL")
+
   shell_script_parent <- tempfile(fileext = '.bat')
-  shell_script_child  <- tempfile(fileext = '.bat')
-  
   write(file = shell_script_parent, paste('start "subprocess test child" /b',
                                           shell_script_child))
-  write(file = shell_script_child, "waitfor SomethingThatIsNeverHappening /t 100 2>NUL")
 
   # start the parent process which in turn spawns a child process
   parent_handle <- spawn_process("c:\\Windows\\System32\\cmd.exe",
@@ -38,9 +38,8 @@ test_that("child process is terminated in Windows", {
   expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
   
   # give the child a moment to dissapear from OS tables
-  Sys.sleep(5)
-  expect_false(process_exists(parent_handle))
-  expect_false(process_exists(child_id))
+  expect_true(wait_until_exits(parent_handle))
+  expect_true(wait_until_exits(child_id))
 })
 
 
@@ -81,17 +80,16 @@ test_that("child process is terminated in Linux", {
   start <- proc.time()
   child_id <- as.integer(process_read(parent_handle, 'stdout', 1000))
 
-  # give the child 2 minutes to appear
-  while (!process_exists(child_id) && (proc.time() - start)[3] < 120) {
-    Sys.sleep(1)
-  }
-
   # now make sure it actually has appeared
-  expect_true(process_exists(child_id))
+  expect_true(wait_until_appears(child_id))
 
   # ... and not after we kill the parent
   process_kill(parent_handle)
+
+  expect_true(wait_until_exits(parent_handle))
   expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
+
+  expect_true(wait_until_exits(child_id))
   expect_false(process_exists(parent_handle))
   expect_false(process_exists(child_id))
 })
