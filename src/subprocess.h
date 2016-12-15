@@ -3,6 +3,8 @@
 
 #include "config-win.h"
 
+#define BUFFER_SIZE 1024
+
 
 #ifdef SUBPROCESS_WINDOWS // Windows
   #include "win-reader.h"
@@ -61,13 +63,9 @@ int teardown_process (process_handle_t * _handle);
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
 
-struct read_buffer {
-  size_t count;
-  char * buffer;
-};
 
 struct pipe_output {
-  struct read_buffer stdout, stderr;
+  char stdout[BUFFER_SIZE], stderr[BUFFER_SIZE];
 };
 
 ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, struct pipe_output * _output, int _timeout);

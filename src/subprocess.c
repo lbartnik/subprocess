@@ -14,8 +14,6 @@ int is_single_string_or_NULL(SEXP _obj);
 int is_single_integer(SEXP _obj);
 
 
-#define BUFFER_SIZE 1024
-
 /* --- library ------------------------------------------------------ */
 
 static void C_child_process_finalizer(SEXP ptr);
@@ -193,20 +191,6 @@ static void C_child_process_finalizer(SEXP ptr)
 }
 
 
-static int allocate_buffer (struct read_buffer * _buffer)
-{
-  // allocate "size+1" but say "size" so that the last character
-  // is always a ZERO and R string can be correctly constructer
-  // out of it (R expects a ZERO at the end)
-  _buffer->buffer = (char*)malloc(BUFFER_SIZE+1);
-  if (!_buffer->buffer) {
-    return -1;
-  }
-  
-  _buffer->count  = BUFFER_SIZE;
-  return 0;
-}
-
 
 // TODO add wait/timeout
 SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
@@ -254,8 +238,11 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
     }
   }
 
+  // allocate "size+1" but say "size" so that the last character
+  // is always a ZERO and R string can be correctly constructer
+  // out of it (R expects a ZERO at the end)
+  
   /* read into this buffer; leave one character for final \0 */
-  char * stdout = (char*)Calloc(BUFFER_SIZE+1, char);
   ssize_t rc = process_read(process_handle, which_pipe, &output, timeout);
   if (rc < 0) {
     free(output.stdout.buffer);
