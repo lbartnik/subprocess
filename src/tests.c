@@ -54,7 +54,7 @@ SEXP test_consume_utf8 ()
 
   // 𐍈 https://en.wikipedia.org/wiki/Hwair
 
-  expect_equal(consume_utf8("a\xF0\x90\x8D\x88", 5), 5);
+ expect_equal(consume_utf8("a\xF0\x90\x8D\x88", 5), 5);
   expect_equal(consume_utf8("a\xF0\x90\x8D", 4), 1);
   expect_equal(consume_utf8("a\xF0\x90", 3), 1);
   expect_equal(consume_utf8("a\xF0", 2), 1);

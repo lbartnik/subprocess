@@ -1,13 +1,15 @@
 
-#' Run tests implemented in C.
+#' Run UTF8 tests implemented in C.
 #' 
-#' If there is an error in 
+#' If there is no error in those tests a simple string message
+#' is returned. If there is at least one error, another message
+#' is returned.
 #' 
 #' @return A string \code{"All C tests passed!"} if there are no errors.
 #' @export
 #' @rdname tests
 #' 
-C_tests <- function ()
+C_tests_utf8 <- function ()
 {
   ret <- .Call("test_consume_utf8");
 
@@ -17,3 +19,4 @@ C_tests <- function ()
   
   paste0(ret, " error(s) encountered in C tests, see warnings() for details")
 }
+

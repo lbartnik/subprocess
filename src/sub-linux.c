@@ -313,19 +313,22 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, 
     _count  -= left->len;
   }
 
-  // finite timeout
-  if (_timeout > 0) {
-    rc = timed_read(fd, _buffer, _count, _timeout);
-  }
   // infinite timeout
-  else if (_timeout < 0) {
+  if (_timeout < 0) {
     set_block(fd);
     rc = read(fd, _buffer, _count);
     set_non_block(fd);
   }
-  // no timeout
   else {
-    rc = read(fd, _buffer, _count);
+    // finite timeout
+    if (_timeout > 0) {
+      rc = timed_read(fd, _buffer, _count, _timeout);
+    }
+    // no timeout
+    else {
+      rc = read(fd, _buffer, _count);
+    }
+
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
       errno = 0;
@@ -463,13 +466,13 @@ ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
     timeout.tv_usec = (_timeout % 1000) * 1000;
 
     rc = select(_fd + 1, &set, NULL, NULL, &timeout);
-    if (rc == -1 && errno != EINTR)
+    if (rc == -1 && errno != EINTR && errno != EAGAIN)
       return -1;
   
   } while(rc == 0 && _timeout > 0);
 
-  // nothing to read
-  if (rc == 0)
+  // nothing to read; if errno == EINTR try reading one last time
+  if (rc == 0 || errno == EAGAIN)
     return 0;
 
   return read(_fd, _buffer, _count);

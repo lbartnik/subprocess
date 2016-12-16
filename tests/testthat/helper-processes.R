@@ -21,11 +21,7 @@ R_binary <- function ()
 R_child <- function(...)
 {
   handle <- spawn_process(R_binary(), '--slave', ...)
-  # give the child a chance to start; Windows tends to be considerably slower
-  while (!process_exists(handle)) {
-    if (process_poll(handle) %in% c("exited", "terminated"))
-      stop('failed to start ', R_binary(), call. = FALSE)
-  }
+  wait_until_appears(handle)
   handle
 }
 
@@ -57,6 +53,8 @@ process_exists <- function (handle)
 wait_until_appears <- function (handle)
 {
   while (!process_exists(handle)) {
+    if (process_poll(handle) %in% c("exited", "terminated"))
+      stop('failed to start ', handle$command, call. = FALSE)
     Sys.sleep(1)
   }
   return(TRUE)
