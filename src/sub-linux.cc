@@ -324,15 +324,17 @@ struct select_reader {
     ssize_t rc;
 
     do {
-      _timeout -= clock_millisec() - start;
-      timeout.tv_sec = _timeout/1000;
-      timeout.tv_usec = (_timeout % 1000) * 1000;
+      int timediff = _timeout - (clock_millisec() - start);
+      if (timediff < 0) break;
+
+      timeout.tv_sec = timediff/1000;
+      timeout.tv_usec = (timediff % 1000) * 1000;
       
       rc = select(max_fd + 1, &set, NULL, NULL, &timeout);
       if (rc == -1 && errno != EINTR && errno != EAGAIN)
         return -1;
       
-    } while(rc == 0 && _timeout > 0);
+    } while(rc == 0);
     
     // nothing to read; if errno == EINTR try reading one last time
     if (rc == 0 || errno == EAGAIN)
