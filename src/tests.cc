@@ -26,7 +26,7 @@ static SEXP allocate_single_int (int _value)
   
 // ---------------------------------------------------------------------
 
-SEXP test_consume_utf8 ()
+extern "C" SEXP test_consume_utf8 ()
 {
   int errors = 0;
   if (!mbcslocale) {

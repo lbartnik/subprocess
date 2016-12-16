@@ -64,6 +64,8 @@ struct pipe_output {
 
   const container_type::value_type * data () const { return contents.data(); }
 
+  void clear () { contents[0] = 0; }
+  
   /**
    * Read from file descriptor.
    * 
@@ -80,19 +82,22 @@ struct pipe_output {
     if (_mbcslocale) {
       memcpy(contents.data(), left.data, left.len);
     }
+    else {
+      left.len = 0;
+    }
     
-    ssize_t rc = ::read(_fd, contents.data(), contents.size() - left.len - 1);
+    ssize_t rc = ::read(_fd, contents.data() + left.len, contents.size() - left.len - 1);
     if (rc < 0) {
       return rc;
     }
 
     // end with 0 to make sure R can create a string out of the data block
+    rc += left.len;
     contents[rc] = 0;
 
     // if there is a partial multi-byte character at the end, keep
     // it around for the next read attempt
     if (_mbcslocale) {
-      rc += left.len;
       left.len = 0;
       
       // check if all bytes are correct UTF8 content
@@ -104,6 +109,7 @@ struct pipe_output {
       if (consumed < (size_t)rc) {
         left.len = rc-consumed;
         memcpy(left.data, contents.data()+consumed, left.len);
+        contents[consumed] = 0;
         rc = consumed;
       }
     }

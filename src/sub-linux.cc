@@ -314,27 +314,30 @@ struct select_reader {
     FD_ZERO(&set);
     if (_pipe & PIPE_STDOUT) {
       put_fd(_handle.pipe_stdout);
+      _handle.stdout.clear();
     }
     if (_pipe & PIPE_STDERR) {
       put_fd(_handle.pipe_stderr);
+      _handle.stderr.clear();
     }
     
     struct timeval timeout;
-    int start = clock_millisec();
+    int start = clock_millisec(), timediff;
     ssize_t rc;
 
     do {
-      int timediff = _timeout - (clock_millisec() - start);
-      if (timediff < 0) break;
+      timediff = _timeout - (clock_millisec() - start);
 
-      timeout.tv_sec = timediff/1000;
-      timeout.tv_usec = (timediff % 1000) * 1000;
+      // use max so that _timeout can be TIMEOUT_IMMEDIATE and yet
+      // select can be tried at least once
+      timeout.tv_sec = std::max(0, timediff/1000);
+      timeout.tv_usec = std::max(0, (timediff % 1000) * 1000);
       
       rc = select(max_fd + 1, &set, NULL, NULL, &timeout);
       if (rc == -1 && errno != EINTR && errno != EAGAIN)
         return -1;
       
-    } while(rc == 0);
+    } while(rc == 0 && timediff > 0);
     
     // nothing to read; if errno == EINTR try reading one last time
     if (rc == 0 || errno == EAGAIN)
@@ -366,9 +369,9 @@ ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
 
   // infinite timeout
   if (_timeout < 0) {
-    enable_block_mode(_handle.pipe_stdout);
-    enable_block_mode(_handle.pipe_stderr);
-    rc = reader.timed_read(_handle, _pipe, 0);
+    enable_block_mode blocker_out(_handle.pipe_stdout);
+    enable_block_mode blocker_err(_handle.pipe_stderr);
+    rc = reader.timed_read(_handle, _pipe, 1000);
   }
   // finite or no timeout
   else {

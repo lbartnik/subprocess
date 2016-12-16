@@ -42,23 +42,30 @@ process_read <- function (handle, pipe = PIPE_BOTH, timeout = TIMEOUT_IMMEDIATE,
   output <- .Call("C_process_read", handle$c_handle,
                   as.character(pipe), as.integer(timeout))
 
-  # needs to be a list of character vectors
-  if (!is.list(output) || !all(vapply(output, is.character, logical(1)))) {
-    return(output)
+  is_output <- function (x) {
+    return(is.list(output) && all(vapply(output, is.character, logical(1))))
   }
+  paste0_list <- function (x, y) {
+    z <- lapply(names(x), function (n) paste0(x[[n]], y[[n]]))
+    `names<-`(z, names(x))
+  }
+
+  # needs to be a list of character vectors
+  if (!is_output(output)) return(output)
 
   # there is some output, maybe there will be more?
   if (isTRUE(flush)) {
     while (TRUE) {
       more <- .Call("C_process_read", handle$c_handle, as.character(pipe), TIMEOUT_IMMEDIATE)
-      if (!is.character(more) || !nchar(more))
+      if (!is_output(more) || all(vapply(more, nchar, integer(1)) == 0))
         break
-      output <- paste0(output, more)
+      output <- paste0_list(output, more)
     }
   }
 
   # replace funny line ending and break into multiple lines
   lapply(output, function (single_stream) {
+    if (!length(single_stream)) return(character())
     single_stream <- gsub("\r", "", single_stream, fixed = TRUE)
     strsplit(single_stream, "\n", fixed = TRUE)[[1]]
   })
