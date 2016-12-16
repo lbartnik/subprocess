@@ -18,9 +18,9 @@ R_binary <- function ()
   binary
 }
 
-R_child <- function(...)
+R_child <- function(args = '--slave', ...)
 {
-  handle <- spawn_process(R_binary(), '--slave', ...)
+  handle <- spawn_process(R_binary(), args, ...)
   wait_until_appears(handle)
   handle
 }
