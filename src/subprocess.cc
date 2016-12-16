@@ -148,7 +148,7 @@ extern "C" SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environme
 
   /* Calloc() handles memory allocation errors internally */
   process_handle_t * handle = (process_handle_t*)Calloc(1, process_handle_t);
-  new (handle) process_handle_t();
+  handle = new (handle) process_handle_t();
 
   /* spawn the process */
   if (spawn_process(handle, command, arguments, environment, workdir, termination_mode) < 0) {

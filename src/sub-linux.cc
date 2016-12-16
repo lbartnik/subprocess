@@ -137,7 +137,6 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
       errno = err;                                                 \
    } while (0);                                                    \
 
-  memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
 
   /* redirect standard streams */
