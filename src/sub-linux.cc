@@ -1,11 +1,13 @@
 //#define _GNU_SOURCE             /* See feature_test_macros(7) */
 
-#include <errno.h>
+#include <cerrno>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <algorithm>
+
 #include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -24,7 +26,6 @@ extern char ** environ;
 
 
 #include "subprocess.h"
-#include "utf8.h"
 
 // this cannot be a "const int" - it's only C++
 #define BUFFER_SIZE 1024
@@ -71,17 +72,8 @@ static time_t clock_millisec ()
   return (int)current.tv_sec * 1000 + (int)(current.tv_nsec / 1000000);
 }
 
-static ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout);
 
-static int set_non_block (int _fd)
-{
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
-}
 
-static int set_block (int _fd)
-{
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
-}
 
 // this is to hide from CRAN that we call exit()
 static void exit_on_failure ()
@@ -104,6 +96,17 @@ static void exit_on_failure ()
   exit_t exit_fun = (exit_t)exit_handle;
   exit_fun(EXIT_FAILURE);
 }
+
+
+static int set_block (int _fd) {
+  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
+}
+
+static int set_non_block (int _fd) {
+  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
+}
+
+
 
 
 // TODO prevent Ctrl+C from being passed to the child process
@@ -275,94 +278,115 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
 }
 
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe,
-                      struct pipe_output * _output, int _timeout)
+/* --- process_read ------------------------------------------------- */
+
+
+struct enable_block_mode {
+  int fd;
+
+  enable_block_mode (int _fd) : fd (_fd) {
+    set_block(fd);
+  }
+  
+  ~enable_block_mode () {
+    set_non_block(fd);
+  }
+};
+
+
+struct select_reader {
+  
+  fd_set set;
+  int max_fd;
+  
+  select_reader () : max_fd(0) { }
+  
+  void put_fd (int _fd) {
+    FD_SET(_fd, &set);
+    max_fd = std::max(max_fd, _fd);
+  }
+  
+  ssize_t timed_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
+  {
+    // this should never be called with "infinite" timeout
+    if (_timeout < 0)
+      return -1;
+    
+    FD_ZERO(&set);
+    if (_pipe & PIPE_STDOUT) {
+      put_fd(_handle.pipe_stdout);
+    }
+    if (_pipe & PIPE_STDERR) {
+      put_fd(_handle.pipe_stderr);
+    }
+    
+    struct timeval timeout;
+    int start = clock_millisec();
+    ssize_t rc;
+
+    do {
+      _timeout -= clock_millisec() - start;
+      timeout.tv_sec = _timeout/1000;
+      timeout.tv_usec = (_timeout % 1000) * 1000;
+      
+      rc = select(max_fd + 1, &set, NULL, NULL, &timeout);
+      if (rc == -1 && errno != EINTR && errno != EAGAIN)
+        return -1;
+      
+    } while(rc == 0 && _timeout > 0);
+    
+    // nothing to read; if errno == EINTR try reading one last time
+    if (rc == 0 || errno == EAGAIN)
+      return 0;
+    
+    if (FD_ISSET(_handle.pipe_stdout, &set)) {
+      rc = std::min(rc, _handle.stdout.read(_handle.pipe_stdout, mbcslocale));
+    }
+    if (FD_ISSET(_handle.pipe_stderr, &set)) {
+      rc = std::min(rc, _handle.stderr.read(_handle.pipe_stderr, mbcslocale));
+    }
+    
+    return rc;
+  }
+};
+
+
+
+
+ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
 {
-  if (!_handle || !_handle->child_id) {
+  if (!_handle.child_id) {
     errno = ECHILD;
     return -1;
   }
 
-  int fd;
-  struct leftover * left = NULL;
   ssize_t rc;
-  int _count = 0;
-
-  // choose pipe
-  if (_pipe == PIPE_STDOUT) {
-    fd = _handle->pipe_stdout;
-    left = &_handle->stdout_left;
-  }
-  else if (_pipe == PIPE_STDERR) {
-    fd = _handle->pipe_stderr;
-    left = &_handle->stderr_left;
-  }
-  else {
-    errno = EINVAL;
-    return -1;
-  }
-  
-  // if there is anything left from the last read, place it in the buffer
-  if (left->len) {
-    if (_count < left->len) {
-      errno = EMSGSIZE;
-      return -1;
-    }
-
-    // copy what's left from the last read
-    memcpy(_output->stdout, left->data, left->len);
-    //_buffer += left->len;
-    _count  -= left->len;
-  }
+  select_reader reader;
 
   // infinite timeout
   if (_timeout < 0) {
-    set_block(fd);
-    rc = read(fd, _output->stdout, _count);
-    set_non_block(fd);
+    enable_block_mode(_handle.pipe_stdout);
+    enable_block_mode(_handle.pipe_stderr);
+    rc = reader.timed_read(_handle, _pipe, 0);
   }
+  // finite or no timeout
   else {
-    // finite timeout
-    if (_timeout > 0) {
-      rc = timed_read(fd, _output->stdout, _count, _timeout);
-    }
-    // no timeout
-    else {
-      rc = read(fd, _output->stdout, _count);
-    }
+    rc = reader.timed_read(_handle, _pipe, _timeout);
 
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
       errno = 0;
-      *((char*)_output->stdout) = 0;
       return 0;
     }
   }
 
-  // if R detected multi-byte locale, see if there are
-  // any non-UTF8 bytes in the input buffer
-  if (mbcslocale) {
-    // move the buffer back to its original position, update the count
-    // of bytes in the buffer; finally, clean the leftover buffer
-    //_output->stdout -= left->len;
-    rc += left->len;
-    left->len = 0;
-    
-    // check if all bytes are correct UTF8 content
-    size_t consumed = consume_utf8(_output->stdout, rc);
-    if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
-      errno = EIO;
-      return -1;
-    }
-    if (consumed < rc) {
-      left->len = rc-consumed;
-      memcpy(left->data, _output->stdout+consumed, left->len);
-      rc = consumed;
-    }
-  } // if (mbcslocale)
-
   return rc;
 }
+
+
+
+
+
 
 
 int process_poll (process_handle_t * _handle, int _timeout)
@@ -444,40 +468,6 @@ int process_kill(process_handle_t * _handle)
   // this will terminate the child for sure so we can
   // wait until it happens
   return termination_signal(_handle, SIGKILL, -1);
-}
-
-
-/* --- library ------------------------------------------------------ */
-
-ssize_t timed_read (int _fd, char * _buffer, size_t _count, int _timeout)
-{
-  // this should never be called with "infinite" timeout
-  if (_timeout < 0)
-    return -1;
-
-  fd_set set;
-  struct timeval timeout;
-
-  FD_ZERO(&set);
-  FD_SET(_fd, &set);
-
-  int start = clock_millisec(), rc;
-  do {
-    _timeout -= clock_millisec() - start;
-    timeout.tv_sec = _timeout/1000;
-    timeout.tv_usec = (_timeout % 1000) * 1000;
-
-    rc = select(_fd + 1, &set, NULL, NULL, &timeout);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN)
-      return -1;
-  
-  } while(rc == 0 && _timeout > 0);
-
-  // nothing to read; if errno == EINTR try reading one last time
-  if (rc == 0 || errno == EAGAIN)
-    return 0;
-
-  return read(_fd, _buffer, _count);
 }
 
 

@@ -148,6 +148,7 @@ extern "C" SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environme
 
   /* Calloc() handles memory allocation errors internally */
   process_handle_t * handle = (process_handle_t*)Calloc(1, process_handle_t);
+  new (handle) process_handle_t();
 
   /* spawn the process */
   if (spawn_process(handle, command, arguments, environment, workdir, termination_mode) < 0) {
@@ -185,6 +186,7 @@ static void C_child_process_finalizer(SEXP ptr)
   }
 
   teardown_process(addr);
+  addr->~process_handle_t();
   Free(addr);
   
   R_ClearExternalPtr(ptr); /* not really needed */
@@ -220,29 +222,14 @@ extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   else {
     Rf_error("unrecognized `pipe` value");
   }
-
-  /* prepare for output */
-  struct pipe_output output;
-  memset(&output, 0, sizeof(output));
-
-  // allocate "size+1" but say "size" so that the last character
-  // is always a ZERO and R string can be correctly constructer
-  // out of it (R expects a ZERO at the end)
   
   /* read into this buffer; leave one character for final \0 */
-  ssize_t rc = process_read(process_handle, which_pipe, &output, timeout);
+  ssize_t rc = process_read(*process_handle, which_pipe, timeout);
   if (rc < 0) {
     Rf_error("error while reading from child process");
   }
-  
-  // put the final 0, there's always room for that (see how a buffer is
-  // allocated in allocate_buffer())
-  #define END_WITH_ZERO(x)
-  END_WITH_ZERO(output.stdout)
-  END_WITH_ZERO(output.stderr)
-  #undef END_WITH_ZERO
-  
-  // produce the result - a list of one or two elements
+
+  /* produce the result - a list of one or two elements */
   int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
   SEXP ans, nms;
   PROTECT(ans = allocVector(VECSXP, len));
@@ -254,8 +241,8 @@ extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
       SET_STRING_ELT(nms, i++, mkChar(name));                 \
     }                                                         \
   
-  ADD_BUFFER(output.stdout, "stdout");
-  ADD_BUFFER(output.stderr, "stderr");
+  ADD_BUFFER(process_handle->stdout.data(), "stdout");
+  ADD_BUFFER(process_handle->stderr.data(), "stderr");
   #undef ADD_BUFFER
 
   /* set names */
