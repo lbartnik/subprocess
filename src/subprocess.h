@@ -27,7 +27,7 @@ struct leftover {
   char data[4];
 };
 
-struct process_handle {
+struct process_handle_t {
 #ifdef SUBPROCESS_WINDOWS
   reader_t stdout_reader, stderr_reader;
   HANDLE process_job;
@@ -51,7 +51,6 @@ struct process_handle {
   termination_mode_t termination_mode;
 };
 
-typedef struct process_handle process_handle_t;
 
 int full_error_message(char * _buffer, size_t _length);
 

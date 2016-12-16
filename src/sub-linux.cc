@@ -1,4 +1,4 @@
-#define _GNU_SOURCE             /* See feature_test_macros(7) */
+//#define _GNU_SOURCE             /* See feature_test_macros(7) */
 
 #include <errno.h>
 #include <signal.h>
@@ -286,6 +286,7 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe,
   int fd;
   struct leftover * left = NULL;
   ssize_t rc;
+  int _count = 0;
 
   // choose pipe
   if (_pipe == PIPE_STDOUT) {
@@ -309,31 +310,31 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe,
     }
 
     // copy what's left from the last read
-    memcpy(_buffer, left->data, left->len);
-    _buffer += left->len;
+    memcpy(_output->stdout, left->data, left->len);
+    //_buffer += left->len;
     _count  -= left->len;
   }
 
   // infinite timeout
   if (_timeout < 0) {
     set_block(fd);
-    rc = read(fd, _buffer, _count);
+    rc = read(fd, _output->stdout, _count);
     set_non_block(fd);
   }
   else {
     // finite timeout
     if (_timeout > 0) {
-      rc = timed_read(fd, _buffer, _count, _timeout);
+      rc = timed_read(fd, _output->stdout, _count, _timeout);
     }
     // no timeout
     else {
-      rc = read(fd, _buffer, _count);
+      rc = read(fd, _output->stdout, _count);
     }
 
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
       errno = 0;
-      *((char*)_buffer) = 0;
+      *((char*)_output->stdout) = 0;
       return 0;
     }
   }
@@ -343,19 +344,19 @@ ssize_t process_read (process_handle_t * _handle, pipe_t _pipe,
   if (mbcslocale) {
     // move the buffer back to its original position, update the count
     // of bytes in the buffer; finally, clean the leftover buffer
-    _buffer -= left->len;
+    //_output->stdout -= left->len;
     rc += left->len;
     left->len = 0;
     
     // check if all bytes are correct UTF8 content
-    size_t consumed = consume_utf8(_buffer, rc);
+    size_t consumed = consume_utf8(_output->stdout, rc);
     if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
       errno = EIO;
       return -1;
     }
     if (consumed < rc) {
       left->len = rc-consumed;
-      memcpy(left->data, _buffer+consumed, left->len);
+      memcpy(left->data, _output->stdout+consumed, left->len);
       rc = consumed;
     }
   } // if (mbcslocale)

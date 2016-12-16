@@ -95,7 +95,7 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 
 /* --- public API --------------------------------------------------- */
 
-SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
+extern "C" SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
 {
   /* basic argument sanity checks */
   if (!is_nonempty_string(_command)) {
@@ -177,7 +177,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
 static void C_child_process_finalizer(SEXP ptr)
 {
-  void * addr = R_ExternalPtrAddr(ptr);
+  process_handle_t * addr = (process_handle_t*)R_ExternalPtrAddr(ptr);
   if (!addr) return;
   
   if (process_poll(addr, 0) < 0 || process_terminate(addr) < 0) {
@@ -193,7 +193,7 @@ static void C_child_process_finalizer(SEXP ptr)
 
 
 // TODO add wait/timeout
-SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
+extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -225,19 +225,6 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   struct pipe_output output;
   memset(&output, 0, sizeof(output));
 
-  /* don't use Calloc() here in case there's an allocation error */
-  if (which_pipe & PIPE_STDOUT) {
-    if (allocate_buffer(&output.stdout) < 0) {
-      Rf_error("could not allocate output buffer");
-    }
-  }
-  if (which_pipe & PIPE_STDERR) {
-    if (allocate_buffer(&output.stderr) < 0) {
-      free(output.stdout.buffer);
-      Rf_error("could not allocate output buffer");
-    }
-  }
-
   // allocate "size+1" but say "size" so that the last character
   // is always a ZERO and R string can be correctly constructer
   // out of it (R expects a ZERO at the end)
@@ -245,14 +232,12 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   /* read into this buffer; leave one character for final \0 */
   ssize_t rc = process_read(process_handle, which_pipe, &output, timeout);
   if (rc < 0) {
-    free(output.stdout.buffer);
-    free(output.stderr.buffer);
     Rf_error("error while reading from child process");
   }
   
   // put the final 0, there's always room for that (see how a buffer is
   // allocated in allocate_buffer())
-  #define END_WITH_ZERO(x) if (x.buffer) x.buffer[x.count] = 0;
+  #define END_WITH_ZERO(x)
   END_WITH_ZERO(output.stdout)
   END_WITH_ZERO(output.stderr)
   #undef END_WITH_ZERO
@@ -266,12 +251,11 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   #define ADD_BUFFER(buffer, name)                            \
     if (buffer) {                                             \
       SET_VECTOR_ELT(ans, i, ScalarString(mkChar(buffer)));   \
-      free(buffer);                                           \
       SET_STRING_ELT(nms, i++, mkChar(name));                 \
     }                                                         \
   
-  ADD_BUFFER(output.stdout.buffer, "stdout");
-  ADD_BUFFER(output.stderr.buffer, "stderr");
+  ADD_BUFFER(output.stdout, "stdout");
+  ADD_BUFFER(output.stderr, "stderr");
   #undef ADD_BUFFER
 
   /* set names */
@@ -283,7 +267,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 }
 
 
-SEXP C_process_write (SEXP _handle, SEXP _message)
+extern "C" SEXP C_process_write (SEXP _handle, SEXP _message)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -298,7 +282,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 }
 
 
-SEXP C_process_poll (SEXP _handle, SEXP _timeout)
+extern "C" SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 {
   /* extract timeout */
   if (!is_single_integer(_timeout)) {
@@ -338,7 +322,7 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 }
 
 
-SEXP C_process_return_code (SEXP _handle)
+extern "C" SEXP C_process_return_code (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
   if (process_poll(process_handle, 0) < 0) {
@@ -352,7 +336,7 @@ SEXP C_process_return_code (SEXP _handle)
 }
 
 
-SEXP C_process_terminate (SEXP _handle)
+extern "C" SEXP C_process_terminate (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -364,7 +348,7 @@ SEXP C_process_terminate (SEXP _handle)
 }
 
 
-SEXP C_process_kill (SEXP _handle)
+extern "C" SEXP C_process_kill (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -376,7 +360,7 @@ SEXP C_process_kill (SEXP _handle)
 }
 
 
-SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
+extern "C" SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
   if (!is_single_integer(_signal)) {
@@ -393,7 +377,7 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 }
 
 
-SEXP C_known_signals ()
+extern "C" SEXP C_known_signals ()
 {
   SEXP ans;
   SEXP ansnames;
