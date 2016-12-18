@@ -68,7 +68,6 @@ int duplicate_handle(HANDLE src, HANDLE * dst)
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
 	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
-  memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
   
   /* if the command is part of arguments, pass NULL to CreateProcess */

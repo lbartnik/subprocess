@@ -13,6 +13,11 @@
 
 using std::vector;
 
+#ifdef SUBPROCESS_WINDOWS
+#undef min
+#undef max
+#undef length
+#endif
 
 typedef enum { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 } pipe_t;
 
@@ -39,7 +44,7 @@ struct pipe_output {
     size_t len;
     char data[4];
     
-    static_assert(sizeof(data) < buffer_size, "buffer too small for multi-byte char support");
+    static_assert(sizeof(pipe_output::leftover::data) < buffer_size, "buffer too small for multi-byte char support");
   };
   
   typedef vector<char> container_type;
@@ -167,23 +172,50 @@ struct process_handle_t {
 
 int full_error_message(char * _buffer, size_t _length);
 
+int spawn_process(process_handle_t * _handle, const char * _command, char *const _arguments[],
+	char *const _environment[], const char * _workdir, termination_mode_t _termination_mode);
 
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode);
+int teardown_process(process_handle_t * _handle);
 
-int teardown_process (process_handle_t * _handle);
+ssize_t process_write(process_handle_t * _handle, const void * _buffer, size_t _count);
 
-ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count);
+ssize_t process_read(process_handle_t & _handle, pipe_t _pipe, int _timeout);
 
-ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout);
+int process_poll(process_handle_t * _handle, int _timeout);
 
-int process_poll (process_handle_t * _handle, int _timeout);
-
-int process_terminate (process_handle_t * _handle);
+int process_terminate(process_handle_t * _handle);
 
 int process_kill(process_handle_t * _handle);
 
 int process_send_signal(process_handle_t * _handle, int _signal);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+EXPORT SEXP C_process_spawn(SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode);
+
+EXPORT SEXP C_process_read(SEXP _handle, SEXP _pipe, SEXP _timeout);
+
+EXPORT SEXP C_process_write(SEXP _handle, SEXP _message);
+
+EXPORT SEXP C_process_poll(SEXP _handle, SEXP _timeout);
+
+EXPORT SEXP C_process_return_code(SEXP _handle);
+
+EXPORT SEXP C_process_terminate(SEXP _handle);
+
+EXPORT SEXP C_process_kill(SEXP _handle);
+
+EXPORT SEXP C_process_send_signal(SEXP _handle, SEXP _signal);
+
+EXPORT SEXP C_known_signals();
+
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 
 #endif /* SUBPROCESS_H_GUARD */
 

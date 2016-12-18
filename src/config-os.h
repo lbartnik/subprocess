@@ -51,6 +51,12 @@ typedef int pipe_handle_type;
 #endif /* SUBPROCESS_WINDOWS */
 
 
+#ifdef _MSC_VER
+#define EXPORT __declspec( dllexport )
+#else
+#define EXPORT 
+#endif
+
 
 
 #endif /* CONFIG_WIN_H_GUARD */

@@ -95,7 +95,7 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 
 /* --- public API --------------------------------------------------- */
 
-extern "C" SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
+SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
 {
   /* basic argument sanity checks */
   if (!is_nonempty_string(_command)) {
@@ -195,7 +195,7 @@ static void C_child_process_finalizer(SEXP ptr)
 
 
 // TODO add wait/timeout
-extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
+SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -254,7 +254,7 @@ extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 }
 
 
-extern "C" SEXP C_process_write (SEXP _handle, SEXP _message)
+SEXP C_process_write (SEXP _handle, SEXP _message)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -269,7 +269,7 @@ extern "C" SEXP C_process_write (SEXP _handle, SEXP _message)
 }
 
 
-extern "C" SEXP C_process_poll (SEXP _handle, SEXP _timeout)
+SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 {
   /* extract timeout */
   if (!is_single_integer(_timeout)) {
@@ -309,7 +309,7 @@ extern "C" SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 }
 
 
-extern "C" SEXP C_process_return_code (SEXP _handle)
+SEXP C_process_return_code (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
   if (process_poll(process_handle, 0) < 0) {
@@ -323,7 +323,7 @@ extern "C" SEXP C_process_return_code (SEXP _handle)
 }
 
 
-extern "C" SEXP C_process_terminate (SEXP _handle)
+SEXP C_process_terminate (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -335,7 +335,7 @@ extern "C" SEXP C_process_terminate (SEXP _handle)
 }
 
 
-extern "C" SEXP C_process_kill (SEXP _handle)
+SEXP C_process_kill (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
@@ -347,7 +347,7 @@ extern "C" SEXP C_process_kill (SEXP _handle)
 }
 
 
-extern "C" SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
+SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
   if (!is_single_integer(_signal)) {
@@ -364,7 +364,7 @@ extern "C" SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 }
 
 
-extern "C" SEXP C_known_signals ()
+SEXP C_known_signals ()
 {
   SEXP ans;
   SEXP ansnames;
