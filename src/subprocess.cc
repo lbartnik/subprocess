@@ -241,8 +241,8 @@ extern "C" SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
       SET_STRING_ELT(nms, i++, mkChar(name));                 \
     }                                                         \
   
-  ADD_BUFFER(PIPE_STDOUT, process_handle->stdout.data(), "stdout");
-  ADD_BUFFER(PIPE_STDERR, process_handle->stderr.data(), "stderr");
+  ADD_BUFFER(PIPE_STDOUT, process_handle->stdout_.data(), "stdout");
+  ADD_BUFFER(PIPE_STDERR, process_handle->stderr_.data(), "stderr");
   #undef ADD_BUFFER
 
   /* set names */
