@@ -314,11 +314,11 @@ struct select_reader {
     FD_ZERO(&set);
     if (_pipe & PIPE_STDOUT) {
       put_fd(_handle.pipe_stdout);
-      _handle.stdout.clear();
+      _handle.stdout_.clear();
     }
     if (_pipe & PIPE_STDERR) {
       put_fd(_handle.pipe_stderr);
-      _handle.stderr.clear();
+      _handle.stderr_.clear();
     }
     
     struct timeval timeout;
@@ -344,10 +344,10 @@ struct select_reader {
       return 0;
     
     if (FD_ISSET(_handle.pipe_stdout, &set)) {
-      rc = std::min(rc, _handle.stdout.read(_handle.pipe_stdout, mbcslocale));
+      rc = std::min(rc, _handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
     }
     if (FD_ISSET(_handle.pipe_stderr, &set)) {
-      rc = std::min(rc, _handle.stderr.read(_handle.pipe_stderr, mbcslocale));
+      rc = std::min(rc, _handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
     }
     
     return rc;
