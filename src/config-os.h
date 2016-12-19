@@ -6,7 +6,7 @@
 #define CONFIG_WIN_H_GUARD
 
 
-#if defined WIN64 || defined WIN32 || defined _MSC_VER
+#if defined WIN64 || defined WIN32 || defined _MSC_VER || __MINGW32__
 #define SUBPROCESS_WINDOWS
 #endif
 
@@ -37,6 +37,26 @@
 #endif
 
 
+typedef HANDLE process_handle_type;
+typedef HANDLE pipe_handle_type;
+
+
+#else /* SUBPROCESS_WINDOWS */
+
+#include <unistd.h>
+typedef pid_t process_handle_type;
+typedef int pipe_handle_type;
+
+
 #endif /* SUBPROCESS_WINDOWS */
+
+
+#ifdef _MSC_VER
+#define EXPORT __declspec( dllexport )
+#else
+#define EXPORT 
+#endif
+
+
 
 #endif /* CONFIG_WIN_H_GUARD */

@@ -12,14 +12,14 @@ test_that("working directory can be set", {
   handle <- R_child()
   
   process_write(handle, print_wd)
-  expect_equal(normalizePath(process_read(handle, timeout = 1000)),
+  expect_equal(normalizePath(process_read(handle, timeout = 1000)$stdout),
                norm_wd)
   
   on.exit(process_terminate(handle_2), add = TRUE)
   handle_2 <- R_child(workdir = work_dir)
   
   process_write(handle_2, print_wd)
-  expect_equal(normalizePath(process_read(handle_2, timeout = 1000)),
+  expect_equal(normalizePath(process_read(handle_2, timeout = 1000)$stdout),
                work_dir)
 })
 
@@ -31,9 +31,9 @@ test_that("inherits environment from parent", {
   Sys.setenv(PARENT_VAR="PARENT_VAL")
   
   on.exit(process_terminate(handle), add = TRUE)
-  handle <- spawn_process(R_binary(), c("--slave", "-e", "cat(Sys.getenv('PARENT_VAR'))"))
+  handle <- R_child(c("--slave", "-e", "cat(Sys.getenv('PARENT_VAR'))"))
   
-  expect_equal(process_read(handle, timeout = TIMEOUT_INFINITE), 'PARENT_VAL')
+  expect_equal(process_read(handle, timeout = TIMEOUT_INFINITE)$stdout, 'PARENT_VAL')
   expect_equal(process_poll(handle, timeout = TIMEOUT_INFINITE), "exited")
 })
 
@@ -43,7 +43,7 @@ test_that("passing new environment", {
   handle <- R_child(environment = "VAR=SOME_VALUE")
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
-  expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+  expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
 })
 
 
@@ -52,7 +52,7 @@ test_that("new environment via named vector", {
   handle <- R_child(environment = c(VAR="SOME_VALUE"))
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
-  expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+  expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
 })
 
 
@@ -61,7 +61,7 @@ test_that("new environment via list", {
   handle <- R_child(environment = list(VAR="SOME_VALUE"))
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
-  expect_equal(process_read(handle, timeout = 1000), 'SOME_VALUE')
+  expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
 })
 
 

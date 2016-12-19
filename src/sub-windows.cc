@@ -68,7 +68,6 @@ int duplicate_handle(HANDLE src, HANDLE * dst)
 int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
 	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
 {
-  memset(_handle, 0, sizeof(process_handle_t));
   _handle->state = NOT_STARTED;
   
   /* if the command is part of arguments, pass NULL to CreateProcess */
@@ -172,15 +171,6 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   _handle->child_handle     = pi.hProcess;
   _handle->child_id         = pi.dwProcessId;
   _handle->termination_mode = _termination_mode;
-
-  /* start reader threads */
-  if (start_reader_thread (&_handle->stdout_reader, _handle->pipe_stdout) < 0) {
-    return -1;
-  }
-  if (start_reader_thread (&_handle->stderr_reader, _handle->pipe_stderr) < 0) {
-    TerminateThread(&_handle->stdout_reader, 0); // TODO is this safe? how else to handle it?
-    return -1;
-  }
 
   /* again, in Linux 0 is "good" */
   return 0;
@@ -332,26 +322,11 @@ int teardown_process (process_handle_t * _handle)
     return 0;
   }
 
-  int rc = 1;
-
   process_poll(_handle, -1); // -1 means wait infinitely
 
   // Close OS handles 
   CloseHandle(_handle->child_handle);
   CloseHandle(_handle->pipe_stdin);
-
-  // terminate reader threads
-  rc &= CancelSynchronousIo(&_handle->stdout_reader);
-  rc &= CancelSynchronousIo(&_handle->stderr_reader); 
-  rc &= CancelIoEx(_handle->pipe_stdout, NULL);
-  rc &= CancelIoEx(_handle->pipe_stderr, NULL);
-  if (!rc) {
-    // TODO produce a warning
-  }
-
-  // wait until threads exit
-  join_reader_thread (&_handle->stdout_reader, INFINITE);
-  join_reader_thread (&_handle->stderr_reader, INFINITE);
 
   // finally close read handles
   CloseHandle(_handle->pipe_stdout);
@@ -374,28 +349,53 @@ ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t 
   return (ssize_t)written;
 }
 
-ssize_t process_read (process_handle_t * _handle, pipe_t _pipe, void * _buffer, size_t _count, int _timeout)
+
+
+/* --- reading ------------------------------------------------------ */
+
+//static 
+
+
+
+
+ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
 {
-  // choose pipe
-  reader_t * reader = NULL;
-  if (_pipe == PIPE_STDOUT)
-    reader = &_handle->stdout_reader;
-  else if (_pipe == PIPE_STDERR)
-    reader = &_handle->stderr_reader;
-  else
-    return -1;
+  _handle.stdout_.clear();
+  _handle.stderr_.clear();
+  
+  ULONGLONG start = GetTickCount64();
+  int timediff, sleep_time = 100; /* by default sleep 0.1 seconds */
+  
+  if (_timeout >= 0) {
+    sleep_time = _timeout / 10;
+  }
+  
+  do {
+    ssize_t rc1 = 0, rc2 = 0;
+    if ((_pipe & PIPE_STDOUT) && (rc1 = _handle.stdout_.read(_handle.pipe_stdout)) < 0) {
+      return -1;
+    }
+    if ((_pipe & PIPE_STDERR) && (rc2 = _handle.stderr_.read(_handle.pipe_stderr)) < 0) {
+      return -1;
+    }
 
-  // identify timeout
-  if (_timeout < 0)
-    _timeout = INFINITE;
+    // if anything has been read or no timeout is specified return now
+    if (rc1 > 0 || rc2 > 0 || sleep_time == 0) {
+      return std::max(rc1, rc2);
+    }
+    
+    // sleep_time is now guaranteed to be positive
+    Sleep(sleep_time);
+    timediff = (int)(GetTickCount64() - start);
+    
+  } while (_timeout < 0 || timediff < _timeout);
 
-  // event though return code is negative, buffer might hold data
-  // this will happen if HeapFree() fails
-  if (get_next_chunk (reader, _buffer, _count, _timeout) < 0)
-    return -1;
- 
-  return (ssize_t)strlen(_buffer);
+  return -1;
 }
+
+
+/* ------------------------------------------------------------------ */
+
 
 int process_poll (process_handle_t * _handle, int _timeout)
 {
@@ -467,16 +467,6 @@ int process_terminate(process_handle_t * _handle)
   // clean up
   teardown_process(_handle);
   _handle->state = TERMINATED;
-
-  // if any of the threads reported an error
-  if (_handle->stdout_reader.state == THREAD_TERMINATED) {
-    SetLastError(_handle->stdout_reader.error);
-    return -1;
-  }
-  if (_handle->stderr_reader.state == THREAD_TERMINATED) {
-    SetLastError(_handle->stderr_reader.error);
-    return -1;
-  }
 
   // everything went smoothly
   return 0;

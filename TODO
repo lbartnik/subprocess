@@ -1,5 +1,7 @@
 * make partial UTF8 handling optional in process_read(); maybe someone
   is reading bytes and not textual output?
+* enable a single wait on both stdout and stderr
+* make Ctrl+C abandon read/write to/from a process
 * process_poll() should be renamed - its "timeout" parameter is not
   really consistent with the idea of poll() because it means "wait
   until the child exits"
@@ -9,5 +11,4 @@
 * add parameters to spawn_process: stdin, stdout, stderr; enable
   string-based input, output to /dev/null (Linux) or nul (Windows);
   redirecting stderr to stdout
-* enable a single wait on both stdout and stderr
 * see how tools::pskill can be used our own process_send_signal

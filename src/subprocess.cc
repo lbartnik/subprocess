@@ -14,8 +14,6 @@ int is_single_string_or_NULL(SEXP _obj);
 int is_single_integer(SEXP _obj);
 
 
-#define BUFFER_SIZE 1024
-
 /* --- library ------------------------------------------------------ */
 
 static void C_child_process_finalizer(SEXP ptr);
@@ -150,6 +148,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
   /* Calloc() handles memory allocation errors internally */
   process_handle_t * handle = (process_handle_t*)Calloc(1, process_handle_t);
+  handle = new (handle) process_handle_t();
 
   /* spawn the process */
   if (spawn_process(handle, command, arguments, environment, workdir, termination_mode) < 0) {
@@ -179,7 +178,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
 static void C_child_process_finalizer(SEXP ptr)
 {
-  void * addr = R_ExternalPtrAddr(ptr);
+  process_handle_t * addr = (process_handle_t*)R_ExternalPtrAddr(ptr);
   if (!addr) return;
   
   if (process_poll(addr, 0) < 0 || process_terminate(addr) < 0) {
@@ -187,10 +186,12 @@ static void C_child_process_finalizer(SEXP ptr)
   }
 
   teardown_process(addr);
+  addr->~process_handle_t();
   Free(addr);
   
   R_ClearExternalPtr(ptr); /* not really needed */
 }
+
 
 
 // TODO add wait/timeout
@@ -211,34 +212,47 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   /* determine which pipe */
   const char * pipe = translateChar(STRING_ELT(_pipe, 0));
   pipe_t which_pipe;
+  
   if (!strncmp(pipe, "stdout", 6))
     which_pipe = PIPE_STDOUT;
   else if (!strncmp(pipe, "stderr", 6))
     which_pipe = PIPE_STDERR;
+  else if (!strncmp(pipe, "both", 4))
+    which_pipe = PIPE_BOTH;
   else {
     Rf_error("unrecognized `pipe` value");
   }
-
+  
   /* read into this buffer; leave one character for final \0 */
-  char * buffer = (char*)Calloc(BUFFER_SIZE+1, char);
-  ssize_t rc = process_read(process_handle, which_pipe, buffer, BUFFER_SIZE, timeout);
+  ssize_t rc = process_read(*process_handle, which_pipe, timeout);
   if (rc < 0) {
     Rf_error("error while reading from child process");
   }
+
+  /* produce the result - a list of one or two elements */
+  int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
+  SEXP ans, nms;
+  PROTECT(ans = allocVector(VECSXP, len));
+  PROTECT(nms = allocVector(STRSXP, len));
+
+  #define ADD_BUFFER(which, buffer, name)                     \
+    if (which & which_pipe) {                                 \
+      SET_VECTOR_ELT(ans, i, ScalarString(mkChar(buffer)));   \
+      SET_STRING_ELT(nms, i++, mkChar(name));                 \
+    }                                                         \
   
-  // put the final 0, there's always room for that
-  buffer[rc] = 0;
+  ADD_BUFFER(PIPE_STDOUT, process_handle->stdout_.data(), "stdout");
+  ADD_BUFFER(PIPE_STDERR, process_handle->stderr_.data(), "stderr");
+  #undef ADD_BUFFER
 
-  SEXP ans;
-  PROTECT(ans = allocVector(STRSXP, 1));
-  SET_STRING_ELT(ans, 0, mkChar(buffer));
+  /* set names */
+  setAttrib(ans, R_NamesSymbol, nms);
 
-  Free(buffer);
-
-  /* ans */
-  UNPROTECT(1);
+  /* ans, nms */
+  UNPROTECT(2);
   return ans;
 }
+
 
 SEXP C_process_write (SEXP _handle, SEXP _message)
 {
