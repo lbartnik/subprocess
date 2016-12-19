@@ -1,6 +1,8 @@
 language: r
 cache: packages
 sudo: false
+compiler:
+  - g++
 r_build_args: --no-build-vignettes
 r_check_args: --no-manual --timings
 matrix:
