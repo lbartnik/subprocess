@@ -15,5 +15,5 @@ test_that("onLoad is correct", {
     dotOnLoad('libname', 'subprocess')
   })
 
-  expect_no_calls(assignMock, length(known))
+  expect_called(assignMock, length(known))
 })

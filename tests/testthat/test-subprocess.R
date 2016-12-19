@@ -51,8 +51,8 @@ test_that("can expand paths", {
   stub(spawn_process, '.Call', dotCallMock)
   handle <- spawn_process("~/local/executable")
 
-  expect_no_calls(normalizePathMock, 1)
-  expect_no_calls(dotCallMock, 1)
+  expect_called(normalizePathMock, 1)
+  expect_called(dotCallMock, 1)
 })
 
 
