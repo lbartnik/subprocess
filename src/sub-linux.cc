@@ -94,6 +94,27 @@ static void exit_on_failure ()
 }
 
 
+/*
+ * Duplicate handle and zero the original 
+ */
+inline dup2 (int & _from, int & _to) {
+  if (::dup2(_from, _to) < 0) {
+    throw subprocess_exception(errno, "duplicating descriptor failed, abortnig");
+  }
+}
+
+inline chdir (const string & _path) {
+  if (::chdir(_workdir) < 0) {
+    throw subprocess_exception(errno, "could not change working directory to " + _path);
+  }
+}
+
+inline setsid () {
+  if (::setsid() == (pid_t)-1) {
+    throw subprocess_exception(errno, "could not start a new session");
+  }
+}
+
 static void set_block (int _fd) {
   if (fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK)) < 0) {
     throw subprocess_exception("could not set pipe to non-blocking mode");
@@ -130,12 +151,11 @@ process_handle_t::~process_handle_t ()
  */
 struct pipe_holder {
 
-  enum { PIPE_READ  = 0, PIPE_WRITE = 1 };
+  enum pipe_end { READ  = 0, WRITE = 1 };
 
   int fds[2];
 
-  int & read ()  { return fds[PIPE_READ]; }
-  int & write () { return fds[PIPE_WRITE]; }
+  int & operator [] (pipe_end _i) { return fds[_i]; }
 
   /**
    * Zero the descriptor array and immediately try opening a (unnamed)
@@ -155,17 +175,6 @@ struct pipe_holder {
     if (fds[PIPE_WRITE]) close(fds[PIPE_WRITE]);
   }
 };
-
-
-/*
- * Duplicate handle and zero the original 
- */
-inline dup_fd (int & _from, int & _to) {
-  if (dup2(_from, _to) < 0) {
-    perror("duplicating descriptor failed, abortnig");
-    exit_on_failure();
-  }
-}
 
 
 /**
@@ -193,54 +202,49 @@ int process_handle_t::spawn_process (const char * _command, char *const _argumen
   /* child should copy his ends of pipes and close his and parent's
    * ends of pipes */
   if (_handle->child_id == 0) {
-    stringstream error_message;
+    try {
+      // this part is kept in C-style, no exceptions after forking
+      // into a child
+      dup2(pipes[PIPE_STDIN][READ], STDIN_FILENO);
+      dup2(pipes[PIPE_STDOUT][WRITE], STDOUT_FILENO);
+      dup2(pipes[PIPE_STDERR][WRITE], STDERR_FILENO);
 
-    // this part is kept in C-style, no exceptions after forking
-    // into a child
-    dup_fd(pipes[PIPE_STDIN].read(), STDIN_FILENO);
-    dup_fd(pipes[PIPE_STDOUT].write(), STDOUT_FILENO);
-    dup_fd(pipes[PIPE_STDERR].write(), STDERR_FILENO);
-
-    /* change directory */
-    if (_workdir != NULL) {
-      if (chdir(_workdir) < 0) {
-        message << "could not change working directory to " << _workdir;
-        perror(error_message.str().c_str());
-        exit_on_failure();
+      /* change directory */
+      if (_workdir != NULL) {
+        chdir(_workdir);
       }
-    }
 
-    /* if termination mode is "group" start new session */
-    if (_termination_mode == TERMINATION_GROUP) {
-      if (setsid() == (pid_t)-1) {
-        perror("could not start a new session");
-        exit_on_failure();
+      /* if termination mode is "group" start new session */
+      if (_termination_mode == TERMINATION_GROUP) {
+        setsid();
       }
+      
+      /* if environment is empty, use parent's environment */
+      if (!_environment) {
+        _environment = environ;
+      }
+
+      /* finally start the new process */
+      execve(_command, _arguments, _environment);
+
+      // TODO if we dup() STDERR_FILENO, we can print this message there
+      //      rather then into the pipe
+      perror((string("could not run command ") + _command).c_str());
     }
-    
-    /* if environment is empty, use parent's environment */
-    if (!_environment) {
-      _environment = environ;
+    catch (subprocess_exception & e) {
+      errno = e.code;
+      perror(e.what());
+      exit_on_failure();
     }
-
-    /* finally start the new process */
-    execve(_command, _arguments, _environment);
-
-    // TODO if we dup() STDERR_FILENO, we can print this message there
-    //      rather then into the pipe
-    error_message << "could not run command " << _command;
-    perror(error_message.str().c_str());
-
-    exit_on_failure();
   }
 
   // child is now running
   state = RUNNING;
   termination_mode = _termination_mode;
 
-  pipe_stdin  = pipes[PIPE_STDIN].write();
-  pipe_stdout = pipes[PIPE_STDOUT].read();
-  pipe_stderr = pipes[PIPE_STDERR].read();
+  pipe_stdin  = pipes[PIPE_STDIN][WRITE];
+  pipe_stdout = pipes[PIPE_STDOUT][READ];
+  pipe_stderr = pipes[PIPE_STDERR][READ];
 
   // reset the NONBLOCK on stdout-read and stderr-read descriptors
   set_non_block(pipe_stdout);
@@ -248,9 +252,9 @@ int process_handle_t::spawn_process (const char * _command, char *const _argumen
 
   // the very last step: set them to zero so that the destructor
   // doesn't close them
-  pipes[PIPE_STDIN].write() = 0;
-  pipes[PIPE_STDOUT].read() = 0;
-  pipes[PIPE_STDERR].read() = 0;
+  pipes[PIPE_STDIN][WRITE] = 0;
+  pipes[PIPE_STDOUT][READ] = 0;
+  pipes[PIPE_STDERR][READ] = 0;
 }
 
 
