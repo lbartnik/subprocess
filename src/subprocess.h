@@ -10,8 +10,7 @@
 #include <algorithm>
 #include <cstring>
 #include <vector>
-
-using std::vector;
+#include <stdexcept>
 
 #ifdef SUBPROCESS_WINDOWS
 #undef min
@@ -19,12 +18,12 @@ using std::vector;
 #undef length
 #endif
 
-typedef enum { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 } pipe_t;
 
-typedef enum { NOT_STARTED, RUNNING, EXITED, TERMINATED, TORNDOWN } state_t;
+namespace subprocess {
 
-typedef enum { TERMINATION_GROUP, TERMINATION_CHILD_ONLY } termination_mode_t;
 
+using std::vector;
+using std::runtime_error;
 
 
 
@@ -140,8 +139,26 @@ struct pipe_output {
 
 
 
+struct subprocess_exception : runtime_error {
+  subprocess_exception (int _code, const string & _message)
+    : runtime_error(_message), code(_code)
+  {}
+
+  const int code;
+};
+
+
 
 struct process_handle_t {
+
+  enum pipe_type { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 };
+
+  enum process_state_type { NOT_STARTED, RUNNING, EXITED, TERMINATED, SHUTDOWN };
+
+  enum termination_mode_type { TERMINATION_GROUP, TERMINATION_CHILD_ONLY };
+
+
+
 #ifdef SUBPROCESS_WINDOWS
   HANDLE process_job;
 #endif
@@ -155,14 +172,20 @@ struct process_handle_t {
 
   // platform-independent process data
   int child_id;
-  state_t state;
+  process_state_type state;
   int return_code;
 
   /* how should the process be terminated */
-  termination_mode_t termination_mode;
+  termination_mode_type termination_mode;
   
   /* stdout & stderr handling */
   pipe_output stdout_, stderr_;
+
+  process_handle_t ();
+  
+  ~process_handle_t ();
+
+  void shutdown ();
 };
 
 
@@ -188,6 +211,10 @@ int process_terminate(process_handle_t * _handle);
 int process_kill(process_handle_t * _handle);
 
 int process_send_signal(process_handle_t * _handle, int _signal);
+
+
+} /* namespace subprocess */
+
 
 #ifdef __cplusplus
 extern "C" {

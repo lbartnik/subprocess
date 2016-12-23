@@ -12,3 +12,4 @@
   string-based input, output to /dev/null (Linux) or nul (Windows);
   redirecting stderr to stdout
 * see how tools::pskill can be used our own process_send_signal
+* prevent Ctrl+C from being passed to the child process

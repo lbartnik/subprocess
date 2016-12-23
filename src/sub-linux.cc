@@ -37,10 +37,6 @@ extern char ** environ;
 #define TRUE 1
 
 
-static const int PIPE_READ  = 0;
-static const int PIPE_WRITE = 1;
-
-
 
 int full_error_message (char * _buffer, size_t _length)
 {
@@ -98,18 +94,79 @@ static void exit_on_failure ()
 }
 
 
-static int set_block (int _fd) {
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
+static void set_block (int _fd) {
+  if (fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK)) < 0) {
+    throw subprocess_exception("could not set pipe to non-blocking mode");
+  }
 }
 
-static int set_non_block (int _fd) {
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
+static void set_non_block (int _fd) {
+  if (fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK) < 0) {
+    throw subprocess_exception("could not set pipe to non-blocking mode");
+  }
 }
 
 
+/* --- process_handle ----------------------------------------------- */
+
+process_handle_t::process_handle_t ()
+  : state(NOT_STARTED)
+{
+
+}
 
 
-// TODO prevent Ctrl+C from being passed to the child process
+process_handle_t::~process_handle_t ()
+{
+  shutdown();
+}
+
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * A helper class that simplifies error handling when opening multiple
+ * pipes.
+ */
+struct pipe_holder {
+
+  enum { PIPE_READ  = 0, PIPE_WRITE = 1 };
+
+  int fds[2];
+
+  int & read ()  { return fds[PIPE_READ]; }
+  int & write () { return fds[PIPE_WRITE]; }
+
+  /**
+   * Zero the descriptor array and immediately try opening a (unnamed)
+   * pipe().
+   */
+  pipe_holder () : fds{0, 0} {
+    if (pipe(pipe_stdin) < 0) {
+      throw subprocess_exception(errno, "could not create a pipe");
+    }
+  }
+
+  /**
+   * Will close both descriptors unless they're set to 0 from the outside.
+   */
+  ~pipe_holder () {
+    if (fds[PIPE_READ]) close(fds[PIPE_READ]);
+    if (fds[PIPE_WRITE]) close(fds[PIPE_WRITE]);
+  }
+};
+
+
+/*
+ * Duplicate handle and zero the original 
+ */
+inline dup_fd (int & _from, int & _to) {
+  if (dup2(_from, _to) < 0) {
+    perror("duplicating descriptor failed, abortnig");
+    exit_on_failure();
+  }
+}
+
 
 /**
  * In most cases, when a negative value is returned the calling function
@@ -117,85 +174,38 @@ static int set_non_block (int _fd) {
  *
  * @return 0 on success and negative on an error.
  */
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
+int process_handle_t::spawn_process (const char * _command, char *const _arguments[],
+	               char *const _environment[], const char * _workdir,
+                 termination_mode_type _termination_mode)
 {
-  int err;
-  int pipe_stdin[2] = { 0, 0 }, pipe_stdout[2] = { 0, 0 }, pipe_stderr[2] = { 0, 0 };
-
-  // we initialize them to 0 to everythin non-zero should be closed;
-  // preserve the errno value, too
-  #define CLOSE_ALL_PIPES                                          \
-    do {                                                           \
-      err = errno;                                                 \
-      if (pipe_stdin[PIPE_READ])   close(pipe_stdin[PIPE_READ]);   \
-      if (pipe_stdin[PIPE_WRITE])  close(pipe_stdin[PIPE_WRITE]);  \
-      if (pipe_stdout[PIPE_READ])  close(pipe_stdout[PIPE_READ]);  \
-      if (pipe_stdout[PIPE_WRITE]) close(pipe_stdout[PIPE_WRITE]); \
-      if (pipe_stderr[PIPE_READ])  close(pipe_stderr[PIPE_READ]);  \
-      if (pipe_stderr[PIPE_WRITE]) close(pipe_stderr[PIPE_WRITE]); \
-      errno = err;                                                 \
-   } while (0);                                                    \
-
-  _handle->state = NOT_STARTED;
-
-  /* redirect standard streams */
-  if (pipe(pipe_stdin) < 0) {
-    return -1;
+  if (state != NOT_STARTED) {
+    throw subprocess_exception(EALREADY, "process already started");
   }
 
-  /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe(pipe_stdout) < 0)) {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
-  if ((pipe(pipe_stderr) < 0)) {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
-  if (set_non_block(pipe_stdout[PIPE_READ]) < 0 ||
-      set_non_block(pipe_stderr[PIPE_READ]) < 0)
-  {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
+  // can be addressed with PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR
+  pipe_holder pipes[3];
 
   /* spawn a child */
-  _handle->child_id = fork();
-
-  if (_handle->child_id < 0) {
-    return -1;
+  if ( (child_id = fork()) < 0) {
+    throw subprocess_exception(errno, "could not spawn a process");
   }
 
   /* child should copy his ends of pipes and close his and parent's
    * ends of pipes */
   if (_handle->child_id == 0) {
-    if (dup2(pipe_stdin[PIPE_READ], STDIN_FILENO) < 0) {
-      perror("redirecting stdin failed, abortnig");
-      exit_on_failure();
-    }
-    if (dup2(pipe_stdout[PIPE_WRITE], STDOUT_FILENO) < 0) {
-      perror("redirecting stdout failed, abortnig");
-      exit_on_failure();
-    }
-    if (dup2(pipe_stderr[PIPE_WRITE], STDERR_FILENO) < 0) {
-      perror("redirecting stderr failed, abortnig");
-      exit_on_failure();
-    }
+    stringstream error_message;
 
-    /* redirection succeeded, now close all other descriptors */
-    CLOSE_ALL_PIPES
+    // this part is kept in C-style, no exceptions after forking
+    // into a child
+    dup_fd(pipes[PIPE_STDIN].read(), STDIN_FILENO);
+    dup_fd(pipes[PIPE_STDOUT].write(), STDOUT_FILENO);
+    dup_fd(pipes[PIPE_STDERR].write(), STDERR_FILENO);
 
     /* change directory */
     if (_workdir != NULL) {
       if (chdir(_workdir) < 0) {
-        char message[BUFFER_SIZE];
-        snprintf(message, sizeof(message), "could not change working directory to %s",
-                 _workdir);
-        perror(message);
+        message << "could not change working directory to " << _workdir;
+        perror(error_message.str().c_str());
         exit_on_failure();
       }
     }
@@ -218,52 +228,60 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
 
     // TODO if we dup() STDERR_FILENO, we can print this message there
     //      rather then into the pipe
-    char message[BUFFER_SIZE];
-    snprintf(message, sizeof(message), "could not run command %s", _command);
-    perror(message);
+    error_message << "could not run command " << _command;
+    perror(error_message.str().c_str());
 
     exit_on_failure();
   }
 
-  /* child is running */
-  _handle->state = RUNNING;
-  _handle->termination_mode = _termination_mode;
+  // child is now running
+  state = RUNNING;
+  termination_mode = _termination_mode;
 
-  /* close those that the parent doesn't need */
-  close(pipe_stdin[PIPE_READ]);
-  close(pipe_stdout[PIPE_WRITE]);
-  close(pipe_stderr[PIPE_WRITE]);
+  pipe_stdin  = pipes[PIPE_STDIN].write();
+  pipe_stdout = pipes[PIPE_STDOUT].read();
+  pipe_stderr = pipes[PIPE_STDERR].read();
 
-  _handle->pipe_stdin  = pipe_stdin[PIPE_WRITE];
-  _handle->pipe_stdout = pipe_stdout[PIPE_READ];
-  _handle->pipe_stderr = pipe_stderr[PIPE_READ];
+  // reset the NONBLOCK on stdout-read and stderr-read descriptors
+  set_non_block(pipe_stdout);
+  set_non_block(pipe_stderr);
 
-  /* reset the NONBLOCK on stdout-read and stderr-read descriptors */
-  set_non_block(_handle->pipe_stdout);
-  set_non_block(_handle->pipe_stderr);
-
-  return 0;
+  // the very last step: set them to zero so that the destructor
+  // doesn't close them
+  pipes[PIPE_STDIN].write() = 0;
+  pipes[PIPE_STDOUT].read() = 0;
+  pipes[PIPE_STDERR].read() = 0;
 }
 
-int teardown_process (process_handle_t * _handle)
+
+
+/* --- process_handle::shutdown ------------------------------------- */
+
+void process_handle_t::shutdown ()
 {
-  if (_handle->state == TORNDOWN) {
-    return 0;
+  if (state == SHUTDOWN) {
+    return;
   }
-  if (!_handle || !_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
-  if (_handle->pipe_stdin) close(_handle->pipe_stdin);
-  if (_handle->pipe_stdout) close(_handle->pipe_stdout);
-  if (_handle->pipe_stderr) close(_handle->pipe_stderr);
+  /* all we need to do is close pipes */
+  auto close_pipe = [](pipe_handle_type _pipe) {
+    if (_pipe) close(_pipe);
+  }
 
+  close_pipe(pipe_stdin);
+  close_pipe(pipe_stdout);
+  close_pipe(pipe_stderr);
+
+  /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  process_poll(_handle, TRUE);
+  process_poll(this, TRUE);
 
-  return 0;
+  state = SHUTDOWN;
 }
+
 
 
 ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
