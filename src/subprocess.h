@@ -7,23 +7,19 @@
 #define BUFFER_SIZE 1024
 
 #include <cerrno>
-#include <algorithm>
 #include <cstring>
-#include <vector>
+#include <algorithm>
 #include <stdexcept>
-
-#ifdef SUBPROCESS_WINDOWS
-#undef min
-#undef max
-#undef length
-#endif
+#include <string>
+#include <vector>
 
 
 namespace subprocess {
 
 
-using std::vector;
+using std::string;
 using std::runtime_error;
+using std::vector;
 
 
 
@@ -148,10 +144,9 @@ struct subprocess_exception : runtime_error {
 };
 
 
+enum pipe_type { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 };
 
 struct process_handle_t {
-
-  enum pipe_type { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 };
 
   enum process_state_type { NOT_STARTED, RUNNING, EXITED, TERMINATED, SHUTDOWN };
 
@@ -185,7 +180,11 @@ struct process_handle_t {
   
   ~process_handle_t ();
 
-  void shutdown ();
+  void spawn(const char * _command, char *const _arguments[],
+	                   char *const _environment[], const char * _workdir,
+                     termination_mode_type _termination_mode);
+
+  void shutdown();
 };
 
 
@@ -195,14 +194,9 @@ struct process_handle_t {
 
 int full_error_message(char * _buffer, size_t _length);
 
-int spawn_process(process_handle_t * _handle, const char * _command, char *const _arguments[],
-	char *const _environment[], const char * _workdir, termination_mode_t _termination_mode);
-
-int teardown_process(process_handle_t * _handle);
-
 ssize_t process_write(process_handle_t * _handle, const void * _buffer, size_t _count);
 
-ssize_t process_read(process_handle_t & _handle, pipe_t _pipe, int _timeout);
+ssize_t process_read(process_handle_t & _handle, pipe_type _pipe, int _timeout);
 
 int process_poll(process_handle_t * _handle, int _timeout);
 

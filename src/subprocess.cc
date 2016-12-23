@@ -8,6 +8,8 @@
 #include <R.h>
 #include <Rdefines.h>
 
+using namespace subprocess;
+
 // from "is_something.c"
 int is_nonempty_string(SEXP _obj);
 int is_single_string_or_NULL(SEXP _obj);
@@ -138,9 +140,9 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
   /* see if termination mode is set properly */
   const char * termination_mode_str = translateChar(STRING_ELT(_termination_mode, 0));
-  termination_mode_t termination_mode = TERMINATION_GROUP;
+  process_handle_t::termination_mode_type termination_mode = process_handle_t::TERMINATION_GROUP;
   if (!strncmp(termination_mode_str, "child_only", 10)) {
-    termination_mode = TERMINATION_CHILD_ONLY;
+    termination_mode = process_handle_t::TERMINATION_CHILD_ONLY;
   }
   else if (strncmp(termination_mode_str, "group", 5)) {
     Rf_error("unknown value for `termination_mode`");
@@ -151,7 +153,11 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   handle = new (handle) process_handle_t();
 
   /* spawn the process */
-  if (spawn_process(handle, command, arguments, environment, workdir, termination_mode) < 0) {
+  try {
+    handle->spawn(command, arguments, environment, workdir, termination_mode);
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("error while spawning a child process");
   }
 
@@ -185,7 +191,7 @@ static void C_child_process_finalizer(SEXP ptr)
     Rf_perror("error while finalizing child process");
   }
 
-  teardown_process(addr);
+  addr->shutdown();
   addr->~process_handle_t();
   Free(addr);
   
@@ -211,7 +217,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 
   /* determine which pipe */
   const char * pipe = translateChar(STRING_ELT(_pipe, 0));
-  pipe_t which_pipe;
+  pipe_type which_pipe;
   
   if (!strncmp(pipe, "stdout", 6))
     which_pipe = PIPE_STDOUT;
@@ -290,13 +296,13 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
 
-  if (process_handle->state == EXITED) {
+  if (process_handle->state == process_handle_t::EXITED) {
     SET_STRING_ELT(ans, 0, mkChar("exited"));
   }
-  else if (process_handle->state == TERMINATED) {
+  else if (process_handle->state == process_handle_t::TERMINATED) {
     SET_STRING_ELT(ans, 0, mkChar("terminated"));
   }
-  else if (process_handle->state == RUNNING) {
+  else if (process_handle->state == process_handle_t::RUNNING) {
     SET_STRING_ELT(ans, 0, mkChar("running"));
   }
   else {
@@ -316,7 +322,8 @@ SEXP C_process_return_code (SEXP _handle)
     Rf_perror("process poll failed");
   }
 
-  if (process_handle->state == EXITED || process_handle->state == TERMINATED)
+  if (process_handle->state == process_handle_t::EXITED ||
+      process_handle->state == process_handle_t::TERMINATED)
     return allocate_single_int(process_handle->return_code);
   else
     return allocate_single_int(NA_INTEGER);
