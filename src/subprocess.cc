@@ -241,15 +241,14 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   PROTECT(ans = allocVector(VECSXP, len));
   PROTECT(nms = allocVector(STRSXP, len));
 
-  #define ADD_BUFFER(which, buffer, name)                     \
-    if (which & which_pipe) {                                 \
-      SET_VECTOR_ELT(ans, i, ScalarString(mkChar(buffer)));   \
-      SET_STRING_ELT(nms, i++, mkChar(name));                 \
-    }                                                         \
-  
-  ADD_BUFFER(PIPE_STDOUT, process_handle->stdout_.data(), "stdout");
-  ADD_BUFFER(PIPE_STDERR, process_handle->stderr_.data(), "stderr");
-  #undef ADD_BUFFER
+  if (PIPE_STDOUT & which_pipe) {
+    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stdout_.data())));
+    SET_STRING_ELT(nms, i++, mkChar("stdout"));
+  }
+  if (PIPE_STDERR & which_pipe) {
+    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stderr_.data())));
+    SET_STRING_ELT(nms, i++, mkChar("stderr"));
+  }
 
   /* set names */
   setAttrib(ans, R_NamesSymbol, nms);
