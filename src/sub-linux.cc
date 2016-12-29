@@ -7,6 +7,7 @@
 #include <ctime>
 #include <algorithm>
 #include <string>
+#include <sstream>
 
 #include <signal.h>
 #include <sys/time.h>
@@ -28,9 +29,6 @@ extern char ** environ;
 
 #include "subprocess.h"
 
-// this cannot be a "const int" - it's only C++
-#define BUFFER_SIZE 1024
-
 #ifdef TRUE
 #undef TRUE
 #endif
@@ -40,12 +38,24 @@ extern char ** environ;
 
 namespace subprocess {
 
-int full_error_message (char * _buffer, size_t _length)
+
+
+string subprocess_exception::what ()
 {
-  if (strerror_r(errno, _buffer, _length) == 0)
-    return 0;
-  return -1;
+  std::stringstream message(runtime_error::what());
+
+  vector<char> buffer(BUFFER_SIZE, 0);
+  if (strerror_r(code, buffer.data(), buffer.size()-1) == 0) {
+    message << ": " << buffer.data();
+  }
+  else {
+    message << ": system error message could not be fetched";
+  }
+
+  message.str();
 }
+
+
 
 
 
@@ -236,7 +246,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
     }
     catch (subprocess_exception & e) {
       errno = e.code;
-      perror(e.what());
+      perror(e.what().c_str());
       exit_on_failure();
     }
   }
@@ -284,7 +294,8 @@ void process_handle_t::shutdown ()
 
   /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  this->poll(-1);
+  kill();
+  poll(-1);
 
   state = SHUTDOWN;
 }

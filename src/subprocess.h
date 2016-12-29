@@ -4,7 +4,7 @@
 #include "config-os.h"
 #include "utf8.h"
 
-#define BUFFER_SIZE 1024
+constexpr int BUFFER_SIZE = 1024;
 
 #include <cerrno>
 #include <cstring>
@@ -139,6 +139,8 @@ struct subprocess_exception : runtime_error {
   subprocess_exception (int _code, const string & _message)
     : runtime_error(_message), code(_code)
   {}
+
+  string what ();
 
   const int code;
 };
