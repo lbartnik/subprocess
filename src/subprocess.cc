@@ -184,16 +184,21 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
 static void C_child_process_finalizer(SEXP ptr)
 {
-  process_handle_t * addr = (process_handle_t*)R_ExternalPtrAddr(ptr);
-  if (!addr) return;
+  process_handle_t * handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
+  if (!handle) return;
   
-  if (process_poll(addr, 0) < 0 || process_terminate(addr) < 0) {
+  try {
+    handle->poll(0);
+    handle->terminate();
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("error while finalizing child process");
   }
 
-  addr->shutdown();
-  addr->~process_handle_t();
-  Free(addr);
+  handle->shutdown();
+  handle->~process_handle_t();
+  Free(handle);
   
   R_ClearExternalPtr(ptr); /* not really needed */
 }
@@ -229,10 +234,12 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
     Rf_error("unrecognized `pipe` value");
   }
   
-  /* read into this buffer; leave one character for final \0 */
-  ssize_t rc = process_read(*process_handle, which_pipe, timeout);
-  if (rc < 0) {
-    Rf_error("error while reading from child process");
+  try {
+    process_handle->read(which_pipe, timeout);
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
+    Rf_perror("error while reading from child process");
   }
 
   /* produce the result - a list of one or two elements */
@@ -268,7 +275,15 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  ssize_t ret = process_write(process_handle, message, strlen(message));
+  size_t ret = 0;
+
+  try {
+    ret = process_handle->write(message, strlen(message));
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
+    Rf_perror("error while writing to child process");
+  }
 
   return allocate_single_int((int)ret);
 }
@@ -287,7 +302,11 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
   process_handle_t * process_handle = extract_process_handle(_handle);
 
   /* check the process */
-  if (process_poll(process_handle, timeout) < 0) {
+  try {
+    process_handle->poll(timeout);
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("process poll failed");
   }
 
@@ -317,7 +336,12 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 SEXP C_process_return_code (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
-  if (process_poll(process_handle, 0) < 0) {
+
+  try {
+    process_handle->poll(0);
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("process poll failed");
   }
 
@@ -333,7 +357,11 @@ SEXP C_process_terminate (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
-  if (process_terminate(process_handle) < 0) {
+  try {
+    process_handle->terminate();
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("error while terminating child process");
   }
 
@@ -345,7 +373,11 @@ SEXP C_process_kill (SEXP _handle)
 {
   process_handle_t * process_handle = extract_process_handle(_handle);
 
-  if (process_kill(process_handle) < 0) {
+  try {
+    process_handle->kill();
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("error while killing child process");
   }
 
@@ -362,7 +394,11 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 
   int signal = INTEGER_DATA(_signal)[0];
 
-  if (process_send_signal(process_handle, signal) < 0) {
+  try {
+    process_handle->send_signal(signal);
+  }
+  catch (subprocess_exception & e) {
+    errno = e.code;
     Rf_perror("error while sending a signal to child process");
   }
 

@@ -145,6 +145,7 @@ process_handle_t::~process_handle_t ()
 }
 
 
+
 /* ------------------------------------------------------------------ */
 
 /**
@@ -283,25 +284,31 @@ void process_handle_t::shutdown ()
 
   /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  process_poll(this, TRUE);
+  this->poll(-1);
 
   state = SHUTDOWN;
 }
 
 
+/* --- process::write ----------------------------------------------- */
 
-ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
+
+size_t process_handle_t::write (const void * _buffer, size_t _count)
 {
-  if (!_handle || !_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
-  return write(_handle->pipe_stdin, _buffer, _count);
+  ssize_t ret = ::write(pipe_stdin, _buffer, _count);
+  if (ret < 0) {
+    throw subprocess_exception(errno, "could not write to child process");
+  }
+
+  return static_cast<size_t>(ret);
 }
 
 
-/* --- process_read ------------------------------------------------- */
+/* --- process::read ------------------------------------------------ */
 
 
 struct enable_block_mode {
@@ -381,11 +388,10 @@ struct select_reader {
 
 
 
-ssize_t process_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
+size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 {
-  if (!_handle.child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
   ssize_t rc;
@@ -393,13 +399,13 @@ ssize_t process_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
 
   // infinite timeout
   if (_timeout < 0) {
-    enable_block_mode blocker_out(_handle.pipe_stdout);
-    enable_block_mode blocker_err(_handle.pipe_stderr);
-    rc = reader.timed_read(_handle, _pipe, 1000);
+    enable_block_mode blocker_out(pipe_stdout);
+    enable_block_mode blocker_err(pipe_stderr);
+    rc = reader.timed_read(*this, _pipe, 1000);
   }
   // finite or no timeout
   else {
-    rc = reader.timed_read(_handle, _pipe, _timeout);
+    rc = reader.timed_read(*this, _pipe, _timeout);
 
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
@@ -408,23 +414,24 @@ ssize_t process_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
     }
   }
 
-  return rc;
+  if (rc < 0) {
+    throw subprocess_exception(errno, "could not read from child process");
+  }
+
+  return static_cast<size_t>(rc);
 }
 
 
+/* --- process::poll ------------------------------------------------ */
 
 
-
-
-
-int process_poll (process_handle_t * _handle, int _timeout)
+void process_handle_t::poll (int _timeout)
 {
-  if (!_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
-  if (_handle->state != process_handle_t::RUNNING) {
-    return 0;
+  if (state != RUNNING) {
+    return;
   }
 
   /* to wait or not to wait? */ 
@@ -435,11 +442,11 @@ int process_poll (process_handle_t * _handle, int _timeout)
   /* make the actual system call */
   int start = clock_millisec(), rc;
   do {
-    rc = waitpid(_handle->child_id, &_handle->return_code, options);
+    rc = waitpid(child_id, &return_code, options);
   
     // there's been an error (<0)
     if (rc < 0) {
-      return rc;
+      throw subprocess_exception(errno, "waitpid() failed");
     }
 
     _timeout -= clock_millisec() - start;
@@ -447,55 +454,67 @@ int process_poll (process_handle_t * _handle, int _timeout)
 
   // the child is still running
   if (rc == 0) {
-    return 0;
+    return;
   }
 
   // the child has exited or has been terminated
-  if (WIFEXITED(_handle->return_code)) {
-    _handle->state = process_handle_t::EXITED;
-    _handle->return_code = WEXITSTATUS(_handle->return_code);
+  if (WIFEXITED(return_code)) {
+    state = process_handle_t::EXITED;
+    return_code = WEXITSTATUS(return_code);
   }
-  else if (WIFSIGNALED(_handle->return_code)) {
-    _handle->state = process_handle_t::TERMINATED;
-    _handle->return_code = WTERMSIG(_handle->return_code);
+  else if (WIFSIGNALED(return_code)) {
+    state = process_handle_t::TERMINATED;
+    return_code = WTERMSIG(return_code);
   }
-  
-  return 0;
 }
 
 
-int process_send_signal(process_handle_t * _handle, int _signal)
+/* --- process::signal ---------------------------------------------- */
+
+
+void process_handle_t::send_signal(int _signal)
 {
-  return kill(_handle->child_id, _signal);
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
+  }
+
+  int rc = ::kill(child_id, _signal);
+
+  if (rc < 0) {
+    throw subprocess_exception(errno, "could not post signal to child process");
+  }
 }
 
 
+/* --- process::terminate & process::kill --------------------------- */
 
-static int termination_signal (process_handle_t * _handle, int _signal, int _timeout)
+
+static void termination_signal (process_handle_t & _handle, int _signal, int _timeout)
 {
-  if (_handle->state != process_handle_t::RUNNING)
-    return 0;
+  if (_handle.state != process_handle_t::RUNNING)
+    return;
 
-  pid_t addressee = (_handle->termination_mode == process_handle_t::TERMINATION_CHILD_ONLY) ?
-                      (_handle->child_id) : (-_handle->child_id);
-  if (kill(addressee, _signal) < 0)
-    return -1;
+  pid_t addressee = (_handle.termination_mode == process_handle_t::TERMINATION_CHILD_ONLY) ?
+                      (_handle.child_id) : (-_handle.child_id);
+  if (::kill(addressee, _signal) < 0) {
+    throw subprocess_exception(errno, "system kill() failed");
+  }
 
-  return process_poll(_handle, _timeout);
+  _handle.poll(_timeout);
 }
 
 
-int process_terminate (process_handle_t * _handle)
+void process_handle_t::terminate ()
 {
-  return termination_signal(_handle, SIGTERM, 100);
+  termination_signal(*this, SIGTERM, 100);
 }
 
 
-int process_kill(process_handle_t * _handle)
+void process_handle_t::kill()
 {
   // this will terminate the child for sure so we can
   // wait until it happens
-  return termination_signal(_handle, SIGKILL, -1);
+  termination_signal(*this, SIGKILL, -1);
 }
 
 } /* namespace subprocess */

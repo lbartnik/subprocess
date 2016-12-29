@@ -30,7 +30,7 @@ using std::vector;
  * bytes left from the previous read that did not constitute a
  * correct multi-byte character.
  */
-struct pipe_output {
+struct pipe_writer {
   
   static constexpr size_t buffer_size = 1024;
   
@@ -39,7 +39,7 @@ struct pipe_output {
     size_t len;
     char data[4];
     
-    static_assert(sizeof(pipe_output::leftover::data) < buffer_size, "buffer too small for multi-byte char support");
+    static_assert(sizeof(pipe_writer::leftover::data) < buffer_size, "buffer too small for multi-byte char support");
   };
   
   typedef vector<char> container_type;
@@ -50,7 +50,7 @@ struct pipe_output {
   /**
    * Throws if buffer is too small.
    */
-  pipe_output () : contents(buffer_size, 0) { }
+  pipe_writer () : contents(buffer_size, 0) { }
 
   const container_type::value_type * data () const { return contents.data(); }
 
@@ -174,7 +174,7 @@ struct process_handle_t {
   termination_mode_type termination_mode;
   
   /* stdout & stderr handling */
-  pipe_output stdout_, stderr_;
+  pipe_writer stdout_, stderr_;
 
   process_handle_t ();
   
@@ -185,6 +185,19 @@ struct process_handle_t {
                      termination_mode_type _termination_mode);
 
   void shutdown();
+
+  size_t write(const void * _buffer, size_t _count);
+
+  size_t read(pipe_type _pipe, int _timeout);
+
+  void poll(int _timeout);
+
+  void terminate();
+
+  void kill();
+
+  void send_signal(int _signal);
+
 };
 
 
@@ -193,19 +206,6 @@ struct process_handle_t {
 
 
 int full_error_message(char * _buffer, size_t _length);
-
-ssize_t process_write(process_handle_t * _handle, const void * _buffer, size_t _count);
-
-ssize_t process_read(process_handle_t & _handle, pipe_type _pipe, int _timeout);
-
-int process_poll(process_handle_t * _handle, int _timeout);
-
-int process_terminate(process_handle_t * _handle);
-
-int process_kill(process_handle_t * _handle);
-
-int process_send_signal(process_handle_t * _handle, int _signal);
-
 
 } /* namespace subprocess */
 
