@@ -1,3 +1,10 @@
+* unify process::read between Linux and Windows; use non-blocking
+  polling in both places and handle Ctrl+C
+* move stdout/stderr fds to pipe_writer
+* rename poll() to wait()
+* return two-element list in read() and reduce it to a vector
+  if a single pipe is chosen by the user
+
 * make partial UTF8 handling optional in process_read(); maybe someone
   is reading bytes and not textual output?
 * enable a single wait on both stdout and stderr
