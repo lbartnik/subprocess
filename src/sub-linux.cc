@@ -161,7 +161,7 @@ process_handle_t::process_handle_t ()
 }
 
 
-process_handle_t::~process_handle_t () throw
+process_handle_t::~process_handle_t () throw ()
 {
   try {
     shutdown();
@@ -310,8 +310,9 @@ void process_handle_t::shutdown ()
 
   /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
+  poll(TIMEOUT_IMMEDIATE);
   kill();
-  poll(-1);
+  poll(TIMEOUT_INFINITE);
 
   state = SHUTDOWN;
 }

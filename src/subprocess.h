@@ -23,8 +23,34 @@ using std::vector;
 
 
 
+enum pipe_type { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 };
+
+
+constexpr int TIMEOUT_IMMEDIATE = 0;
+
+constexpr int TIMEOUT_INFINITE = -1;
+
+
 /**
- * Pipe Output is a buffer for output stream.
+ * A simple exception class.
+ */
+struct subprocess_exception : runtime_error {
+  /**
+   * Create a new exception object.
+   *
+   * @param _code Operating-system-specific error code.
+   * @param _message User-provided error message.
+   */
+  subprocess_exception (int _code, const string & _message);
+
+  /** Operating-system-specific error code. */
+  const int code;
+};
+
+
+
+/**
+ * Buffer for a single output stream.
  * 
  * This buffer comes with additional logic of handling a number of
  * bytes left from the previous read that did not constitute a
@@ -39,7 +65,8 @@ struct pipe_writer {
     size_t len;
     char data[4];
     
-    static_assert(sizeof(pipe_writer::leftover::data) < buffer_size, "buffer too small for multi-byte char support");
+    static_assert(sizeof(pipe_writer::leftover::data) < buffer_size,
+                  "buffer too small for multi-byte char support");
   };
   
   typedef vector<char> container_type;
@@ -130,37 +157,23 @@ struct pipe_writer {
 
     return rc;
   }
-  
-};
+
+}; /* pipe_writer */
 
 
 
 /**
- * A simple exception class.
+ * Process handle.
+ *
+ * The main class in the package. This is where a single process state
+ * is stored and where API to interact with that child process is
+ * provided.
  */
-struct subprocess_exception : runtime_error {
-  /**
-   * Create a new exception object.
-   *
-   * @param _code Operating-system-specific error code.
-   * @param _message User-provided error message.
-   */
-  subprocess_exception (int _code, const string & _message);
-
-  /** Operating-system-specific error code. */
-  const int code;
-};
-
-
-enum pipe_type { PIPE_STDIN = 0, PIPE_STDOUT = 1, PIPE_STDERR = 2, PIPE_BOTH = 3 };
-
 struct process_handle_t {
 
   enum process_state_type { NOT_STARTED, RUNNING, EXITED, TERMINATED, SHUTDOWN };
 
   enum termination_mode_type { TERMINATION_GROUP, TERMINATION_CHILD_ONLY };
-
-
 
 #ifdef SUBPROCESS_WINDOWS
   HANDLE process_job;
@@ -209,11 +222,6 @@ struct process_handle_t {
 };
 
 
-
-
-
-
-int full_error_message(char * _buffer, size_t _length);
 
 } /* namespace subprocess */
 
