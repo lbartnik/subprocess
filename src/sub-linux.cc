@@ -6,7 +6,6 @@
 #include <cstring>
 #include <ctime>
 #include <algorithm>
-#include <iostream>
 #include <string>
 #include <sstream>
 
@@ -77,7 +76,7 @@ static time_t clock_millisec ()
 {
   struct timespec current;
 
-#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+#ifdef SUBPROCESS_MACOS // OS X does not have clock_gettime, use clock_get_time
   clock_serv_t cclock;
   mach_timespec_t mts;
   host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -262,7 +261,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      std::cerr << e.what() << '\n';
+      fprintf(stderr, "%s\n", e.what());
       exit_on_failure();
     }
   }
@@ -542,7 +541,7 @@ void process_handle_t::kill()
 {
   // this will terminate the child for sure so we can
   // wait until it happens
-  termination_signal(*this, SIGKILL, -1);
+  termination_signal(*this, SIGKILL, TIMEOUT_INFINITE);
 }
 
 } /* namespace subprocess */
@@ -568,7 +567,7 @@ int main (int argc, char ** argv)
   
   /* read is non-blocking so the child needs time to produce output */
   sleep(1);
-  process_read(handle, PIPE_STDOUT, -1);
+  process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE);
 
   printf("stdout: %s\n", handle.stdout_.data());
 
