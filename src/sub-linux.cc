@@ -161,9 +161,14 @@ process_handle_t::process_handle_t ()
 }
 
 
-process_handle_t::~process_handle_t ()
+process_handle_t::~process_handle_t () throw
 {
-  shutdown();
+  try {
+    shutdown();
+  }
+  catch (...) {
+    // TODO be silent or maybe show a warning?
+  }
 }
 
 
