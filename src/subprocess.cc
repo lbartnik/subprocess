@@ -143,7 +143,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
     handle->spawn(command, arguments, environment, workdir, termination_mode);
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   /* return an external pointer handle */
@@ -171,19 +171,27 @@ static void C_child_process_finalizer(SEXP ptr)
 {
   process_handle_t * handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
   if (!handle) return;
-  
+
+  string message;
+  bool failed = false;
+
   try {
     handle->poll(0);
     handle->terminate();
+    handle->shutdown();
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    message = e.what();
+    failed = true;
   }
 
-  handle->shutdown();
   handle->~process_handle_t();
   Free(handle);
-  
+
+  if (failed) {
+    Rf_error(message.c_str());
+  }
+
   R_ClearExternalPtr(ptr); /* not really needed */
 }
 
@@ -222,7 +230,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
     process_handle->read(which_pipe, timeout);
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   /* produce the result - a list of one or two elements */
@@ -264,7 +272,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
     ret = process_handle->write(message, strlen(message));
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   return allocate_single_int((int)ret);
@@ -288,7 +296,7 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
     process_handle->poll(timeout);
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   /* answer */
@@ -322,7 +330,7 @@ SEXP C_process_return_code (SEXP _handle)
     process_handle->poll(0);
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   if (process_handle->state == process_handle_t::EXITED ||
@@ -341,7 +349,7 @@ SEXP C_process_terminate (SEXP _handle)
     process_handle->terminate();
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   return allocate_TRUE();
@@ -356,7 +364,7 @@ SEXP C_process_kill (SEXP _handle)
     process_handle->kill();
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   return allocate_TRUE();
@@ -376,7 +384,7 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
     process_handle->send_signal(signal);
   }
   catch (subprocess_exception & e) {
-    Rf_error(e.what().c_str());
+    Rf_error(e.what());
   }
 
   return allocate_TRUE();

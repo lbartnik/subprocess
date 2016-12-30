@@ -6,6 +6,7 @@
 #include <cstring>
 #include <ctime>
 #include <algorithm>
+#include <iostream>
 #include <string>
 #include <sstream>
 
@@ -39,21 +40,32 @@ extern char ** environ;
 namespace subprocess {
 
 
-
-string subprocess_exception::what ()
+/*
+ * Append system error message to user error message.
+ */
+static string strerror (int _code, const string & _message)
 {
-  std::stringstream message(runtime_error::what());
+  std::stringstream message(_message);
 
   vector<char> buffer(BUFFER_SIZE, 0);
-  if (strerror_r(code, buffer.data(), buffer.size()-1) == 0) {
+  if (strerror_r(_code, buffer.data(), buffer.size()-1) == 0) {
     message << ": " << buffer.data();
   }
   else {
     message << ": system error message could not be fetched";
   }
 
-  message.str();
+  return message.str();
 }
+
+
+/*
+ * The local version of strerror is used in constructor to generate
+ * the final error message and store it in the exception object.
+ */
+subprocess_exception::subprocess_exception (int _code, const string & _message)
+  : runtime_error(strerror(_code, _message)), code(_code)
+{ }
 
 
 
@@ -245,8 +257,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      errno = e.code;
-      perror(e.what().c_str());
+      std::cerr << e.what() << '\n';
       exit_on_failure();
     }
   }

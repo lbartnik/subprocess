@@ -135,13 +135,19 @@ struct pipe_writer {
 
 
 
+/**
+ * A simple exception class.
+ */
 struct subprocess_exception : runtime_error {
-  subprocess_exception (int _code, const string & _message)
-    : runtime_error(_message), code(_code)
-  {}
+  /**
+   * Create a new exception object.
+   *
+   * @param _code Operating-system-specific error code.
+   * @param _message User-provided error message.
+   */
+  subprocess_exception (int _code, const string & _message);
 
-  string what ();
-
+  /** Operating-system-specific error code. */
   const int code;
 };
 
@@ -180,7 +186,7 @@ struct process_handle_t {
 
   process_handle_t ();
   
-  ~process_handle_t ();
+  ~process_handle_t () throw ();
 
   void spawn(const char * _command, char *const _arguments[],
 	                   char *const _environment[], const char * _workdir,
