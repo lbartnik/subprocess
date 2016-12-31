@@ -19,80 +19,25 @@
 
 using namespace subprocess;
 
+/* --- library ------------------------------------------------------ */
+
 /* defined at the end of this file */
 static int is_nonempty_string(SEXP _obj);
 static int is_single_string_or_NULL(SEXP _obj);
 static int is_single_integer(SEXP _obj);
 
-
-/* --- library ------------------------------------------------------ */
-
 static void C_child_process_finalizer(SEXP ptr);
 
+static char ** to_C_array (SEXP _array);
 
-static char ** to_C_array (SEXP _array)
-{
-  char ** ret = (char**)Calloc(LENGTH(_array) + 1, char **);
-  for (int i=0; i<LENGTH(_array); ++i) {
-    const char * element = translateChar(STRING_ELT(_array, i));
-    char * new_element = (char*)Calloc(strlen(element) + 1, char);
-    memcpy(new_element, element, strlen(element)+1);
-    ret[i] = new_element;
-  }
+static void free_C_array (char ** _array);
 
-  /* that's how execve() will know where does the array end */
-  ret[LENGTH(_array)] = NULL;
+static SEXP allocate_single_int (int _value);
 
-  return ret;
-}
-
-static void free_C_array (char ** _array)
-{
-  if (!_array) return;
-  for (char ** ptr = _array; *ptr; ++ptr) {
-    Free(*ptr);
-  }
-  Free(_array);
-}
-
-static SEXP allocate_single_int (int _value)
-{
-  SEXP ans;
-  PROTECT(ans = allocVector(INTSXP, 1));
-  INTEGER_DATA(ans)[0] = _value;
-  UNPROTECT(1);
-  return ans;
-}
-
-static SEXP allocate_single_bool (bool _value)
-{
-  SEXP ans;
-  PROTECT(ans = allocVector(LGLSXP, 1));
-  LOGICAL_DATA(ans)[0] = _value;
-  UNPROTECT(1);
-  return ans;
-}
+static SEXP allocate_single_bool (bool _value);
 
 static SEXP allocate_TRUE () { return allocate_single_bool(true); }
 static SEXP allocate_FALSE () { return allocate_single_bool(false); }
-
-
-
-static process_handle_t * extract_process_handle (SEXP _handle)
-{
-  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
-  if (ptr == R_NilValue) {
-    Rf_error("`handle_ptr` attribute not found");
-  }
-
-  void * c_ptr = R_ExternalPtrAddr(ptr);
-  if (!c_ptr) {
-    Rf_error("external C pointer is NULL");
-  }
-
-  return (process_handle_t*)c_ptr;
-}
-
 
 
 /* --- error handling ----------------------------------------------- */
@@ -117,7 +62,23 @@ static process_handle_t * extract_process_handle (SEXP _handle)
 
 
 
-/* --- public API --------------------------------------------------- */
+/* --- public R API ------------------------------------------------- */
+
+static process_handle_t * extract_process_handle (SEXP _handle)
+{
+  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
+  if (ptr == R_NilValue) {
+    Rf_error("`handle_ptr` attribute not found");
+  }
+
+  void * c_ptr = R_ExternalPtrAddr(ptr);
+  if (!c_ptr) {
+    Rf_error("external C pointer is NULL");
+  }
+
+  return (process_handle_t*)c_ptr;
+}
+
 
 SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
 {
@@ -512,3 +473,46 @@ static int is_single_integer (SEXP _obj)
   return isInteger(_obj) && (LENGTH(_obj) == 1);
 }
 
+
+static char ** to_C_array (SEXP _array)
+{
+  char ** ret = (char**)Calloc(LENGTH(_array) + 1, char **);
+  for (int i=0; i<LENGTH(_array); ++i) {
+    const char * element = translateChar(STRING_ELT(_array, i));
+    char * new_element = (char*)Calloc(strlen(element) + 1, char);
+    memcpy(new_element, element, strlen(element)+1);
+    ret[i] = new_element;
+  }
+
+  /* that's how execve() will know where does the array end */
+  ret[LENGTH(_array)] = NULL;
+
+  return ret;
+}
+
+static void free_C_array (char ** _array)
+{
+  if (!_array) return;
+  for (char ** ptr = _array; *ptr; ++ptr) {
+    Free(*ptr);
+  }
+  Free(_array);
+}
+
+static SEXP allocate_single_int (int _value)
+{
+  SEXP ans;
+  PROTECT(ans = allocVector(INTSXP, 1));
+  INTEGER_DATA(ans)[0] = _value;
+  UNPROTECT(1);
+  return ans;
+}
+
+static SEXP allocate_single_bool (bool _value)
+{
+  SEXP ans;
+  PROTECT(ans = allocVector(LGLSXP, 1));
+  LOGICAL_DATA(ans)[0] = _value;
+  UNPROTECT(1);
+  return ans;
+}
