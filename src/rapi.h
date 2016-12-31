@@ -35,6 +35,9 @@ EXPORT SEXP C_process_send_signal(SEXP _handle, SEXP _signal);
 EXPORT SEXP C_known_signals();
 
 
+SEXP allocate_single_int (int _value);
+
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

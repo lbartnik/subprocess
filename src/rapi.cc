@@ -33,8 +33,6 @@ static char ** to_C_array (SEXP _array);
 
 static void free_C_array (char ** _array);
 
-static SEXP allocate_single_int (int _value);
-
 static SEXP allocate_single_bool (bool _value);
 
 static SEXP allocate_TRUE () { return allocate_single_bool(true); }
@@ -478,7 +476,7 @@ static void free_C_array (char ** _array)
   Free(_array);
 }
 
-static SEXP allocate_single_int (int _value)
+SEXP allocate_single_int (int _value)
 {
   SEXP ans;
   PROTECT(ans = allocVector(INTSXP, 1));

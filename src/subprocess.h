@@ -2,7 +2,12 @@
 #define SUBPROCESS_H_GUARD
 
 #include "config-os.h"
-#include "utf8.h"
+
+// mbcslocale
+#include <Rdefines.h>
+#include <R_ext/GraphicsEngine.h>
+#include <R_ext/GraphicsDevice.h>
+
 
 /* In Visual Studio std::vector gets messed up by definitions in "R.h" */
 #ifdef _MSC_VER
@@ -37,6 +42,8 @@ constexpr int TIMEOUT_INFINITE = -1;
 
 
 string strerror (int _code, const string & _message);
+
+size_t consume_utf8 (const char * _input, size_t _length);
 
 
 /**

@@ -49,7 +49,7 @@ string strerror (int _code, const string & _message)
 /* --- wrappers for system API -------------------------------------- */
 
 
-void DuplicateHandle(HANDLE src, HANDLE * dst)
+static void DuplicateHandle(HANDLE src, HANDLE * dst)
 {
   if (::DuplicateHandle(GetCurrentProcess(), src,
                         GetCurrentProcess(),
@@ -63,7 +63,7 @@ void DuplicateHandle(HANDLE src, HANDLE * dst)
 }
 
 
-void CloseHandle (HANDLE & _handle)
+static void CloseHandle (HANDLE & _handle)
 {
   if (!_handle) return;
 
@@ -224,7 +224,7 @@ struct StartupInfo {
 
 
 // see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
-HANDLE CreateJobForChild ()
+static HANDLE CreateJobForChild ()
 {
   HANDLE job_handle = ::CreateJobObject(NULL, NULL);
   
