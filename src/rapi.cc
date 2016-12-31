@@ -1,3 +1,11 @@
+/** @file rapi.cc
+ *
+ * Implementation of functions exported to R from the shared library.
+ *
+ * @author Lukasz A. Bartnik <l.bartnik@gmail.com>
+ */
+
+#include "rapi.h"
 #include "subprocess.h"
 
 #include <signal.h>
@@ -11,10 +19,10 @@
 
 using namespace subprocess;
 
-// from "is_something.c"
-int is_nonempty_string(SEXP _obj);
-int is_single_string_or_NULL(SEXP _obj);
-int is_single_integer(SEXP _obj);
+/* defined at the end of this file */
+static int is_nonempty_string(SEXP _obj);
+static int is_single_string_or_NULL(SEXP _obj);
+static int is_single_integer(SEXP _obj);
 
 
 /* --- library ------------------------------------------------------ */
@@ -479,5 +487,28 @@ SEXP C_signal (SEXP _signal, SEXP _handler)
   }
 
   return allocate_TRUE();
+}
+
+
+/* --- library functions -------------------------------------------- */
+
+static int is_single_string (SEXP _obj)
+{
+  return isString(_obj) && (LENGTH(_obj) == 1);
+}
+
+static int is_nonempty_string (SEXP _obj)
+{
+  return is_single_string(_obj) && (strlen(translateChar(STRING_ELT(_obj, 0))) > 0);
+}
+
+static int is_single_string_or_NULL (SEXP _obj)
+{
+  return is_single_string(_obj) || (_obj == R_NilValue);
+}
+
+static int is_single_integer (SEXP _obj)
+{
+  return isInteger(_obj) && (LENGTH(_obj) == 1);
 }
 
