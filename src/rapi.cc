@@ -8,9 +8,10 @@
 #include "rapi.h"
 #include "subprocess.h"
 
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
+#include <functional>
+
 #include <signal.h>
 
 #include <R.h>
@@ -43,23 +44,30 @@ static SEXP allocate_FALSE () { return allocate_single_bool(false); }
 /* --- error handling ----------------------------------------------- */
 
 /*
-* Errors need to be passed via this interface because Rf_error() jumps
-* around the stack and prevents destructors from being called.
-*/
-#define TRY                       \
-   char try_buffer[BUFFER_SIZE];  \
-   bool exception_caught = false; \
-   try
+ * This is how we make sure there are no non-trivial destructors
+ * (including the exception object itself )that need to be called
+ * before longjmp() that Rf_error() calls.
+ */
+template<typename F, typename ... Args>
+inline auto try_run (F _f, Args ... _args)
+{
+  char try_buffer[BUFFER_SIZE] = { 0 };
+  bool exception_caught = false;
+  
+  try {
+    auto bound = std::bind(_f, _args...);
+    return bound();
+  }
+  catch (subprocess_exception & e) {
+     exception_caught = true;
+     e.store(try_buffer, sizeof(try_buffer) - 1);
+  }
 
-#define CATCH                                 \
-   catch (subprocess_exception & e) {         \
-     exception_caught = true;                 \
-     e.store(try_buffer, sizeof(try_buffer)); \
-   }                                          \
-   if (exception_caught) {                    \
-     Rf_error("%s", try_buffer);              \
-   }                                          \
-
+  // if exception has been caught here we can do a long jump
+  if (exception_caught) {
+    Rf_error("%s", try_buffer);
+  }
+}
 
 
 /* --- public R API ------------------------------------------------- */
@@ -136,10 +144,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   handle = new (handle) process_handle_t();
 
   /* spawn the process */
-  TRY {
-    handle->spawn(command, arguments, environment, workdir, termination_mode);
-  }
-  CATCH
+  try_run(&process_handle_t::spawn, handle, command, arguments, environment, workdir, termination_mode);
 
   /* return an external pointer handle */
   SEXP ptr;
@@ -167,7 +172,8 @@ static void C_child_process_finalizer(SEXP ptr)
   process_handle_t * handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
   if (!handle) return;
 
-  TRY {
+  // it might be necessary to terminate the process first
+  auto try_terminate = [&handle] {
     try {
       handle->poll(TIMEOUT_IMMEDIATE);
       handle->terminate();
@@ -177,9 +183,10 @@ static void C_child_process_finalizer(SEXP ptr)
       Free(handle);
       throw;
     }
-  }
-  CATCH
+  };
 
+  // however termination goes, close pipe handles and free memory
+  try_run(try_terminate);
   handle->~process_handle_t();
   Free(handle);
 
@@ -191,7 +198,7 @@ static void C_child_process_finalizer(SEXP ptr)
 // TODO add wait/timeout
 SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
+  process_handle_t * handle = extract_process_handle(_handle);
 
   if (!is_nonempty_string(_pipe)) {
     Rf_error("`pipe` must be a single character value");
@@ -217,10 +224,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
     Rf_error("unrecognized `pipe` value");
   }
   
-  TRY {
-    process_handle->read(which_pipe, timeout);
-  }
-  CATCH
+  try_run(&process_handle_t::read, handle, which_pipe, timeout); 
 
   /* produce the result - a list of one or two elements */
   int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
@@ -229,11 +233,11 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   PROTECT(nms = allocVector(STRSXP, len));
 
   if (PIPE_STDOUT & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stdout_.data())));
+    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(handle->stdout_.data())));
     SET_STRING_ELT(nms, i++, mkChar("stdout"));
   }
   if (PIPE_STDERR & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stderr_.data())));
+    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(handle->stderr_.data())));
     SET_STRING_ELT(nms, i++, mkChar("stderr"));
   }
 
@@ -248,19 +252,14 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 
 SEXP C_process_write (SEXP _handle, SEXP _message)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
+  process_handle_t * handle = extract_process_handle(_handle);
 
   if (!is_nonempty_string(_message)) {
     Rf_error("`message` must be a single character value");
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  size_t ret = 0;
-
-  TRY {
-    ret = process_handle->write(message, strlen(message));
-  }
-  CATCH
+  size_t ret = try_run(&process_handle_t::write, handle, message, strlen(message)); 
 
   return allocate_single_int((int)ret);
 }
@@ -276,25 +275,22 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
   int timeout = INTEGER_DATA(_timeout)[0];
 
   /* extract handle */
-  process_handle_t * process_handle = extract_process_handle(_handle);
+  process_handle_t * handle = extract_process_handle(_handle);
 
   /* check the process */
-  TRY {
-    process_handle->poll(timeout);
-  }
-  CATCH
+  try_run(&process_handle_t::poll, handle, timeout);
 
   /* answer */
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
 
-  if (process_handle->state == process_handle_t::EXITED) {
+  if (handle->state == process_handle_t::EXITED) {
     SET_STRING_ELT(ans, 0, mkChar("exited"));
   }
-  else if (process_handle->state == process_handle_t::TERMINATED) {
+  else if (handle->state == process_handle_t::TERMINATED) {
     SET_STRING_ELT(ans, 0, mkChar("terminated"));
   }
-  else if (process_handle->state == process_handle_t::RUNNING) {
+  else if (handle->state == process_handle_t::RUNNING) {
     SET_STRING_ELT(ans, 0, mkChar("running"));
   }
   else {
@@ -309,16 +305,13 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
 
 SEXP C_process_return_code (SEXP _handle)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
+  process_handle_t * handle = extract_process_handle(_handle);
 
-  TRY {
-    process_handle->poll(0);
-  }
-  CATCH
+  try_run(&process_handle_t::poll, handle, TIMEOUT_IMMEDIATE);
 
-  if (process_handle->state == process_handle_t::EXITED ||
-      process_handle->state == process_handle_t::TERMINATED)
-    return allocate_single_int(process_handle->return_code);
+  if (handle->state == process_handle_t::EXITED ||
+      handle->state == process_handle_t::TERMINATED)
+    return allocate_single_int(handle->return_code);
   else
     return allocate_single_int(NA_INTEGER);
 }
@@ -326,43 +319,29 @@ SEXP C_process_return_code (SEXP _handle)
 
 SEXP C_process_terminate (SEXP _handle)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  TRY {
-    process_handle->terminate();
-  }
-  CATCH
-
+  process_handle_t * handle = extract_process_handle(_handle);
+  try_run(&process_handle_t::terminate, handle);
   return allocate_TRUE();
 }
 
 
 SEXP C_process_kill (SEXP _handle)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  TRY {
-    process_handle->kill();
-  }
-  CATCH
-
+  process_handle_t * handle = extract_process_handle(_handle);
+  try_run(&process_handle_t::kill, handle);
   return allocate_TRUE();
 }
 
 
 SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 {
-  process_handle_t * process_handle = extract_process_handle(_handle);
+  process_handle_t * handle = extract_process_handle(_handle);
   if (!is_single_integer(_signal)) {
     Rf_error("`signal` must be a single integer value");
   }
 
   int signal = INTEGER_DATA(_signal)[0];
-
-  TRY {
-    process_handle->send_signal(signal);
-  }
-  CATCH
+  try_run(&process_handle_t::send_signal, handle, signal);
 
   return allocate_TRUE();
 }
