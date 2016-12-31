@@ -2,15 +2,10 @@
 
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
 #include <sstream>
 
 #include <signal.h>
 
-
-/* min_gw that comes with Rtools 3.4 doesn't have these functions */
-WINBASEAPI BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
-WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 
 /*
  * There are probably many places that need to be adapted to make this
@@ -27,22 +22,22 @@ WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 #endif
 
 
+#if 0
+struct enable_memory_check {
+  enable_memory_check() {
+    afxMemDF |= checkAlwaysMemDF;
+  }
+};
+
+static enable_memory_check emc;
+#endif
+
 
 namespace subprocess {
 
-using std::replace_if;
-
-
-
 static char * strjoin (char *const* _array, char _sep);
 
-int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si);
-
-int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
-
 char * prepare_environment(char *const* _environment);
-
-HANDLE create_job_for_process ();
 
 
 
@@ -95,7 +90,10 @@ void CloseHandle (HANDLE & _handle)
 /* ------------------------------------------------------------------ */
 
 process_handle_t::process_handle_t ()
-  : pipe_stdin(nullptr), pipe_stdout(nullptr), pipe_stderr(nullptr)
+  : process_job(nullptr), child_handle(nullptr),
+    pipe_stdin(nullptr), pipe_stdout(nullptr), pipe_stderr(nullptr),
+    child_id(0), state(NOT_STARTED), return_code(0),
+    termination_mode(TERMINATION_GROUP)
 {}
 
 
@@ -311,7 +309,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   ::HeapFree(::GetProcessHeap(), 0, environment);
 
   /* translate from Windows to Linux; -1 means error */
-  if (rc != TRUE) {
+  if (!rc) {
     throw subprocess_exception(::GetLastError(), "could not create process");
   }
 
@@ -352,16 +350,16 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
 void process_handle_t::shutdown ()
 {
-  if (!child_handle || state != RUNNING)
+  if (!child_handle)
     return;
+
+  // close the process handle
+  CloseHandle(child_handle);
 
   // close read & write handles
   CloseHandle(pipe_stdin);
   CloseHandle(pipe_stdout);
   CloseHandle(pipe_stderr);
-
-  // finally close the process handle
-  CloseHandle(child_handle);
 }
 
 
@@ -456,7 +454,7 @@ void process_handle_t::terminate()
 {
   // first make sure it's even still running
   poll(TIMEOUT_IMMEDIATE);
-  if (state != RUNNING)
+  if (!child_handle || state != RUNNING)
     return;
 
   // first terminate the child process; if mode is "group" terminate

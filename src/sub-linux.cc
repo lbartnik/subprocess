@@ -144,10 +144,10 @@ static void set_non_block (int _fd) {
 /* --- process_handle ----------------------------------------------- */
 
 process_handle_t::process_handle_t ()
-  : state(NOT_STARTED)
-{
-
-}
+  : child_handle(0),
+    pipe_stdin(0), pipe_stdout(0), pipe_stderr(0),
+    state(NOT_STARTED)
+{ }
 
 
 /* ------------------------------------------------------------------ */

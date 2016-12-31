@@ -59,6 +59,13 @@ struct subprocess_exception : runtime_error {
 
   /** Operating-system-specific error code. */
   const int code;
+
+  /**
+   * Store error message in a buffer.
+   */
+   void store (char * _buffer, size_t _length) {
+     snprintf(_buffer, _length, "%s", what());
+   }
 };
 
 

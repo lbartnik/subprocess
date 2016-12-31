@@ -25,8 +25,13 @@
 /* enables thread synchronization API */
 #define _WIN32_WINNT 0x0601
 
+#if 0
+#define _AFXDLL
+#include <afx.h>
+#else
 #include <windows.h>
 #undef ERROR // R.h already defines this
+#endif
 
 #ifndef _In_
 #define _In_
