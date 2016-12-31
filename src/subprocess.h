@@ -31,17 +31,26 @@ constexpr int TIMEOUT_IMMEDIATE = 0;
 constexpr int TIMEOUT_INFINITE = -1;
 
 
+string strerror (int _code, const string & _message);
+
+
 /**
  * A simple exception class.
  */
 struct subprocess_exception : runtime_error {
+
   /**
    * Create a new exception object.
+   *
+   * The local version of strerror is used in constructor to generate
+   * the final error message and store it in the exception object.
    *
    * @param _code Operating-system-specific error code.
    * @param _message User-provided error message.
    */
-  subprocess_exception (int _code, const string & _message);
+  subprocess_exception (int _code, const string & _message)
+    : runtime_error(strerror(_code, _message)), code(_code)
+  { }
 
   /** Operating-system-specific error code. */
   const int code;
@@ -83,26 +92,35 @@ struct pipe_writer {
 
   void clear () { contents[0] = 0; }
 
-  ssize_t os_read (pipe_handle_type _pipe)
+  size_t os_read (pipe_handle_type _pipe)
   {
+    char * buffer = contents.data() + left.len;
+    size_t length = contents.size() - left.len - 1;
+
 #ifdef SUBPROCESS_WINDOWS
     DWORD dwAvail = 0, nBytesRead;
     
     // if returns FALSE and error is "broken pipe", pipe is gone
     if (!::PeekNamedPipe(_pipe, NULL, 0, NULL, &dwAvail, NULL)) {
-      return (::GetLastError() == ERROR_BROKEN_PIPE) ? 0 : -1;
+      if (::GetLastError() == ERROR_BROKEN_PIPE) return 0;
+      throw subprocess_exception(::GetLastError(), "could not peek into pipe");
     }
   
     if (dwAvail == 0)
       return 0;
 
-    dwAvail = std::min((size_t)dwAvail, contents.size() - left.len - 1);
-    if (!::ReadFile(_pipe, contents.data() + left.len, dwAvail, &nBytesRead, NULL))
-      return -1;
-    
-    return nBytesRead;
+    dwAvail = std::min((size_t)dwAvail, length);
+    if (!::ReadFile(_pipe, buffer, dwAvail, &nBytesRead, NULL)) {
+      throw subprocess_exception(::GetLastError(), "could not read from pipe");
+    }
+
+    return static_cast<size_t>(nBytesRead);
 #else /* SUBPROCESS_WINDOWS */
-    return ::read(_pipe, contents.data() + left.len, contents.size() - left.len - 1);
+    int rc = ::read(_pipe, buffer, length);
+    if (rc < 0) {
+      throw subprocess_exception(errno, "could not read from pipe");
+    }
+    return static_cast<size_t>(rc);
 #endif /* SUBPROCESS_WINDOWS */
   }
   
@@ -119,7 +137,7 @@ struct pipe_writer {
    * @param _mbcslocale Is this multi-byte character set? If so, verify
    *        string integrity after a successful read.
    */    
-  ssize_t read (pipe_handle_type _fd, bool _mbcslocale = false) {
+  size_t read (pipe_handle_type _fd, bool _mbcslocale = false) {
     if (_mbcslocale) {
       memcpy(contents.data(), left.data, left.len);
     }
@@ -127,10 +145,7 @@ struct pipe_writer {
       left.len = 0;
     }
     
-    ssize_t rc = os_read(_fd);
-    if (rc < 0) {
-      return rc;
-    }
+    size_t rc = os_read(_fd);
 
     // end with 0 to make sure R can create a string out of the data block
     rc += left.len;
@@ -144,8 +159,7 @@ struct pipe_writer {
       // check if all bytes are correct UTF8 content
       size_t consumed = consume_utf8(contents.data(), rc);
       if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
-        errno = EIO;
-        return -1;
+        throw subprocess_exception(EIO, "malformed multibyte string");
       }
       if (consumed < (size_t)rc) {
         left.len = rc-consumed;
@@ -199,7 +213,15 @@ struct process_handle_t {
 
   process_handle_t ();
   
-  ~process_handle_t () throw ();
+  ~process_handle_t () throw ()
+  {
+    try {
+      shutdown();
+    }
+    catch (...) {
+      // TODO be silent or maybe show a warning?
+    }
+  }
 
   void spawn(const char * _command, char *const _arguments[],
 	                   char *const _environment[], const char * _workdir,

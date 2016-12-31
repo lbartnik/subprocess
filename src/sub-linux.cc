@@ -42,7 +42,7 @@ namespace subprocess {
 /*
  * Append system error message to user error message.
  */
-static string strerror (int _code, const string & _message)
+string strerror (int _code, const string & _message)
 {
   std::stringstream message(_message);
 
@@ -56,16 +56,6 @@ static string strerror (int _code, const string & _message)
 
   return message.str();
 }
-
-
-/*
- * The local version of strerror is used in constructor to generate
- * the final error message and store it in the exception object.
- */
-subprocess_exception::subprocess_exception (int _code, const string & _message)
-  : runtime_error(strerror(_code, _message)), code(_code)
-{ }
-
 
 
 
@@ -158,18 +148,6 @@ process_handle_t::process_handle_t ()
 {
 
 }
-
-
-process_handle_t::~process_handle_t () throw ()
-{
-  try {
-    shutdown();
-  }
-  catch (...) {
-    // TODO be silent or maybe show a warning?
-  }
-}
-
 
 
 /* ------------------------------------------------------------------ */
@@ -291,7 +269,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
 void process_handle_t::shutdown ()
 {
-  if (state == SHUTDOWN) {
+  if (state != RUNNING) {
     return;
   }
   if (!child_id) {
