@@ -48,7 +48,7 @@ HANDLE create_job_for_process ();
 
 string strerror (int _code, const string & _message)
 {
-  vector<char> buffer(BUFFER_SIZE, 0);
+  vector<char> buffer(BUFFER_SIZE, '\0');
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, _code,
                             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                             buffer.data(), (DWORD)buffer.size() - 1, NULL);
@@ -125,7 +125,7 @@ struct StartupInfo {
   };
 
   StartupInfo (process_handle_t & _process) {
-    memset(&info, 0, sizeof(info));
+    memset(&info, 0, sizeof(STARTUPINFO));
     pipe_redirection(_process);
   }
 
