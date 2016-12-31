@@ -22,17 +22,6 @@
 #endif
 
 
-#if 0
-struct enable_memory_check {
-  enable_memory_check() {
-    afxMemDF |= checkAlwaysMemDF;
-  }
-};
-
-static enable_memory_check emc;
-#endif
-
-
 namespace subprocess {
 
 static char * strjoin (char *const* _array, char _sep);
