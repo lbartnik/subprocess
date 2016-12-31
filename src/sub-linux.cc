@@ -380,10 +380,10 @@ struct select_reader {
       return 0;
     
     if (FD_ISSET(_handle.pipe_stdout, &set)) {
-      rc = std::min(rc, _handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
+      rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
     }
     if (FD_ISSET(_handle.pipe_stderr, &set)) {
-      rc = std::min(rc, _handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
+      rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
     }
     
     return rc;
