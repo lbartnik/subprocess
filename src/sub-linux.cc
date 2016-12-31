@@ -6,6 +6,8 @@
 #include <cstring>
 #include <ctime>
 #include <algorithm>
+#include <string>
+#include <sstream>
 
 #include <signal.h>
 #include <sys/time.h>
@@ -27,9 +29,6 @@ extern char ** environ;
 
 #include "subprocess.h"
 
-// this cannot be a "const int" - it's only C++
-#define BUFFER_SIZE 1024
-
 #ifdef TRUE
 #undef TRUE
 #endif
@@ -37,17 +36,27 @@ extern char ** environ;
 #define TRUE 1
 
 
-static const int PIPE_READ  = 0;
-static const int PIPE_WRITE = 1;
+namespace subprocess {
 
 
-
-int full_error_message (char * _buffer, size_t _length)
+/*
+ * Append system error message to user error message.
+ */
+string strerror (int _code, const string & _message)
 {
-  if (strerror_r(errno, _buffer, _length) == 0)
-    return 0;
-  return -1;
+  std::stringstream message(_message);
+
+  vector<char> buffer(BUFFER_SIZE, 0);
+  if (strerror_r(_code, buffer.data(), buffer.size()-1) == 0) {
+    message << ": " << buffer.data();
+  }
+  else {
+    message << ": system error message could not be fetched";
+  }
+
+  return message.str();
 }
+
 
 
 
@@ -57,7 +66,7 @@ static time_t clock_millisec ()
 {
   struct timespec current;
 
-#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+#ifdef SUBPROCESS_MACOS // OS X does not have clock_gettime, use clock_get_time
   clock_serv_t cclock;
   mach_timespec_t mts;
   host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -98,18 +107,82 @@ static void exit_on_failure ()
 }
 
 
-static int set_block (int _fd) {
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK));
+/*
+ * Duplicate handle and zero the original 
+ */
+inline void dup2 (int _from, int _to) {
+  if (::dup2(_from, _to) < 0) {
+    throw subprocess_exception(errno, "duplicating descriptor failed, abortnig");
+  }
 }
 
-static int set_non_block (int _fd) {
-  return fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK);
+inline void chdir (const string & _path) {
+  if (::chdir(_path.c_str()) < 0) {
+    throw subprocess_exception(errno, "could not change working directory to " + _path);
+  }
+}
+
+inline void setsid () {
+  if (::setsid() == (pid_t)-1) {
+    throw subprocess_exception(errno, "could not start a new session");
+  }
+}
+
+static void set_block (int _fd) {
+  if (fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) & (~O_NONBLOCK)) < 0) {
+    throw subprocess_exception(errno, "could not set pipe to non-blocking mode");
+  }
+}
+
+static void set_non_block (int _fd) {
+  if (fcntl(_fd, F_SETFL, fcntl(_fd, F_GETFL) | O_NONBLOCK) < 0) {
+    throw subprocess_exception(errno, "could not set pipe to non-blocking mode");
+  }
 }
 
 
+/* --- process_handle ----------------------------------------------- */
+
+process_handle_t::process_handle_t ()
+  : child_handle(0),
+    pipe_stdin(0), pipe_stdout(0), pipe_stderr(0),
+    state(NOT_STARTED)
+{ }
 
 
-// TODO prevent Ctrl+C from being passed to the child process
+/* ------------------------------------------------------------------ */
+
+/**
+ * A helper class that simplifies error handling when opening multiple
+ * pipes.
+ */
+struct pipe_holder {
+
+  enum pipe_end { READ  = 0, WRITE = 1 };
+
+  int fds[2];
+
+  int & operator [] (pipe_end _i) { return fds[_i]; }
+
+  /**
+   * Zero the descriptor array and immediately try opening a (unnamed)
+   * pipe().
+   */
+  pipe_holder () : fds{0, 0} {
+    if (pipe(fds) < 0) {
+      throw subprocess_exception(errno, "could not create a pipe");
+    }
+  }
+
+  /**
+   * Will close both descriptors unless they're set to 0 from the outside.
+   */
+  ~pipe_holder () {
+    if (fds[READ]) close(fds[READ]);
+    if (fds[WRITE]) close(fds[WRITE]);
+  }
+};
+
 
 /**
  * In most cases, when a negative value is returned the calling function
@@ -117,167 +190,130 @@ static int set_non_block (int _fd) {
  *
  * @return 0 on success and negative on an error.
  */
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
+void process_handle_t::spawn (const char * _command, char *const _arguments[],
+	               char *const _environment[], const char * _workdir,
+                 termination_mode_type _termination_mode)
 {
-  int err;
-  int pipe_stdin[2] = { 0, 0 }, pipe_stdout[2] = { 0, 0 }, pipe_stderr[2] = { 0, 0 };
-
-  // we initialize them to 0 to everythin non-zero should be closed;
-  // preserve the errno value, too
-  #define CLOSE_ALL_PIPES                                          \
-    do {                                                           \
-      err = errno;                                                 \
-      if (pipe_stdin[PIPE_READ])   close(pipe_stdin[PIPE_READ]);   \
-      if (pipe_stdin[PIPE_WRITE])  close(pipe_stdin[PIPE_WRITE]);  \
-      if (pipe_stdout[PIPE_READ])  close(pipe_stdout[PIPE_READ]);  \
-      if (pipe_stdout[PIPE_WRITE]) close(pipe_stdout[PIPE_WRITE]); \
-      if (pipe_stderr[PIPE_READ])  close(pipe_stderr[PIPE_READ]);  \
-      if (pipe_stderr[PIPE_WRITE]) close(pipe_stderr[PIPE_WRITE]); \
-      errno = err;                                                 \
-   } while (0);                                                    \
-
-  _handle->state = NOT_STARTED;
-
-  /* redirect standard streams */
-  if (pipe(pipe_stdin) < 0) {
-    return -1;
+  if (state != NOT_STARTED) {
+    throw subprocess_exception(EALREADY, "process already started");
   }
 
-  /* if there is an error preserve errno and close anything opened so far */
-  if ((pipe(pipe_stdout) < 0)) {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
-  if ((pipe(pipe_stderr) < 0)) {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
-  if (set_non_block(pipe_stdout[PIPE_READ]) < 0 ||
-      set_non_block(pipe_stderr[PIPE_READ]) < 0)
-  {
-    CLOSE_ALL_PIPES
-    return -1;
-  }
-
+  // can be addressed with PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR
+  pipe_holder pipes[3];
 
   /* spawn a child */
-  _handle->child_id = fork();
-
-  if (_handle->child_id < 0) {
-    return -1;
+  if ( (child_id = fork()) < 0) {
+    throw subprocess_exception(errno, "could not spawn a process");
   }
 
   /* child should copy his ends of pipes and close his and parent's
    * ends of pipes */
-  if (_handle->child_id == 0) {
-    if (dup2(pipe_stdin[PIPE_READ], STDIN_FILENO) < 0) {
-      perror("redirecting stdin failed, abortnig");
-      exit_on_failure();
-    }
-    if (dup2(pipe_stdout[PIPE_WRITE], STDOUT_FILENO) < 0) {
-      perror("redirecting stdout failed, abortnig");
-      exit_on_failure();
-    }
-    if (dup2(pipe_stderr[PIPE_WRITE], STDERR_FILENO) < 0) {
-      perror("redirecting stderr failed, abortnig");
-      exit_on_failure();
-    }
+  if (child_id == 0) {
+    try {
+      // this part is kept in C-style, no exceptions after forking
+      // into a child
+      dup2(pipes[PIPE_STDIN][pipe_holder::READ], STDIN_FILENO);
+      dup2(pipes[PIPE_STDOUT][pipe_holder::WRITE], STDOUT_FILENO);
+      dup2(pipes[PIPE_STDERR][pipe_holder::WRITE], STDERR_FILENO);
 
-    /* redirection succeeded, now close all other descriptors */
-    CLOSE_ALL_PIPES
-
-    /* change directory */
-    if (_workdir != NULL) {
-      if (chdir(_workdir) < 0) {
-        char message[BUFFER_SIZE];
-        snprintf(message, sizeof(message), "could not change working directory to %s",
-                 _workdir);
-        perror(message);
-        exit_on_failure();
+      /* change directory */
+      if (_workdir != NULL) {
+        chdir(_workdir);
       }
-    }
 
-    /* if termination mode is "group" start new session */
-    if (_termination_mode == TERMINATION_GROUP) {
-      if (setsid() == (pid_t)-1) {
-        perror("could not start a new session");
-        exit_on_failure();
+      /* if termination mode is "group" start new session */
+      if (_termination_mode == TERMINATION_GROUP) {
+        setsid();
       }
+      
+      /* if environment is empty, use parent's environment */
+      if (!_environment) {
+        _environment = environ;
+      }
+
+      /* finally start the new process */
+      execve(_command, _arguments, _environment);
+
+      // TODO if we dup() STDERR_FILENO, we can print this message there
+      //      rather then into the pipe
+      perror((string("could not run command ") + _command).c_str());
     }
-    
-    /* if environment is empty, use parent's environment */
-    if (!_environment) {
-      _environment = environ;
+    catch (subprocess_exception & e) {
+      fprintf(stderr, "%s\n", e.what());
+      exit_on_failure();
     }
-
-    /* finally start the new process */
-    execve(_command, _arguments, _environment);
-
-    // TODO if we dup() STDERR_FILENO, we can print this message there
-    //      rather then into the pipe
-    char message[BUFFER_SIZE];
-    snprintf(message, sizeof(message), "could not run command %s", _command);
-    perror(message);
-
-    exit_on_failure();
   }
 
-  /* child is running */
-  _handle->state = RUNNING;
-  _handle->termination_mode = _termination_mode;
+  // child is now running
+  state = RUNNING;
+  termination_mode = _termination_mode;
 
-  /* close those that the parent doesn't need */
-  close(pipe_stdin[PIPE_READ]);
-  close(pipe_stdout[PIPE_WRITE]);
-  close(pipe_stderr[PIPE_WRITE]);
+  pipe_stdin  = pipes[PIPE_STDIN][pipe_holder::WRITE];
+  pipe_stdout = pipes[PIPE_STDOUT][pipe_holder::READ];
+  pipe_stderr = pipes[PIPE_STDERR][pipe_holder::READ];
 
-  _handle->pipe_stdin  = pipe_stdin[PIPE_WRITE];
-  _handle->pipe_stdout = pipe_stdout[PIPE_READ];
-  _handle->pipe_stderr = pipe_stderr[PIPE_READ];
+  // reset the NONBLOCK on stdout-read and stderr-read descriptors
+  set_non_block(pipe_stdout);
+  set_non_block(pipe_stderr);
 
-  /* reset the NONBLOCK on stdout-read and stderr-read descriptors */
-  set_non_block(_handle->pipe_stdout);
-  set_non_block(_handle->pipe_stderr);
-
-  return 0;
+  // the very last step: set them to zero so that the destructor
+  // doesn't close them
+  pipes[PIPE_STDIN][pipe_holder::WRITE] = 0;
+  pipes[PIPE_STDOUT][pipe_holder::READ] = 0;
+  pipes[PIPE_STDERR][pipe_holder::READ] = 0;
 }
 
-int teardown_process (process_handle_t * _handle)
+
+
+/* --- process_handle::shutdown ------------------------------------- */
+
+void process_handle_t::shutdown ()
 {
-  if (_handle->state == TORNDOWN) {
-    return 0;
+  if (state != RUNNING) {
+    return;
   }
-  if (!_handle || !_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
-  if (_handle->pipe_stdin) close(_handle->pipe_stdin);
-  if (_handle->pipe_stdout) close(_handle->pipe_stdout);
-  if (_handle->pipe_stderr) close(_handle->pipe_stderr);
+  /* all we need to do is close pipes */
+  auto close_pipe = [](pipe_handle_type _pipe) {
+    if (_pipe) close(_pipe);
+  };
 
+  close_pipe(pipe_stdin);
+  close_pipe(pipe_stdout);
+  close_pipe(pipe_stderr);
+
+  /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  process_poll(_handle, TRUE);
+  poll(TIMEOUT_IMMEDIATE);
+  kill();
+  poll(TIMEOUT_INFINITE);
 
-  return 0;
+  state = SHUTDOWN;
 }
 
 
-ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
+/* --- process::write ----------------------------------------------- */
+
+
+size_t process_handle_t::write (const void * _buffer, size_t _count)
 {
-  if (!_handle || !_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
-  return write(_handle->pipe_stdin, _buffer, _count);
+  ssize_t ret = ::write(pipe_stdin, _buffer, _count);
+  if (ret < 0) {
+    throw subprocess_exception(errno, "could not write to child process");
+  }
+
+  return static_cast<size_t>(ret);
 }
 
 
-/* --- process_read ------------------------------------------------- */
+/* --- process::read ------------------------------------------------ */
 
 
 struct enable_block_mode {
@@ -305,7 +341,7 @@ struct select_reader {
     max_fd = std::max(max_fd, _fd);
   }
   
-  ssize_t timed_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
+  ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
   {
     // this should never be called with "infinite" timeout
     if (_timeout < 0)
@@ -344,10 +380,10 @@ struct select_reader {
       return 0;
     
     if (FD_ISSET(_handle.pipe_stdout, &set)) {
-      rc = std::min(rc, _handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
+      rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
     }
     if (FD_ISSET(_handle.pipe_stderr, &set)) {
-      rc = std::min(rc, _handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
+      rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
     }
     
     return rc;
@@ -357,11 +393,10 @@ struct select_reader {
 
 
 
-ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
+size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 {
-  if (!_handle.child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
 
   ssize_t rc;
@@ -369,13 +404,13 @@ ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
 
   // infinite timeout
   if (_timeout < 0) {
-    enable_block_mode blocker_out(_handle.pipe_stdout);
-    enable_block_mode blocker_err(_handle.pipe_stderr);
-    rc = reader.timed_read(_handle, _pipe, 1000);
+    enable_block_mode blocker_out(pipe_stdout);
+    enable_block_mode blocker_err(pipe_stderr);
+    rc = reader.timed_read(*this, _pipe, 1000);
   }
   // finite or no timeout
   else {
-    rc = reader.timed_read(_handle, _pipe, _timeout);
+    rc = reader.timed_read(*this, _pipe, _timeout);
 
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
@@ -384,23 +419,24 @@ ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
     }
   }
 
-  return rc;
+  if (rc < 0) {
+    throw subprocess_exception(errno, "could not read from child process");
+  }
+
+  return static_cast<size_t>(rc);
 }
 
 
+/* --- process::poll ------------------------------------------------ */
 
 
-
-
-
-int process_poll (process_handle_t * _handle, int _timeout)
+void process_handle_t::poll (int _timeout)
 {
-  if (!_handle->child_id) {
-    errno = ECHILD;
-    return -1;
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
   }
-  if (_handle->state != RUNNING) {
-    return 0;
+  if (state != RUNNING) {
+    return;
   }
 
   /* to wait or not to wait? */ 
@@ -411,11 +447,11 @@ int process_poll (process_handle_t * _handle, int _timeout)
   /* make the actual system call */
   int start = clock_millisec(), rc;
   do {
-    rc = waitpid(_handle->child_id, &_handle->return_code, options);
+    rc = waitpid(child_id, &return_code, options);
   
     // there's been an error (<0)
     if (rc < 0) {
-      return rc;
+      throw subprocess_exception(errno, "waitpid() failed");
     }
 
     _timeout -= clock_millisec() - start;
@@ -423,56 +459,70 @@ int process_poll (process_handle_t * _handle, int _timeout)
 
   // the child is still running
   if (rc == 0) {
-    return 0;
+    return;
   }
 
   // the child has exited or has been terminated
-  if (WIFEXITED(_handle->return_code)) {
-    _handle->state = EXITED;
-    _handle->return_code = WEXITSTATUS(_handle->return_code);
+  if (WIFEXITED(return_code)) {
+    state = process_handle_t::EXITED;
+    return_code = WEXITSTATUS(return_code);
   }
-  else if (WIFSIGNALED(_handle->return_code)) {
-    _handle->state = TERMINATED;
-    _handle->return_code = WTERMSIG(_handle->return_code);
+  else if (WIFSIGNALED(return_code)) {
+    state = process_handle_t::TERMINATED;
+    return_code = WTERMSIG(return_code);
   }
-  
-  return 0;
 }
 
 
-int process_send_signal(process_handle_t * _handle, int _signal)
+/* --- process::signal ---------------------------------------------- */
+
+
+void process_handle_t::send_signal(int _signal)
 {
-  return kill(_handle->child_id, _signal);
+  if (!child_id) {
+    throw subprocess_exception(ECHILD, "child does not exist");
+  }
+
+  int rc = ::kill(child_id, _signal);
+
+  if (rc < 0) {
+    throw subprocess_exception(errno, "could not post signal to child process");
+  }
 }
 
 
+/* --- process::terminate & process::kill --------------------------- */
 
-static int termination_signal (process_handle_t * _handle, int _signal, int _timeout)
+
+static void termination_signal (process_handle_t & _handle, int _signal, int _timeout)
 {
-  if (_handle->state != RUNNING)
-    return 0;
+  if (_handle.state != process_handle_t::RUNNING)
+    return;
 
-  pid_t addressee = (_handle->termination_mode == TERMINATION_CHILD_ONLY) ?
-                      (_handle->child_id) : (-_handle->child_id);
-  if (kill(addressee, _signal) < 0)
-    return -1;
+  pid_t addressee = (_handle.termination_mode == process_handle_t::TERMINATION_CHILD_ONLY) ?
+                      (_handle.child_id) : (-_handle.child_id);
+  if (::kill(addressee, _signal) < 0) {
+    throw subprocess_exception(errno, "system kill() failed");
+  }
 
-  return process_poll(_handle, _timeout);
+  _handle.poll(_timeout);
 }
 
 
-int process_terminate (process_handle_t * _handle)
+void process_handle_t::terminate ()
 {
-  return termination_signal(_handle, SIGTERM, 100);
+  termination_signal(*this, SIGTERM, 100);
 }
 
 
-int process_kill(process_handle_t * _handle)
+void process_handle_t::kill()
 {
   // this will terminate the child for sure so we can
   // wait until it happens
-  return termination_signal(_handle, SIGKILL, -1);
+  termination_signal(*this, SIGKILL, TIMEOUT_INFINITE);
 }
+
+} /* namespace subprocess */
 
 
 /* --- test --------------------------------------------------------- */
@@ -480,28 +530,26 @@ int process_kill(process_handle_t * _handle)
 
 
 #ifdef LINUX_TEST
+
+using namespace subprocess;
+
 int main (int argc, char ** argv)
 {
   process_handle_t handle;
   char * const args[] = { NULL };
   char * const env[]  = { NULL };
 
-  char buffer[BUFFER_SIZE];
-
-  if (spawn_process(&handle, "/bin/bash", args, env, NULL) < 0) {
-    perror("error in spawn_process()");
-    exit(EXIT_FAILURE);
-  }
+  handle.spawn("/bin/bash", args, env, NULL, process_handle_t::TERMINATION_GROUP);
 
   process_write(&handle, "echo A\n", 7);
   
   /* read is non-blocking so the child needs time to produce output */
   sleep(1);
-  process_read(&handle, PIPE_STDOUT, buffer, sizeof(buffer), -1);
+  process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE);
 
-  printf("stdout: %s\n", buffer);
+  printf("stdout: %s\n", handle.stdout_.data());
 
-  teardown_process(&handle);
+  handle.shutdown();
 
   return 0;
 }

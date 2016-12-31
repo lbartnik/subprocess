@@ -1,13 +1,11 @@
 #include "subprocess.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
+#include <sstream>
+
 #include <signal.h>
 
-
-/* min_gw that comes with Rtools 3.4 doesn't have these functions */
-WINBASEAPI BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
-WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 
 /*
  * There are probably many places that need to be adapted to make this
@@ -24,52 +22,236 @@ WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 #endif
 
 
+namespace subprocess {
 
 static char * strjoin (char *const* _array, char _sep);
 
-int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si);
-
-int file_redirection(process_handle_t * _process, STARTUPINFO * _si);
-
 char * prepare_environment(char *const* _environment);
 
-HANDLE create_job_for_process ();
 
 
-
-
-int full_error_message (char * _buffer, size_t _length)
+string strerror (int _code, const string & _message)
 {
-  DWORD code = GetLastError();
-  DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code,
-	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	                        _buffer, (DWORD)_length, NULL);
-  if (ret == 0) return -1;
-  return 0;
+  vector<char> buffer(BUFFER_SIZE, '\0');
+  DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, _code,
+                            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                            buffer.data(), (DWORD)buffer.size() - 1, NULL);
+
+  std::stringstream message;
+  message << _message << ": " 
+          << ((ret > 0) ? buffer.data() : "system error message could not be fetched");
+
+  return message.str().substr(0, message.str().find_last_not_of("\r\n\t"));
 }
 
 
-int duplicate_handle(HANDLE src, HANDLE * dst)
+
+/* --- wrappers for system API -------------------------------------- */
+
+
+void DuplicateHandle(HANDLE src, HANDLE * dst)
 {
-  BOOL rc = DuplicateHandle(GetCurrentProcess(), src,
-	                        GetCurrentProcess(),
-	                        dst,      // Address of new handle.
-                            0, FALSE, // Make it uninheritable.
-                            DUPLICATE_SAME_ACCESS);
-  if (rc != TRUE)
-	return -1;
-  return 0;
+  if (::DuplicateHandle(GetCurrentProcess(), src,
+                        GetCurrentProcess(),
+                        dst,      // Address of new handle.
+                        0, FALSE, // Make it uninheritable.
+                        DUPLICATE_SAME_ACCESS)
+      != TRUE)
+  {
+    throw subprocess_exception(GetLastError(), "cannot duplicate handle");
+  }
 }
+
+
+void CloseHandle (HANDLE & _handle)
+{
+  if (!_handle) return;
+
+  auto rc = ::CloseHandle(_handle);
+  _handle = nullptr;
+
+  if (rc == FALSE) {
+    throw subprocess_exception(::GetLastError(), "could not close handle");
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+
+process_handle_t::process_handle_t ()
+  : process_job(nullptr), child_handle(nullptr),
+    pipe_stdin(nullptr), pipe_stdout(nullptr), pipe_stderr(nullptr),
+    child_id(0), state(NOT_STARTED), return_code(0),
+    termination_mode(TERMINATION_GROUP)
+{}
+
+
+/* ------------------------------------------------------------------ */
+
+
+/*
+ * Wrap redirections in a class to achieve RAII.
+ */
+struct StartupInfo {
+
+  struct pipe_holder {
+    HANDLE read, write;
+
+    pipe_holder(SECURITY_ATTRIBUTES & sa)
+      : read(nullptr), write(nullptr)
+    {
+      if (!::CreatePipe(&read, &write, &sa, 0)) {
+        throw subprocess_exception(GetLastError(), "could not create pipe");
+      }
+    }
+
+    ~pipe_holder () {
+      CloseHandle(read);
+      CloseHandle(write);
+    }
+  };
+
+  StartupInfo (process_handle_t & _process) {
+    memset(&info, 0, sizeof(STARTUPINFO));
+    pipe_redirection(_process);
+  }
+
+  ~StartupInfo () {
+    CloseHandle(info.hStdInput);
+    CloseHandle(info.hStdOutput);
+    CloseHandle(info.hStdError);
+  }
+
+
+  /*
+   * Set standard input/output redirection via pipes.
+   */
+  void pipe_redirection (process_handle_t & _process)
+  {
+    // Set the bInheritHandle flag so pipe handles are inherited
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = NULL;
+
+    pipe_holder in(sa), out(sa), err(sa);
+
+    // Ensure the write handle to the pipe for STDIN is not inherited. 
+    if (!::SetHandleInformation(in.write, HANDLE_FLAG_INHERIT, 0)) {
+      throw subprocess_exception(GetLastError(), "could not set handle information");
+    }
+
+    // Create new output read handle and the input write handles. Set
+    // the Properties to FALSE. Otherwise, the child inherits the
+    // properties and, as a result, non-closeable handles to the pipes
+    // are created.
+    DuplicateHandle(in.write, &_process.pipe_stdin);
+    DuplicateHandle(out.read, &_process.pipe_stdout);
+    DuplicateHandle(err.read, &_process.pipe_stderr);
+
+    // prepare the info object
+    info.cb = sizeof(STARTUPINFO);
+    info.hStdError  = err.write;
+    info.hStdOutput = out.write;
+    info.hStdInput  = in.read;
+    info.dwFlags = STARTF_USESTDHANDLES;
+
+    // set to null so that destructor does not close those handles
+    err.write = nullptr;
+    out.write = nullptr;
+    in.read   = nullptr;
+  }
+
+
+  /*
+   * Alternative (debug) redirection to/from files.
+   */
+  int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
+  {
+    HANDLE input  = NULL;
+    HANDLE output = NULL;
+    HANDLE error  = NULL;
+
+    input = CreateFile("C:/Windows/TEMP/subprocess.in", // name of the write
+                      GENERIC_READ,           // open for writing
+                      0,                      // do not share
+                      NULL,                   // default security
+                      OPEN_EXISTING,          // create new file only
+                      FILE_ATTRIBUTE_NORMAL,  // normal file
+                      NULL);                  // no attr. template
+
+    if (input == INVALID_HANDLE_VALUE) {
+      goto error;
+    }
+
+    output = CreateFile("C:/Windows/TEMP/subprocess.out", // name of the write
+                        GENERIC_WRITE,          // open for writing
+                        0,                      // do not share
+                        NULL,                   // default security
+                        CREATE_ALWAYS,          // create new file only
+                        FILE_ATTRIBUTE_NORMAL,  // normal file
+                        NULL);                  // no attr. template
+
+    if (output == INVALID_HANDLE_VALUE) { 
+      goto error;
+    }
+
+    DuplicateHandle(output, &_process->pipe_stdout);
+    DuplicateHandle(output, &_process->pipe_stderr);
+    DuplicateHandle(output, &error);
+  
+    _si->cb = sizeof(STARTUPINFO);
+    _si->hStdError = error;
+    _si->hStdOutput = output;
+    _si->hStdInput = input;
+    _si->dwFlags = STARTF_USESTDHANDLES;
+
+    return 0;
+
+  error:
+    if (input) CloseHandle(input);
+    if (output) CloseHandle(output);
+    if (error) CloseHandle(error);
+    return -1;
+  }
+
+  /**
+   * The actual startup info object.
+   */
+  STARTUPINFO info;
+ 
+};
+
+
+// see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
+HANDLE CreateJobForChild ()
+{
+  HANDLE job_handle = ::CreateJobObject(NULL, NULL);
+  
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+  ::memset(&info, 0, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+
+  info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  ::SetInformationJobObject(job_handle,
+                            JobObjectExtendedLimitInformation,
+                            &info, sizeof(info));
+  
+  if (!job_handle) {
+    throw subprocess_exception(::GetLastError(), "could not create job object");
+  }
+
+  return job_handle;
+}
+
 
 //
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
 // https://support.microsoft.com/en-us/kb/190351
 //
-int spawn_process (process_handle_t * _handle, const char * _command, char *const _arguments[],
-	               char *const _environment[], const char * _workdir, termination_mode_t _termination_mode)
+void process_handle_t::spawn (const char * _command, char *const _arguments[],
+                             char *const _environment[], const char * _workdir,
+                             termination_mode_type _termination_mode)
 {
-  _handle->state = NOT_STARTED;
-  
   /* if the command is part of arguments, pass NULL to CreateProcess */
   if (!strcmp(_arguments[0], _command)) {
     _command = NULL;
@@ -88,21 +270,7 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   PROCESS_INFORMATION pi;
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
-  STARTUPINFO si;
-  memset(&si, 0, sizeof(STARTUPINFO));
-
-  int pipe_rc = 0;
-
-  // TODO expose this as a debugging interface
-  if (1) pipe_rc = pipe_redirection(_handle, &si);
-    else pipe_rc = file_redirection(_handle, &si);
-
-  if (pipe_rc < 0) {
-    CloseHandle(si.hStdInput);
-    CloseHandle(si.hStdOutput);
-    CloseHandle(si.hStdError);
-    return -1;
-  }
+  StartupInfo startupInfo(*this);
 
   // creation flags
   DWORD creation_flags = CREATE_NO_WINDOW;
@@ -112,33 +280,26 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
   // if it fails
   if (_termination_mode == TERMINATION_GROUP) {
     creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
-    _handle->process_job = create_job_for_process();
-    if (_handle->process_job == NULL) {
-      return -1;
-    }
+    process_job = CreateJobForChild();
   }
 
-  BOOL rc = CreateProcess(_command,         // lpApplicationName
-                          command_line,     // lpCommandLine, command line
-                          NULL,             // lpProcessAttributes, process security attributes
-                          NULL,             // lpThreadAttributes, primary thread security attributes
-                          TRUE,             // bInheritHandles, handles are inherited
-                          creation_flags,   // dwCreationFlags, creation flags
-                          environment,      // lpEnvironment
-                          _workdir,         // lpCurrentDirectory
-                          &si,              // lpStartupInfo
-                          &pi);             // lpProcessInformation
+  BOOL rc = ::CreateProcess(_command,         // lpApplicationName
+                            command_line,     // lpCommandLine, command line
+                            NULL,             // lpProcessAttributes, process security attributes
+                            NULL,             // lpThreadAttributes, primary thread security attributes
+                            TRUE,             // bInheritHandles, handles are inherited
+                            creation_flags,   // dwCreationFlags, creation flags
+                            environment,      // lpEnvironment
+                            _workdir,         // lpCurrentDirectory
+                            &startupInfo.info,// lpStartupInfo
+                            &pi);             // lpProcessInformation
 
-  HeapFree(GetProcessHeap(), 0, command_line);
-  HeapFree(GetProcessHeap(), 0, environment);
-
-  CloseHandle(si.hStdInput);
-  CloseHandle(si.hStdOutput);
-  CloseHandle(si.hStdError);
+  ::HeapFree(::GetProcessHeap(), 0, command_line);
+  ::HeapFree(::GetProcessHeap(), 0, environment);
 
   /* translate from Windows to Linux; -1 means error */
-  if (rc != TRUE) {
-    return -1;
+  if (!rc) {
+    throw subprocess_exception(::GetLastError(), "could not create process");
   }
 
   /* if termination mode is "group" add process to the job; see here
@@ -150,218 +311,67 @@ int spawn_process (process_handle_t * _handle, const char * _command, char *cons
    *  with the job."
    */
   if (_termination_mode == TERMINATION_GROUP) {
-    BOOL rc = AssignProcessToJobObject(_handle->process_job, pi.hProcess);
+    BOOL rc = ::AssignProcessToJobObject(process_job, pi.hProcess);
     if (rc == FALSE) {
-      int error_code = GetLastError();
-      _handle->state = RUNNING;
-      process_terminate(_handle);
-      SetLastError(error_code);
-      return -1;
+      int error_code = ::GetLastError();
+      state = RUNNING;
+      terminate();
+      throw subprocess_exception(error_code, "could not set group termination");
     }
 
-    if (ResumeThread(pi.hThread) == (DWORD)-1) {
-      return -1;
+    if (::ResumeThread(pi.hThread) == (DWORD)-1) {
+      throw subprocess_exception(::GetLastError(), "could not resume thread");
     }
   }
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
-  
-  _handle->state            = RUNNING;
-  _handle->child_handle     = pi.hProcess;
-  _handle->child_id         = pi.dwProcessId;
-  _handle->termination_mode = _termination_mode;
 
-  /* again, in Linux 0 is "good" */
-  return 0;
+  state            = RUNNING;
+  child_handle     = pi.hProcess;
+  child_id         = pi.dwProcessId;
+  termination_mode = _termination_mode;
 }
 
 
-// see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
-HANDLE create_job_for_process ()
+/* --- process::shutdown -------------------------------------------- */
+
+
+void process_handle_t::shutdown ()
 {
-  HANDLE job_handle = CreateJobObject(NULL, NULL);
-  
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
-  memset(&info, 0, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+  if (!child_handle)
+    return;
 
-  info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-  SetInformationJobObject(job_handle,
-                          JobObjectExtendedLimitInformation,
-                          &info, sizeof(info));
-  
-  return job_handle;
+  // close the process handle
+  CloseHandle(child_handle);
+
+  // close read & write handles
+  CloseHandle(pipe_stdin);
+  CloseHandle(pipe_stdout);
+  CloseHandle(pipe_stderr);
 }
 
 
-int pipe_redirection(process_handle_t * _process, STARTUPINFO * _si)
-{
-  // Set the bInheritHandle flag so pipe handles are inherited
-  SECURITY_ATTRIBUTES sa;
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.bInheritHandle = TRUE;
-  sa.lpSecurityDescriptor = NULL;
+/* --- process::write ----------------------------------------------- */
 
-  HANDLE stdin_read   = NULL;
-  HANDLE stdin_write  = NULL;
-  HANDLE stdout_read  = NULL;
-  HANDLE stdout_write = NULL;
-  HANDLE stderr_read  = NULL;
-  HANDLE stderr_write = NULL;
-
-  if (!CreatePipe(&stdin_read, &stdin_write, &sa, 0)) { 
-    goto error;
-  }
-  if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
-    goto error;
-  }
-  if (!CreatePipe(&stderr_read, &stderr_write, &sa, 0)) {
-    goto error;
-  }
-
-  // Ensure the write handle to the pipe for STDIN is not inherited. 
-  if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0)) {
-    goto error;
-  }
-
-  // Create new output read handle and the input write handles. Set
-  // the Properties to FALSE. Otherwise, the child inherits the
-  // properties and, as a result, non-closeable handles to the pipes
-  // are created.
-  if (duplicate_handle(stdin_write, &_process->pipe_stdin) < 0) {
-    goto error;
-  }
-  if (duplicate_handle(stdout_read, &_process->pipe_stdout) < 0) {
-    goto error;
-  }
-  if (duplicate_handle(stderr_read, &_process->pipe_stderr) < 0) {
-    goto error;
-  }
-
-  // close those we don't want to inherit
-  CloseHandle(stdin_write);
-  CloseHandle(stdout_read);
-  CloseHandle(stderr_read);
-
-  _si->cb = sizeof(STARTUPINFO);
-  _si->hStdError = stderr_write;
-  _si->hStdOutput = stdout_write;
-  _si->hStdInput = stdin_read;
-  _si->dwFlags = STARTF_USESTDHANDLES;
-
-  return 0;
-
-error:
-  if (stdin_read)   CloseHandle(stdin_read);
-  if (stdin_write)  CloseHandle(stdin_write);
-  if (stdout_read)  CloseHandle(stdout_read);
-  if (stdout_write) CloseHandle(stdout_write);
-  if (stderr_read)  CloseHandle(stderr_read);
-  if (stderr_write) CloseHandle(stderr_write);
-  return -1;
-}
-
-
-int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
-{
-  HANDLE input  = NULL;
-  HANDLE output = NULL;
-  HANDLE error  = NULL;
-
-  input = CreateFile("C:/Windows/TEMP/subprocess.in", // name of the write
-                     GENERIC_READ,           // open for writing
-                     0,                      // do not share
-                     NULL,                   // default security
-                     OPEN_EXISTING,          // create new file only
-                     FILE_ATTRIBUTE_NORMAL,  // normal file
-                     NULL);                  // no attr. template
-
-  if (input == INVALID_HANDLE_VALUE) {
-    goto error;
-  }
-
-  output = CreateFile("C:/Windows/TEMP/subprocess.out", // name of the write
-                      GENERIC_WRITE,          // open for writing
-                      0,                      // do not share
-                      NULL,                   // default security
-                      CREATE_ALWAYS,          // create new file only
-                      FILE_ATTRIBUTE_NORMAL,  // normal file
-                      NULL);                  // no attr. template
-
-  if (output == INVALID_HANDLE_VALUE) { 
-    goto error;
-  }
-
-  if ((duplicate_handle(output, &_process->pipe_stdout) < 0) ||
-	  (duplicate_handle(output, &_process->pipe_stderr) < 0) ||
-	  (duplicate_handle(output, &error) < 0))
-  {
-    goto error;
-  }
-
-  _si->cb = sizeof(STARTUPINFO);
-  _si->hStdError = error;
-  _si->hStdOutput = output;
-  _si->hStdInput = input;
-  _si->dwFlags = STARTF_USESTDHANDLES;
-
-  return 0;
-
-error:
-  if (input) CloseHandle(input);
-  if (output) CloseHandle(output);
-  if (error) CloseHandle(error);
-  return -1;
-}
-
-
-
-int teardown_process (process_handle_t * _handle)
-{
-  if (_handle->state != RUNNING) {
-    return 0;
-  }
-
-  process_poll(_handle, -1); // -1 means wait infinitely
-
-  // Close OS handles 
-  CloseHandle(_handle->child_handle);
-  CloseHandle(_handle->pipe_stdin);
-
-  // finally close read handles
-  CloseHandle(_handle->pipe_stdout);
-  CloseHandle(_handle->pipe_stderr);
-
-  return 0;
-}
-
-ssize_t process_write (process_handle_t * _handle, const void * _buffer, size_t _count)
+size_t process_handle_t::write (const void * _buffer, size_t _count)
 {
   DWORD written = 0;
-  BOOL rc = WriteFile(_handle->pipe_stdin, _buffer, (DWORD)_count, &written, NULL);
-  
-  if (!rc)
-    return -1;
-  
-  // give the reader a chance to receive the response before we return
-  SwitchToThread();
+  if (!::WriteFile(pipe_stdin, _buffer, (DWORD)_count, &written, NULL)) {
+    throw subprocess_exception(::GetLastError(), "could not write to child process");
+  }
 
-  return (ssize_t)written;
+  return static_cast<size_t>(written);
 }
 
 
-
-/* --- reading ------------------------------------------------------ */
-
-//static 
+/* --- process::read ------------------------------------------------ */
 
 
-
-
-ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
+size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 {
-  _handle.stdout_.clear();
-  _handle.stderr_.clear();
+  stdout_.clear();
+  stderr_.clear();
   
   ULONGLONG start = GetTickCount64();
   int timediff, sleep_time = 100; /* by default sleep 0.1 seconds */
@@ -371,13 +381,9 @@ ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
   }
   
   do {
-    ssize_t rc1 = 0, rc2 = 0;
-    if ((_pipe & PIPE_STDOUT) && (rc1 = _handle.stdout_.read(_handle.pipe_stdout)) < 0) {
-      return -1;
-    }
-    if ((_pipe & PIPE_STDERR) && (rc2 = _handle.stderr_.read(_handle.pipe_stderr)) < 0) {
-      return -1;
-    }
+    size_t rc1 = 0, rc2 = 0;
+    if (_pipe & PIPE_STDOUT) rc1 = stdout_.read(pipe_stdout);
+    if (_pipe & PIPE_STDERR) rc2 = stderr_.read(pipe_stderr);
 
     // if anything has been read or no timeout is specified return now
     if (rc1 > 0 || rc2 > 0 || sleep_time == 0) {
@@ -390,119 +396,125 @@ ssize_t process_read (process_handle_t & _handle, pipe_t _pipe, int _timeout)
     
   } while (_timeout < 0 || timediff < _timeout);
 
-  return -1;
+  // out of time
+  return 0;
 }
 
 
 /* ------------------------------------------------------------------ */
 
 
-int process_poll (process_handle_t * _handle, int _timeout)
+void process_handle_t::poll (int _timeout)
 {
-  if (_handle->state != RUNNING)
-	return 0;
+  if (!child_handle || state != RUNNING)
+    return;
 
   // to wait or not to wait?
-  if (_timeout < 0)
+  if (_timeout == TIMEOUT_INFINITE)
     _timeout = INFINITE;
 
-  DWORD rc = WaitForSingleObject(_handle->child_handle, _timeout);
+  DWORD rc = ::WaitForSingleObject(child_handle, _timeout);
   
   // if already exited
   if (rc == WAIT_OBJECT_0) {
     DWORD status;
-    if (GetExitCodeProcess(_handle->child_handle, &status) == FALSE) {
-      return -1;
-	}
+    if (::GetExitCodeProcess(child_handle, &status) == FALSE) {
+      throw subprocess_exception(::GetLastError(), "could not read child exit code");
+    }
  
     if (status == STILL_ACTIVE) {
-      return -1;
+      return;
     }
     
-    _handle->return_code = (int)status;
-    _handle->state = EXITED;
-
-	return 0;
+    return_code = (int)status;
+    state = EXITED;
   }
- 
-  if (rc == WAIT_TIMEOUT)
-    return 0;
-  
-  // error while waiting
-  return -1;
+  else if (rc != WAIT_TIMEOUT) {
+    throw subprocess_exception(::GetLastError(), "wait for child process failed");
+  }
 }
 
 
+/* --- process::send_signal ----------------------------------------- */
+
+
 // compare with: https://github.com/andreisavu/python-process/blob/master/killableprocess.py
-int process_terminate(process_handle_t * _handle)
+void process_handle_t::terminate()
 {
   // first make sure it's even still running
-  if (process_poll(_handle, 0) < 0)
-    return -1;
-  if (_handle->state != RUNNING)
-    return 0;
+  poll(TIMEOUT_IMMEDIATE);
+  if (!child_handle || state != RUNNING)
+    return;
 
   // first terminate the child process; if mode is "group" terminate
   // the whole job
-  if (_handle->termination_mode == TERMINATION_GROUP) {
-    if (TerminateJobObject(_handle->process_job, 127) == FALSE) {
-      return -1;
-    }
-    if (CloseHandle(_handle->process_job) == FALSE) {
-      return -1;
+  if (termination_mode == TERMINATION_GROUP) {
+    BOOL rc = ::TerminateJobObject(process_job, 127);
+    CloseHandle(process_job);
+    if (rc == FALSE) {
+      throw subprocess_exception(::GetLastError(), "could not terminate child job");
     }
   }
   else {
     // now terminate just the process itself
-    HANDLE to_terminate = OpenProcess(PROCESS_TERMINATE, FALSE, _handle->child_id);
-    if (!to_terminate)
-      return -1;
+    HANDLE to_terminate = ::OpenProcess(PROCESS_TERMINATE, FALSE, child_id);
+    if (!to_terminate) {
+      throw subprocess_exception(::GetLastError(), "could open child process for termination");
+    }
 
-    BOOL rc = TerminateProcess(to_terminate, 127);
+    BOOL rc = ::TerminateProcess(to_terminate, 127);
     CloseHandle(to_terminate);
-    if (rc == FALSE)
-      return -1;
+    if (rc == FALSE) {
+      throw subprocess_exception(::GetLastError(), "could not terminate child process");
+    }
   }
 
   // clean up
-  teardown_process(_handle);
-  _handle->state = TERMINATED;
-
-  // everything went smoothly
-  return 0;
+  state = TERMINATED;
+  return_code = 127;
 }
 
 
-int process_kill (process_handle_t * _handle)
+/* --- process::send_signal ----------------------------------------- */
+
+
+void process_handle_t::kill ()
 {
-  return process_terminate (_handle);
+  terminate();
 }
+
+
+/* --- process::send_signal ----------------------------------------- */
 
 
 /*
  * This is tricky. Look here for details:
  * http://codetitans.pl/blog/post/sending-ctrl-c-signal-to-another-application-on-windows
  *
- * Yet, I cannot make it work.
+ * WARNING! I cannot make it work. It seems that there is no way of
+ * sending Ctrl+C to the child process without killing the parent R
+ * at the same time.
  */
-int process_send_signal (process_handle_t * _handle, int _signal)
+void process_handle_t::send_signal (int _signal)
 {
   if (_signal == SIGTERM) {
-    return process_terminate(_handle);
+    return terminate();
   }
 
   BOOL rc = TRUE;
   // that's what they do in Python
   if (_signal == CTRL_C_EVENT || _signal == CTRL_BREAK_EVENT) {
-    rc = GenerateConsoleCtrlEvent(_signal, (DWORD)_handle->child_id);
+    rc = ::GenerateConsoleCtrlEvent(_signal, (DWORD)child_id);
   }
   // unsupported `signal` value
   else {
-    SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
+    ::SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
     rc = FALSE;
   }
 
-  return (rc == FALSE) ? -1 : 0;
+  if (rc == FALSE) {
+    throw subprocess_exception(::GetLastError(), "could not send signal to child process");
+  }
 }
 
 
@@ -563,6 +575,8 @@ char * prepare_environment (char *const* _environment)
   HeapFree(GetProcessHeap(), 0, new_env);
   return combined_env;
 }
+
+} /* namespace subprocess */
 
 
 

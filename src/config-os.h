@@ -8,6 +8,10 @@
 
 #if defined WIN64 || defined WIN32 || defined _MSC_VER || __MINGW32__
 #define SUBPROCESS_WINDOWS
+#elif defined(__MACH__)
+#define SUBPROCESS_MACOS
+#else
+#define SUBPROCESS_LINUX
 #endif
 
 
@@ -36,6 +40,9 @@
 #define _Out_
 #endif
 
+#undef min
+#undef max
+#undef length
 
 typedef HANDLE process_handle_type;
 typedef HANDLE pipe_handle_type;
@@ -51,7 +58,7 @@ typedef int pipe_handle_type;
 #endif /* SUBPROCESS_WINDOWS */
 
 
-#ifdef _MSC_VER
+#ifdef SUBPROCESS_WINDOWS
 #define EXPORT __declspec( dllexport )
 #else
 #define EXPORT 
