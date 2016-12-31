@@ -4,7 +4,10 @@
 #include "config-os.h"
 #include "utf8.h"
 
-constexpr int BUFFER_SIZE = 1024;
+/* In Visual Studio std::vector gets messed up by definitions in "R.h" */
+#ifdef _MSC_VER
+#undef length
+#endif
 
 #include <cerrno>
 #include <cstring>
@@ -15,6 +18,8 @@ constexpr int BUFFER_SIZE = 1024;
 
 
 namespace subprocess {
+
+constexpr int BUFFER_SIZE = 1024;
 
 
 using std::string;

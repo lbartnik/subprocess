@@ -8,6 +8,7 @@
 #include <R.h>
 #include <Rdefines.h>
 
+
 using namespace subprocess;
 
 // from "is_something.c"
@@ -176,7 +177,7 @@ static void C_child_process_finalizer(SEXP ptr)
   bool failed = false;
 
   try {
-    handle->poll(0);
+    handle->poll(TIMEOUT_IMMEDIATE);
     handle->terminate();
     handle->shutdown();
   }

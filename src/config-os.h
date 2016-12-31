@@ -44,7 +44,6 @@
 #undef max
 #undef length
 
-
 typedef HANDLE process_handle_type;
 typedef HANDLE pipe_handle_type;
 

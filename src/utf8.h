@@ -1,7 +1,7 @@
 #ifndef UTF8_HEADER_GUARD
 #define UTF8_HEADER_GUARD
 
-#include <stdlib.h>
+#include <cstdlib>
 
 #define MB_PARSE_ERROR ((size_t)-1)
 #define MB_INCOMPLETE  ((size_t)-2)

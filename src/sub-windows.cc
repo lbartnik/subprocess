@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <sstream>
 
 #include <signal.h>
@@ -29,6 +30,9 @@ WINBASEAPI BOOL WINAPI CancelSynchronousIo(_In_ HANDLE hThread);
 
 namespace subprocess {
 
+using std::replace_if;
+
+
 
 static char * strjoin (char *const* _array, char _sep);
 
@@ -46,14 +50,14 @@ string strerror (int _code, const string & _message)
 {
   vector<char> buffer(BUFFER_SIZE, 0);
   DWORD ret = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, _code,
-	                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                          buffer.data(), (DWORD)buffer.size() - 1, NULL);
+                            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                            buffer.data(), (DWORD)buffer.size() - 1, NULL);
 
-  std::stringstream message(_message);
-  message << ": " 
-          << (ret > 0) ? buffer.data() : "system error message could not be fetched";
+  std::stringstream message;
+  message << _message << ": " 
+          << ((ret > 0) ? buffer.data() : "system error message could not be fetched");
 
-  return message.str();
+  return message.str().substr(0, message.str().find_last_not_of("\r\n\t"));
 }
 
 
@@ -77,6 +81,8 @@ void DuplicateHandle(HANDLE src, HANDLE * dst)
 
 void CloseHandle (HANDLE & _handle)
 {
+  if (!_handle) return;
+
   auto rc = ::CloseHandle(_handle);
   _handle = nullptr;
 
@@ -107,7 +113,7 @@ struct StartupInfo {
     pipe_holder(SECURITY_ATTRIBUTES & sa)
       : read(nullptr), write(nullptr)
     {
-      if (!CreatePipe(&read, &write, &sa, 0)) {
+      if (!::CreatePipe(&read, &write, &sa, 0)) {
         throw subprocess_exception(GetLastError(), "could not create pipe");
       }
     }
@@ -156,11 +162,7 @@ struct StartupInfo {
     DuplicateHandle(out.read, &_process.pipe_stdout);
     DuplicateHandle(err.read, &_process.pipe_stderr);
 
-    // close those we don't want to inherit
-    CloseHandle(in.write);
-    CloseHandle(out.read);
-    CloseHandle(err.read);
-
+    // prepare the info object
     info.cb = sizeof(STARTUPINFO);
     info.hStdError  = err.write;
     info.hStdOutput = out.write;
@@ -350,21 +352,16 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
 void process_handle_t::shutdown ()
 {
-  if (state != RUNNING) {
+  if (!child_handle || state != RUNNING)
     return;
-  }
 
-  // close OS handles 
-  CloseHandle(child_handle);
+  // close read & write handles
   CloseHandle(pipe_stdin);
-
-  // close read handles
   CloseHandle(pipe_stdout);
   CloseHandle(pipe_stderr);
 
-  poll(TIMEOUT_IMMEDIATE);
-  terminate();
-  poll(TIMEOUT_INFINITE);
+  // finally close the process handle
+  CloseHandle(child_handle);
 }
 
 
@@ -422,7 +419,7 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 
 void process_handle_t::poll (int _timeout)
 {
-  if (state != RUNNING)
+  if (!child_handle || state != RUNNING)
     return;
 
   // to wait or not to wait?
@@ -445,9 +442,7 @@ void process_handle_t::poll (int _timeout)
     return_code = (int)status;
     state = EXITED;
   }
- 
-  
-  if (rc != WAIT_TIMEOUT) {
+  else if (rc != WAIT_TIMEOUT) {
     throw subprocess_exception(::GetLastError(), "wait for child process failed");
   }
 }
@@ -488,8 +483,8 @@ void process_handle_t::terminate()
   }
 
   // clean up
-  shutdown();
   state = TERMINATED;
+  return_code = 127;
 }
 
 
