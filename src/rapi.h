@@ -1,8 +1,7 @@
 /** @file rapi.h
  *
- * Functions exported to R from the shared library.
- *
- * @author Lukasz A. Bartnik <l.bartnik@gmail.com>
+ *  Functions exported to R from the shared library.
+ *  @author Lukasz A. Bartnik <l.bartnik@gmail.com>
  */
 
 #ifndef RAPI_H_GUARD

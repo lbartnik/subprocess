@@ -149,40 +149,7 @@ struct pipe_writer {
    * @param _mbcslocale Is this multi-byte character set? If so, verify
    *        string integrity after a successful read.
    */    
-  size_t read (pipe_handle_type _fd, bool _mbcslocale = false) {
-    if (_mbcslocale) {
-      memcpy(contents.data(), left.data, left.len);
-    }
-    else {
-      left.len = 0;
-    }
-    
-    size_t rc = os_read(_fd);
-
-    // end with 0 to make sure R can create a string out of the data block
-    rc += left.len;
-    contents[rc] = 0;
-
-    // if there is a partial multi-byte character at the end, keep
-    // it around for the next read attempt
-    if (_mbcslocale) {
-      left.len = 0;
-      
-      // check if all bytes are correct UTF8 content
-      size_t consumed = consume_utf8(contents.data(), rc);
-      if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
-        throw subprocess_exception(EIO, "malformed multibyte string");
-      }
-      if (consumed < (size_t)rc) {
-        left.len = rc-consumed;
-        memcpy(left.data, contents.data()+consumed, left.len);
-        contents[consumed] = 0;
-        rc = consumed;
-      }
-    }
-
-    return rc;
-  }
+  size_t read (pipe_handle_type _fd, bool _mbcslocale = false);
 
 }; /* pipe_writer */
 
@@ -258,34 +225,6 @@ struct process_handle_t {
 
 
 } /* namespace subprocess */
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-EXPORT SEXP C_process_spawn(SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode);
-
-EXPORT SEXP C_process_read(SEXP _handle, SEXP _pipe, SEXP _timeout);
-
-EXPORT SEXP C_process_write(SEXP _handle, SEXP _message);
-
-EXPORT SEXP C_process_poll(SEXP _handle, SEXP _timeout);
-
-EXPORT SEXP C_process_return_code(SEXP _handle);
-
-EXPORT SEXP C_process_terminate(SEXP _handle);
-
-EXPORT SEXP C_process_kill(SEXP _handle);
-
-EXPORT SEXP C_process_send_signal(SEXP _handle, SEXP _signal);
-
-EXPORT SEXP C_known_signals();
-
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 
 #endif /* SUBPROCESS_H_GUARD */

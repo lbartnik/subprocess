@@ -107,6 +107,9 @@ static void exit_on_failure ()
 }
 
 
+/* --- wrappers for Linux system API -------------------------------- */
+
+
 /*
  * Duplicate handle and zero the original 
  */
