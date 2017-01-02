@@ -36,7 +36,7 @@ static void free_C_array (char ** _array);
 static SEXP allocate_single_bool (bool _value);
 
 static SEXP allocate_TRUE () { return allocate_single_bool(true); }
-static SEXP allocate_FALSE () { return allocate_single_bool(false); }
+//static SEXP allocate_FALSE () { return allocate_single_bool(false); }
 
 
 /* --- error handling ----------------------------------------------- */
@@ -47,13 +47,14 @@ static SEXP allocate_FALSE () { return allocate_single_bool(false); }
  * before longjmp() that Rf_error() calls.
  */
 template<typename F, typename ... Args>
-inline auto try_run (F _f, Args ... _args)
+inline typename std::result_of<F(Args...)>::type
+try_run (F _f, Args ... _args)
 {
   char try_buffer[BUFFER_SIZE] = { 0 };
   bool exception_caught = false;
-  
+  auto bound = std::bind(_f, _args...);
+
   try {
-    auto bound = std::bind(_f, _args...);
     return bound();
   }
   catch (subprocess_exception & e) {
@@ -65,6 +66,9 @@ inline auto try_run (F _f, Args ... _args)
   if (exception_caught) {
     Rf_error("%s", try_buffer);
   }
+
+  // it will never reach this line but the compiler doesn't know this
+  return bound();
 }
 
 
