@@ -20,6 +20,8 @@ EXPORT SEXP C_process_spawn(SEXP _command, SEXP _arguments, SEXP _environment, S
 
 EXPORT SEXP C_process_read(SEXP _handle, SEXP _pipe, SEXP _timeout);
 
+EXPORT SEXP C_process_close_input (SEXP _handle);
+
 EXPORT SEXP C_process_write(SEXP _handle, SEXP _message);
 
 EXPORT SEXP C_process_poll(SEXP _handle, SEXP _timeout);

@@ -257,9 +257,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 SEXP C_process_close_input (SEXP _handle)
 {
   process_handle_t * handle = extract_process_handle(_handle);
-
   try_run(&process_handle_t::close_input, handle);
-
   return allocate_TRUE();  
 }
 
