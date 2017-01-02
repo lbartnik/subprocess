@@ -35,6 +35,8 @@ extern char ** environ;
 
 #define TRUE 1
 
+// a way to ignore a return value even when gcc warns about it
+template<typename T> inline void ignore_return_value (T _t) {}
 
 namespace subprocess {
 
@@ -254,7 +256,8 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      fprintf(stderr, "%s\n", e.what());
+      // we do not name stderr explicitly because CRAN doesn't like it
+      ignore_return_value(::write(2, e.what(), strlen(e.what())));
       exit_on_failure();
     }
   }
