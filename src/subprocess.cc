@@ -1,483 +1,92 @@
+/** @file subprocess.cc
+ *
+ *  Process handle - platform independent code.
+ *  @author Lukasz A. Bartnik <l.bartnik@gmail.com>
+ */
+
 #include "subprocess.h"
 
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
-#include <signal.h>
+#include <cstdlib>
 
-#include <R.h>
-#include <Rdefines.h>
+#define MB_PARSE_ERROR ((size_t)-1)
+#define MB_INCOMPLETE  ((size_t)-2)
 
 
-using namespace subprocess;
 
-// from "is_something.c"
-int is_nonempty_string(SEXP _obj);
-int is_single_string_or_NULL(SEXP _obj);
-int is_single_integer(SEXP _obj);
+namespace subprocess {
 
 
-/* --- library ------------------------------------------------------ */
-
-static void C_child_process_finalizer(SEXP ptr);
-
-
-static char ** to_C_array (SEXP _array)
-{
-  char ** ret = (char**)Calloc(LENGTH(_array) + 1, char **);
-  for (int i=0; i<LENGTH(_array); ++i) {
-    const char * element = translateChar(STRING_ELT(_array, i));
-    char * new_element = (char*)Calloc(strlen(element) + 1, char);
-    memcpy(new_element, element, strlen(element)+1);
-    ret[i] = new_element;
-  }
-
-  /* that's how execve() will know where does the array end */
-  ret[LENGTH(_array)] = NULL;
-
-  return ret;
-}
-
-static void free_C_array (char ** _array)
-{
-  if (!_array) return;
-  for (char ** ptr = _array; *ptr; ++ptr) {
-    Free(*ptr);
-  }
-  Free(_array);
-}
-
-static SEXP allocate_single_int (int _value)
-{
-  SEXP ans;
-  PROTECT(ans = allocVector(INTSXP, 1));
-  INTEGER_DATA(ans)[0] = _value;
-  UNPROTECT(1);
-  return ans;
-}
-
-static SEXP allocate_single_bool (bool _value)
-{
-  SEXP ans;
-  PROTECT(ans = allocVector(LGLSXP, 1));
-  LOGICAL_DATA(ans)[0] = _value;
-  UNPROTECT(1);
-  return ans;
-}
-
-static SEXP allocate_TRUE () { return allocate_single_bool(true); }
-static SEXP allocate_FALSE () { return allocate_single_bool(false); }
-
-
-
-static process_handle_t * extract_process_handle (SEXP _handle)
-{
-  SEXP ptr = getAttrib(_handle, install("handle_ptr"));
-  if (ptr == R_NilValue) {
-    Rf_error("`handle_ptr` attribute not found");
-  }
-
-  void * c_ptr = R_ExternalPtrAddr(ptr);
-  if (!c_ptr) {
-    Rf_error("external C pointer is NULL");
-  }
-
-  return (process_handle_t*)c_ptr;
-}
-
-
-
-/* --- error handling ----------------------------------------------- */
-
-/*
-* Errors need to be passed via this interface because Rf_error() jumps
-* around the stack and prevents destructors from being called.
-*/
-#define TRY                       \
-   char try_buffer[BUFFER_SIZE];  \
-   bool exception_caught = false; \
-   try
-
-#define CATCH                                 \
-   catch (subprocess_exception & e) {         \
-     exception_caught = true;                 \
-     e.store(try_buffer, sizeof(try_buffer)); \
-   }                                          \
-   if (exception_caught) {                    \
-     Rf_error("%s", try_buffer);              \
-   }                                          \
-
-
-
-/* --- public API --------------------------------------------------- */
-
-SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _workdir, SEXP _termination_mode)
-{
-  /* basic argument sanity checks */
-  if (!is_nonempty_string(_command)) {
-	  Rf_error("`command` must be a non-empty string");
-  }
-  if (!isString(_arguments)) {
-    Rf_error("invalid value for `arguments`");
-  }
-  if (!isString(_environment)) {
-    Rf_error("invalid value for `environment`");
-  }
-  if (!is_single_string_or_NULL(_workdir)) {
-    Rf_error("`workdir` must be a non-empty string");
-  }
-  if (!is_nonempty_string(_termination_mode)) {
-    Rf_error("`termination_mode` must be a non-emptry string");
-  }
-
-  /* translate into C */
-  const char * command = translateChar(STRING_ELT(_command, 0));
-
-  char ** arguments   = to_C_array(_arguments);
-  char ** environment = to_C_array(_environment);
-  
-  /* if environment if empty, simply ignore it */
-  if (!environment || !*environment) {
-    // allocated with Calloc() but Free() is still needed
-    Free(environment);
-    environment = NULL;
-  }
-
-  /* if workdir is NULL or an empty string, inherit from parent */
-  const char * workdir = NULL;
-  if (_workdir != R_NilValue) {
-	  workdir = translateChar(STRING_ELT(_workdir, 0));
-    if (strlen(workdir) == 0) {
-      workdir = NULL;
-    }
-  }
-
-  /* see if termination mode is set properly */
-  const char * termination_mode_str = translateChar(STRING_ELT(_termination_mode, 0));
-  process_handle_t::termination_mode_type termination_mode = process_handle_t::TERMINATION_GROUP;
-  if (!strncmp(termination_mode_str, "child_only", 10)) {
-    termination_mode = process_handle_t::TERMINATION_CHILD_ONLY;
-  }
-  else if (strncmp(termination_mode_str, "group", 5)) {
-    Rf_error("unknown value for `termination_mode`");
-  }
-
-  /* Calloc() handles memory allocation errors internally */
-  process_handle_t * handle = (process_handle_t*)Calloc(1, process_handle_t);
-  handle = new (handle) process_handle_t();
-
-  /* spawn the process */
-  TRY {
-    handle->spawn(command, arguments, environment, workdir, termination_mode);
-  }
-  CATCH
-
-  /* return an external pointer handle */
-  SEXP ptr;
-  PROTECT(ptr = R_MakeExternalPtr(handle, install("process_handle"), R_NilValue));
-  R_RegisterCFinalizerEx(ptr, C_child_process_finalizer, TRUE);
-
-  /* return the child process PID */
-  SEXP ans;
-  ans = PROTECT(allocVector(INTSXP, 1));
-  INTEGER(ans)[0] = handle->child_id;
-  setAttrib(ans, install("handle_ptr"), ptr);
-
-  /* free temporary memory */
-  free_C_array(arguments);
-  free_C_array(environment);
-
-  /* ptr, ans */
-  UNPROTECT(2);
-  return ans;
-}
-
-
-static void C_child_process_finalizer(SEXP ptr)
-{
-  process_handle_t * handle = (process_handle_t*)R_ExternalPtrAddr(ptr);
-  if (!handle) return;
-
-  TRY {
-    try {
-      handle->poll(TIMEOUT_IMMEDIATE);
-      handle->terminate();
-    }
-    catch (subprocess_exception) {
-      handle->~process_handle_t();
-      Free(handle);
-      throw;
-    }
-  }
-  CATCH
-
-  handle->~process_handle_t();
-  Free(handle);
-
-  R_ClearExternalPtr(ptr); /* not really needed */
-}
-
-
-
-// TODO add wait/timeout
-SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  if (!is_nonempty_string(_pipe)) {
-    Rf_error("`pipe` must be a single character value");
-  }
-  if (!is_single_integer(_timeout)) {
-    Rf_error("`timeout` must be a single integer value");
-  }
-
-  /* extract timeout */
-  int timeout = INTEGER_DATA(_timeout)[0];
-
-  /* determine which pipe */
-  const char * pipe = translateChar(STRING_ELT(_pipe, 0));
-  pipe_type which_pipe;
-  
-  if (!strncmp(pipe, "stdout", 6))
-    which_pipe = PIPE_STDOUT;
-  else if (!strncmp(pipe, "stderr", 6))
-    which_pipe = PIPE_STDERR;
-  else if (!strncmp(pipe, "both", 4))
-    which_pipe = PIPE_BOTH;
-  else {
-    Rf_error("unrecognized `pipe` value");
-  }
-  
-  TRY {
-    process_handle->read(which_pipe, timeout);
-  }
-  CATCH
-
-  /* produce the result - a list of one or two elements */
-  int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
-  SEXP ans, nms;
-  PROTECT(ans = allocVector(VECSXP, len));
-  PROTECT(nms = allocVector(STRSXP, len));
-
-  if (PIPE_STDOUT & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stdout_.data())));
-    SET_STRING_ELT(nms, i++, mkChar("stdout"));
-  }
-  if (PIPE_STDERR & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(process_handle->stderr_.data())));
-    SET_STRING_ELT(nms, i++, mkChar("stderr"));
-  }
-
-  /* set names */
-  setAttrib(ans, R_NamesSymbol, nms);
-
-  /* ans, nms */
-  UNPROTECT(2);
-  return ans;
-}
-
-
-SEXP C_process_write (SEXP _handle, SEXP _message)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  if (!is_nonempty_string(_message)) {
-    Rf_error("`message` must be a single character value");
-  }
-
-  const char * message = translateChar(STRING_ELT(_message, 0));
-  size_t ret = 0;
-
-  TRY {
-    ret = process_handle->write(message, strlen(message));
-  }
-  CATCH
-
-  return allocate_single_int((int)ret);
-}
-
-
-SEXP C_process_poll (SEXP _handle, SEXP _timeout)
-{
-  /* extract timeout */
-  if (!is_single_integer(_timeout)) {
-    Rf_error("`timeout` must be a single integer value");
-  }
-
-  int timeout = INTEGER_DATA(_timeout)[0];
-
-  /* extract handle */
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  /* check the process */
-  TRY {
-    process_handle->poll(timeout);
-  }
-  CATCH
-
-  /* answer */
-  SEXP ans;
-  PROTECT(ans = allocVector(STRSXP, 1));
-
-  if (process_handle->state == process_handle_t::EXITED) {
-    SET_STRING_ELT(ans, 0, mkChar("exited"));
-  }
-  else if (process_handle->state == process_handle_t::TERMINATED) {
-    SET_STRING_ELT(ans, 0, mkChar("terminated"));
-  }
-  else if (process_handle->state == process_handle_t::RUNNING) {
-    SET_STRING_ELT(ans, 0, mkChar("running"));
+size_t pipe_writer::read (pipe_handle_type _fd, bool _mbcslocale) {
+  if (_mbcslocale) {
+    memcpy(contents.data(), left.data, left.len);
   }
   else {
-    SET_STRING_ELT(ans, 0, mkChar("not-started"));
-  }
-
-  /* ans */
-  UNPROTECT(1);
-  return ans;
-}
-
-
-SEXP C_process_return_code (SEXP _handle)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  TRY {
-    process_handle->poll(0);
-  }
-  CATCH
-
-  if (process_handle->state == process_handle_t::EXITED ||
-      process_handle->state == process_handle_t::TERMINATED)
-    return allocate_single_int(process_handle->return_code);
-  else
-    return allocate_single_int(NA_INTEGER);
-}
-
-
-SEXP C_process_terminate (SEXP _handle)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  TRY {
-    process_handle->terminate();
-  }
-  CATCH
-
-  return allocate_TRUE();
-}
-
-
-SEXP C_process_kill (SEXP _handle)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-
-  TRY {
-    process_handle->kill();
-  }
-  CATCH
-
-  return allocate_TRUE();
-}
-
-
-SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
-{
-  process_handle_t * process_handle = extract_process_handle(_handle);
-  if (!is_single_integer(_signal)) {
-    Rf_error("`signal` must be a single integer value");
-  }
-
-  int signal = INTEGER_DATA(_signal)[0];
-
-  TRY {
-    process_handle->send_signal(signal);
-  }
-  CATCH
-
-  return allocate_TRUE();
-}
-
-
-SEXP C_known_signals ()
-{
-  SEXP ans;
-  SEXP ansnames;
-
-  #define ADD_SIGNAL(i, name) do {              \
-    INTEGER_DATA(ans)[i] = name;                \
-    SET_STRING_ELT(ansnames, i, mkChar(#name)); \
-  } while (0);                                  \
-
-
-#ifdef SUBPROCESS_WINDOWS
-  PROTECT(ans = allocVector(INTSXP, 3));
-  PROTECT(ansnames = allocVector(STRSXP, 3));
-
-  ADD_SIGNAL(0, SIGTERM);
-  ADD_SIGNAL(1, CTRL_C_EVENT);
-  ADD_SIGNAL(2, CTRL_BREAK_EVENT);
-
-#else /* Linux */
-  PROTECT(ans = allocVector(INTSXP, 19));
-  PROTECT(ansnames = allocVector(STRSXP, 19));
-
-  ADD_SIGNAL(0, SIGHUP)
-  ADD_SIGNAL(1, SIGINT)
-  ADD_SIGNAL(2, SIGQUIT)
-  ADD_SIGNAL(3, SIGILL)
-  ADD_SIGNAL(4, SIGABRT)
-  ADD_SIGNAL(5, SIGFPE)
-  ADD_SIGNAL(6, SIGKILL)
-  ADD_SIGNAL(7, SIGSEGV)
-  ADD_SIGNAL(8, SIGPIPE)
-  ADD_SIGNAL(9, SIGALRM)
-  ADD_SIGNAL(10, SIGTERM)
-  ADD_SIGNAL(11, SIGUSR1)
-  ADD_SIGNAL(12, SIGUSR2)
-  ADD_SIGNAL(13, SIGCHLD)
-  ADD_SIGNAL(14, SIGCONT)
-  ADD_SIGNAL(15, SIGSTOP)
-  ADD_SIGNAL(16, SIGTSTP)
-  ADD_SIGNAL(17, SIGTTIN)
-  ADD_SIGNAL(18, SIGTTOU)
-#endif
-
-  setAttrib(ans, R_NamesSymbol, ansnames);
-  
-  /* ans, ansnames */
-  UNPROTECT(2);
-  return ans;
-}
-
-
-/* --- hidden calls ------------------------------------------------- */
-
-
-/* this is an access interface to system call signal(); it is used
- * in the introduction vignette */
-SEXP C_signal (SEXP _signal, SEXP _handler)
-{
-  if (!is_single_integer(_signal)) {
-    error("`signal` needs to be an integer");
-  }
-  if (!is_nonempty_string(_handler)) {
-    error("`handler` needs to be a single character value");
+    left.len = 0;
   }
   
-  const char * handler = translateChar(STRING_ELT(_handler, 0));
-  if (!strncmp(handler, "ignore", 6) && !strncmp(handler, "default", 7)) {
-    error("`handler` can be either \"ignore\" or \"default\"");
-  }
-  
-  int sgn = INTEGER_DATA(_signal)[0];
-  typedef void (*sighandler_t)(int);
-  sighandler_t hnd = (strncmp(handler, "ignore", 6) ? SIG_DFL : SIG_IGN);
-  
-  if (signal(sgn, hnd) == SIG_ERR) {
-    Rf_error("error while calling signal()");
+  size_t rc = os_read(_fd);
+
+  // end with 0 to make sure R can create a string out of the data block
+  rc += left.len;
+  contents[rc] = 0;
+
+  // if there is a partial multi-byte character at the end, keep
+  // it around for the next read attempt
+  if (_mbcslocale) {
+    left.len = 0;
+    
+    // check if all bytes are correct UTF8 content
+    size_t consumed = consume_utf8(contents.data(), rc);
+    if (consumed == MB_PARSE_ERROR || (rc - consumed > 4)) {
+      throw subprocess_exception(EIO, "malformed multibyte string");
+    }
+    if (consumed < (size_t)rc) {
+      left.len = rc-consumed;
+      memcpy(left.data, contents.data()+consumed, left.len);
+      contents[consumed] = 0;
+      rc = consumed;
+    }
   }
 
-  return allocate_TRUE();
+  return rc;
 }
 
+
+static int min (int a, int b) { return a<b ? a : b; }
+
+
+size_t consume_utf8 (const char * _input, size_t _length)
+{
+  wchar_t wc;
+  size_t used, consumed = 0;
+  mbstate_t mb_st;
+  
+  if (!mbsinit(&mb_st)) memset(&mb_st,0,sizeof(mb_st));
+
+  // if used > 0 we can just skip that many bytes and move on  
+  while (_length > consumed) {
+    used = mbrtowc(&wc, _input, min(MB_CUR_MAX, _length-consumed), &mb_st);
+    // two situations when an error in encountered
+    if (used == MB_INCOMPLETE) {
+      return consumed;
+    }
+    if (used == MB_PARSE_ERROR) {
+      return MB_PARSE_ERROR;
+    }
+    // correctly consumed multi-byte character
+    if (used) {
+      _input   += used;
+      consumed += used;
+    }
+    // zero bytes consumed
+    else {
+      break;
+    }
+  }
+
+  return consumed;
+}
+
+
+
+} /* namespace subprocess */

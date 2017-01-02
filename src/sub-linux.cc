@@ -107,6 +107,9 @@ static void exit_on_failure ()
 }
 
 
+/* --- wrappers for Linux system API -------------------------------- */
+
+
 /*
  * Duplicate handle and zero the original 
  */
@@ -403,7 +406,7 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
   select_reader reader;
 
   // infinite timeout
-  if (_timeout < 0) {
+  if (_timeout == TIMEOUT_INFINITE) {
     enable_block_mode blocker_out(pipe_stdout);
     enable_block_mode blocker_err(pipe_stderr);
     rc = reader.timed_read(*this, _pipe, 1000);

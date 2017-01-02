@@ -1,4 +1,11 @@
-#include "utf8.h"
+/** @file tests.cc
+ *
+ *  Native C++ unit tests.
+ *  @author Lukasz A. Bartnik <l.bartnik@gmail.com>
+ */
+
+#include "subprocess.h"
+#include "rapi.h"
 
 #include <R.h>
 #include <Rdefines.h>
@@ -12,18 +19,11 @@
     }                                                          \
   } while (0);                                                 \
 
-  
 
-static SEXP allocate_single_int (int _value)
-{
-  SEXP ans;
-  PROTECT(ans = allocVector(INTSXP, 1));
-  INTEGER_DATA(ans)[0] = _value;
-  UNPROTECT(1);
-  return ans;
-}
-  
-  
+
+using subprocess::consume_utf8;
+
+
 // ---------------------------------------------------------------------
 
 extern "C" SEXP test_consume_utf8 ()

@@ -1,1 +1,1 @@
-OBJECTS=subprocess.o sub-linux.o is_something.o utf8.o tests.o
+OBJECTS=rapi.o subprocess.o sub-linux.o tests.o
