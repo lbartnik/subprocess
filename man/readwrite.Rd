@@ -5,6 +5,7 @@
 \alias{PIPE_BOTH}
 \alias{PIPE_STDERR}
 \alias{PIPE_STDOUT}
+\alias{process_close_input}
 \alias{process_read}
 \alias{process_write}
 \alias{readwrite}
@@ -16,6 +17,8 @@ process_read(handle, pipe = PIPE_BOTH, timeout = TIMEOUT_IMMEDIATE,
   flush = TRUE)
 
 process_write(handle, message)
+
+process_close_input(handle)
 
 PIPE_STDOUT
 
@@ -52,6 +55,11 @@ it as a \code{character} vector.
 
 \code{process_write()} writes data into child's
 \emph{standard input} stream.
+
+\code{process_close_input()} closes the \emph{write} end
+of the pipe whose \emph{read} end is the standard input stream of the
+child process. This is a standard way to gracefully request the child
+process to exit.
 
 \code{PIPE_STDOUT}: read from child's standard output.
 

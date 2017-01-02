@@ -99,6 +99,21 @@ process_write <- function (handle, message)
 }
 
 
+#' @description \code{process_close_input()} closes the \emph{write} end
+#' of the pipe whose \emph{read} end is the standard input stream of the
+#' child process. This is a standard way to gracefully request the child
+#' process to exit.
+#'  
+#' @rdname readwrite
+#' @name readwrite
+#' @export
+#' 
+process_close_input <- function (handle)
+{
+  stopifnot(is_process_handle(handle))
+  .Call("C_process_close_input", handle$c_handle)
+}
+
 
 
 #' @description \code{PIPE_STDOUT}: read from child's standard output.

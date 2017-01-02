@@ -47,12 +47,16 @@
 typedef HANDLE process_handle_type;
 typedef HANDLE pipe_handle_type;
 
+constexpr pipe_handle_type PIPE_CLOSED = nullptr;
 
-#else /* SUBPROCESS_WINDOWS */
+
+#else /* !SUBPROCESS_WINDOWS */
 
 #include <unistd.h>
 typedef pid_t process_handle_type;
 typedef int pipe_handle_type;
+
+constexpr pipe_handle_type PIPE_CLOSED = -1;
 
 
 #endif /* SUBPROCESS_WINDOWS */
@@ -63,7 +67,6 @@ typedef int pipe_handle_type;
 #else
 #define EXPORT 
 #endif
-
 
 
 #endif /* CONFIG_WIN_H_GUARD */

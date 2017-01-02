@@ -219,6 +219,8 @@ struct process_handle_t {
 
   size_t read(pipe_type _pipe, int _timeout);
 
+  void close_input ();
+
   void poll(int _timeout);
 
   void terminate();

@@ -44,14 +44,14 @@ namespace subprocess {
  */
 string strerror (int _code, const string & _message)
 {
-  std::stringstream message(_message);
+  std::stringstream message;
 
   vector<char> buffer(BUFFER_SIZE, 0);
   if (strerror_r(_code, buffer.data(), buffer.size()-1) == 0) {
-    message << ": " << buffer.data();
+    message << _message << ": " << buffer.data();
   }
   else {
-    message << ": system error message could not be fetched";
+    message << _message << ": system error message could not be fetched";
   }
 
   return message.str();
@@ -115,8 +115,15 @@ static void exit_on_failure ()
  */
 inline void dup2 (int _from, int _to) {
   if (::dup2(_from, _to) < 0) {
-    throw subprocess_exception(errno, "duplicating descriptor failed, abortnig");
+    throw subprocess_exception(errno, "duplicating descriptor failed");
   }
+}
+
+inline void close (int & _fd) {
+  if (::close(_fd) < 0) {
+    throw subprocess_exception(errno, "could not close descriptor");
+  }
+  _fd = PIPE_CLOSED;
 }
 
 inline void chdir (const string & _path) {
@@ -148,8 +155,8 @@ static void set_non_block (int _fd) {
 
 process_handle_t::process_handle_t ()
   : child_handle(0),
-    pipe_stdin(0), pipe_stdout(0), pipe_stderr(0),
-    state(NOT_STARTED)
+    pipe_stdin(PIPE_CLOSED), pipe_stdout(PIPE_CLOSED),
+    pipe_stderr(PIPE_CLOSED), state(NOT_STARTED)
 { }
 
 
@@ -171,7 +178,7 @@ struct pipe_holder {
    * Zero the descriptor array and immediately try opening a (unnamed)
    * pipe().
    */
-  pipe_holder () : fds{0, 0} {
+  pipe_holder () : fds{PIPE_CLOSED, PIPE_CLOSED} {
     if (pipe(fds) < 0) {
       throw subprocess_exception(errno, "could not create a pipe");
     }
@@ -181,8 +188,8 @@ struct pipe_holder {
    * Will close both descriptors unless they're set to 0 from the outside.
    */
   ~pipe_holder () {
-    if (fds[READ]) close(fds[READ]);
-    if (fds[WRITE]) close(fds[WRITE]);
+    if (fds[READ] != PIPE_CLOSED) close(fds[READ]);
+    if (fds[WRITE] != PIPE_CLOSED) close(fds[WRITE]);
   }
 };
 
@@ -213,11 +220,16 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
    * ends of pipes */
   if (child_id == 0) {
     try {
-      // this part is kept in C-style, no exceptions after forking
-      // into a child
       dup2(pipes[PIPE_STDIN][pipe_holder::READ], STDIN_FILENO);
       dup2(pipes[PIPE_STDOUT][pipe_holder::WRITE], STDOUT_FILENO);
       dup2(pipes[PIPE_STDERR][pipe_holder::WRITE], STDERR_FILENO);
+
+      close(pipes[PIPE_STDIN][pipe_holder::READ]);
+      close(pipes[PIPE_STDIN][pipe_holder::WRITE]);
+      close(pipes[PIPE_STDOUT][pipe_holder::READ]);
+      close(pipes[PIPE_STDOUT][pipe_holder::WRITE]);
+      close(pipes[PIPE_STDERR][pipe_holder::READ]);
+      close(pipes[PIPE_STDERR][pipe_holder::WRITE]);
 
       /* change directory */
       if (_workdir != NULL) {
@@ -261,9 +273,9 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
   // the very last step: set them to zero so that the destructor
   // doesn't close them
-  pipes[PIPE_STDIN][pipe_holder::WRITE] = 0;
-  pipes[PIPE_STDOUT][pipe_holder::READ] = 0;
-  pipes[PIPE_STDERR][pipe_holder::READ] = 0;
+  pipes[PIPE_STDIN][pipe_holder::WRITE] = PIPE_CLOSED;
+  pipes[PIPE_STDOUT][pipe_holder::READ] = PIPE_CLOSED;
+  pipes[PIPE_STDERR][pipe_holder::READ] = PIPE_CLOSED;
 }
 
 
@@ -281,7 +293,8 @@ void process_handle_t::shutdown ()
 
   /* all we need to do is close pipes */
   auto close_pipe = [](pipe_handle_type _pipe) {
-    if (_pipe) close(_pipe);
+    if (_pipe != PIPE_CLOSED) close(_pipe);
+    _pipe = PIPE_CLOSED;
   };
 
   close_pipe(pipe_stdin);
@@ -427,6 +440,19 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
   }
 
   return static_cast<size_t>(rc);
+}
+
+
+/* --- process::close_input ----------------------------------------- */
+
+void process_handle_t::close_input ()
+{
+  if (pipe_stdin == PIPE_CLOSED) {
+    throw subprocess_exception(EALREADY, "child's standard input already closed");
+  }
+
+  close(pipe_stdin);
+  pipe_stdin = PIPE_CLOSED;
 }
 
 

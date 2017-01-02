@@ -1,11 +1,11 @@
 context("read-write")
 
 test_that("output buffer is flushed", {
-  on.exit(process_kill(handle))
-
   lines   <- 1000
   command <- paste0('cat(sep = "\\n", replicate(', lines,
                     ', paste(sample(letters, 60, TRUE), collapse = "")))')
+
+  on.exit(process_kill(handle))
   handle <- R_child()
   expect_true(process_exists(handle))
 
