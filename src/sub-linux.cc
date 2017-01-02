@@ -148,8 +148,8 @@ static void set_non_block (int _fd) {
 
 process_handle_t::process_handle_t ()
   : child_handle(0),
-    pipe_stdin(0), pipe_stdout(0), pipe_stderr(0),
-    state(NOT_STARTED)
+    pipe_stdin(PIPE_CLOSED), pipe_stdout(PIPE_CLOSED),
+    pipe_stderr(PIPE_CLOSED), state(NOT_STARTED)
 { }
 
 
@@ -171,7 +171,7 @@ struct pipe_holder {
    * Zero the descriptor array and immediately try opening a (unnamed)
    * pipe().
    */
-  pipe_holder () : fds{0, 0} {
+  pipe_holder () : fds{PIPE_CLOSED, PIPE_CLOSED} {
     if (pipe(fds) < 0) {
       throw subprocess_exception(errno, "could not create a pipe");
     }
@@ -261,9 +261,9 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
   // the very last step: set them to zero so that the destructor
   // doesn't close them
-  pipes[PIPE_STDIN][pipe_holder::WRITE] = 0;
-  pipes[PIPE_STDOUT][pipe_holder::READ] = 0;
-  pipes[PIPE_STDERR][pipe_holder::READ] = 0;
+  pipes[PIPE_STDIN][pipe_holder::WRITE] = PIPE_CLOSED;
+  pipes[PIPE_STDOUT][pipe_holder::READ] = PIPE_CLOSED;
+  pipes[PIPE_STDERR][pipe_holder::READ] = PIPE_CLOSED;
 }
 
 
@@ -281,7 +281,8 @@ void process_handle_t::shutdown ()
 
   /* all we need to do is close pipes */
   auto close_pipe = [](pipe_handle_type _pipe) {
-    if (_pipe) close(_pipe);
+    if (_pipe != PIPE_CLOSED) close(_pipe);
+    _pipe = PIPE_CLOSED;
   };
 
   close_pipe(pipe_stdin);
@@ -427,6 +428,20 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
   }
 
   return static_cast<size_t>(rc);
+}
+
+
+/* --- process::close_input ----------------------------------------- */
+
+void process_handle_t::close_input ()
+{
+  if (pipe_stdin == PIPE_CLOSED) return;
+
+  if (close(pipe_stdin) < 0) {
+    throw subprocess_exception(errno, "could not close child's standard input'");
+  }
+
+  pipe_stdin = PIPE_CLOSED;
 }
 
 
