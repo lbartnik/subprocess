@@ -14,6 +14,12 @@
 
 #include <signal.h>
 
+
+/* Windows defined TRUE but it's an enum in R */
+#ifdef TRUE
+#undef TRUE
+#endif
+
 #include <R.h>
 #include <Rdefines.h>
 
@@ -151,7 +157,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
   /* return an external pointer handle */
   SEXP ptr;
   PROTECT(ptr = R_MakeExternalPtr(handle, install("process_handle"), R_NilValue));
-  R_RegisterCFinalizerEx(ptr, C_child_process_finalizer, Rboolean::TRUE);
+  R_RegisterCFinalizerEx(ptr, C_child_process_finalizer, TRUE);
 
   /* return the child process PID */
   SEXP ans;
