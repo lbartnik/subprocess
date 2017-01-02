@@ -501,7 +501,7 @@ void process_handle_t::wait (int _timeout)
     return_code = WTERMSIG(return_code);
   }
 
-  throw subprocess_exception("process did not exit nor was terminated");
+  throw subprocess_exception(0, "process did not exit nor was terminated");
 }
 
 

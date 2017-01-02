@@ -5,6 +5,7 @@
 \alias{TIMEOUT_IMMEDIATE}
 \alias{TIMEOUT_INFINITE}
 \alias{process_return_code}
+\alias{process_state}
 \alias{process_wait}
 \alias{terminating}
 \title{Terminating a Child Process.}
@@ -12,9 +13,9 @@
 \usage{
 process_wait(handle, timeout = TIMEOUT_INFINITE)
 
-process_return_code(handle)
+process_state(handle)
 
-process_wait(handle, timeout = TIMEOUT_INFINITE)
+process_return_code(handle)
 
 TIMEOUT_INFINITE
 
@@ -26,9 +27,9 @@ TIMEOUT_IMMEDIATE
 \item{timeout}{Optional timeout in milliseconds.}
 }
 \value{
-\code{process_wait} returns one of these values:
-\code{"not-started"}. \code{"running"}, \code{"exited"},
-\code{"terminated"}.
+\code{process_wait()} returns an \code{integer} exit code
+of the child process or \code{NA} if the child process has not exited
+yet. The same value can be accessed by \code{process_return_code()}.
 }
 \description{
 These functions give access to the state of the child process and to
@@ -50,16 +51,18 @@ operation to complete.
 complete.
 }
 \details{
-\code{process_wait} checks the state of the child process.
+\code{process_wait()} checks the state of the child process
+by invoking the system call \code{waitpid()} or
+\code{WaitForSingleObject()}.
 
-\code{process_return_code} complements \code{process_wait}
-by giving access to the child process' exit status (return code). If
-\code{process_wait} returns neither \code{"exited"} nor
-\code{"terminated"}, \code{process_return_code} returns \code{NA}.
+\code{process_state()} refreshes the handle by calling
+\code{process_wait()} with no timeout and returns one of these
+values: \code{"not-started"}. \code{"running"}, \code{"exited"},
+\code{"terminated"}.
 
-\code{process_wait} combined \code{process_wait} and
-\code{process_return_code}. It firsts for the process to exit and
-then returns its exit code.
+\code{process_return_code()} gives access to the value
+returned also by \code{process_wait()}. It does not invoke
+\code{process_wait()} behind the scenes.
 }
 \seealso{
 \code{\link{spawn_process}}, \code{\link{process_read}}

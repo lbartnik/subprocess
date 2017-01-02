@@ -149,7 +149,7 @@ is_process_handle <- function (x)
 #' @seealso \code{\link{spawn_process}}, \code{\link{process_read}}
 #'          \code{\link{signals}}
 #' 
-process_wait <- function (handle, timeout = TIMEOUT_IMMEDIATE)
+process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 {
   stopifnot(is_process_handle(handle))
   .Call("C_process_wait", handle$c_handle, as.integer(timeout))
