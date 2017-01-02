@@ -64,11 +64,19 @@ process_read <- function (handle, pipe = PIPE_BOTH, timeout = TIMEOUT_IMMEDIATE,
   }
 
   # replace funny line ending and break into multiple lines
-  lapply(output, function (single_stream) {
+  output <- lapply(output, function (single_stream) {
     if (!length(single_stream)) return(character())
     single_stream <- gsub("\r", "", single_stream, fixed = TRUE)
     strsplit(single_stream, "\n", fixed = TRUE)[[1]]
   })
+  
+  # if asked for only one pipe return the vector, not the list
+  if (identical(pipe, PIPE_STDOUT) || identical(pipe, PIPE_STDERR)) {
+    return(output[[pipe]])
+  }
+  
+  # return a lits
+  return(output)
 }
 
 

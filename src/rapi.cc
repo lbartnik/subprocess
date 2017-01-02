@@ -235,19 +235,15 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   try_run(&process_handle_t::read, handle, which_pipe, timeout); 
 
   /* produce the result - a list of one or two elements */
-  int i = 0, len = (which_pipe == PIPE_BOTH ? 2 : 1);
   SEXP ans, nms;
-  PROTECT(ans = allocVector(VECSXP, len));
-  PROTECT(nms = allocVector(STRSXP, len));
+  PROTECT(ans = allocVector(VECSXP, 2));
+  PROTECT(nms = allocVector(STRSXP, 2));
 
-  if (PIPE_STDOUT & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(handle->stdout_.data())));
-    SET_STRING_ELT(nms, i++, mkChar("stdout"));
-  }
-  if (PIPE_STDERR & which_pipe) {
-    SET_VECTOR_ELT(ans, i, ScalarString(mkChar(handle->stderr_.data())));
-    SET_STRING_ELT(nms, i++, mkChar("stderr"));
-  }
+  SET_VECTOR_ELT(ans, 0, ScalarString(mkChar(handle->stdout_.data())));
+  SET_STRING_ELT(nms, 0, mkChar("stdout"));
+
+  SET_VECTOR_ELT(ans, 1, ScalarString(mkChar(handle->stderr_.data())));
+  SET_STRING_ELT(nms, 1, mkChar("stderr"));
 
   /* set names */
   setAttrib(ans, R_NamesSymbol, nms);
