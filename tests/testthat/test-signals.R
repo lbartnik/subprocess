@@ -1,5 +1,6 @@
 context("signals")
 
+
 test_that("sending signal to a child process", {
   skip_if_not(is_linux())
 
@@ -15,7 +16,7 @@ test_that("sending signal to a child process", {
   # excluded signals kill or stop the child
   for (signal in setdiff(signals, c(1, 9, 17, 19))) {
     process_send_signal(handle, signal)
-    output <- process_read(handle, 'stdout', TIMEOUT_INFINITE)$stdout
+    output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
 
     i <- which(signals == signal)
     expect_equal(output, names(signals)[[i]])

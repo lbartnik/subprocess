@@ -14,7 +14,7 @@ test_that("output buffer is flushed", {
   Sys.sleep(3)
   
   # read everything
-  output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE, flush = TRUE)$stdout
+  output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE, flush = TRUE)
 
   expect_length(output, lines)
   expect_true(all(nchar(output) == 60))
@@ -41,10 +41,10 @@ test_that("read from standard error output", {
   handle <- R_child()
   
   process_write(handle, 'cat("A", file = stderr())\n')
-  output <- process_read(handle, 'stderr', timeout = 1000)
-  
-  expect_named(output, 'stderr')
-  expect_equal(output$stderr, 'A')
+  output <- process_read(handle, PIPE_STDERR, timeout = 1000)
+
+  expect_true(is.character(output))
+  expect_equal(output, 'A')
 })
 
 
@@ -62,8 +62,8 @@ test_that("non-blocking read", {
   handle <- R_child()
   expect_true(process_exists(handle))
 
-  expect_equal(process_read(handle, PIPE_STDOUT)$stdout, character(0))
-  expect_equal(process_read(handle, PIPE_STDERR)$stderr, character(0))
+  expect_equal(process_read(handle, PIPE_STDOUT), character(0))
+  expect_equal(process_read(handle, PIPE_STDERR), character(0))
   expect_equal(process_read(handle, PIPE_BOTH), list(stdout = character(0),
                                                      stderr = character(0)))
 })
