@@ -487,9 +487,7 @@ void process_handle_t::wait (int _timeout)
   } while (rc == 0 && _timeout > 0);
 
   // the child is still running
-  if (rc == 0) {
-    return;
-  }
+  if (rc == 0) return;
 
   // the child has exited or has been terminated
   if (WIFEXITED(return_code)) {
@@ -500,8 +498,9 @@ void process_handle_t::wait (int _timeout)
     state = process_handle_t::TERMINATED;
     return_code = WTERMSIG(return_code);
   }
-
-  throw subprocess_exception(0, "process did not exit nor was terminated");
+  else {
+    throw subprocess_exception(0, "process did not exit nor was terminated");
+  }
 }
 
 
