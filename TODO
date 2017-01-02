@@ -1,20 +1,21 @@
+* move stdout/stderr fds to pipe_writer
+
 * unify process::read between Linux and Windows; use non-blocking
   polling in both places and handle Ctrl+C
-* move stdout/stderr fds to pipe_writer
-* rename poll() to wait()
+* make Ctrl+C abandon read/write to/from a process
+* prevent Ctrl+C from being passed to the child process
+
+* implement a high-level popen() call/factor function with parameters:
+  stdin, stdout, stderr; enable string-based input, output to /dev/null
+  (Linux) or nul (Windows); redirecting stderr to stdout
+* process_poll() should be renamed to process_wait() - its "timeout"
+  parameter is not really consistent with the idea of poll() because
+  it means "wait until the child exits"
+* add close_input() function to close the write end of the stdin
+  pipe and sent the child a signal to exit
 
 * make partial UTF8 handling optional in process_read(); maybe someone
   is reading bytes and not textual output?
-* enable a single wait on both stdout and stderr
-* make Ctrl+C abandon read/write to/from a process
-* process_poll() should be renamed - its "timeout" parameter is not
-  really consistent with the idea of poll() because it means "wait
-  until the child exits"
-* add close_input() function to close the write end of the stdin
-  pipe and sent the child a signal to exit
 * handle differing new-line characters
-* add parameters to spawn_process: stdin, stdout, stderr; enable
-  string-based input, output to /dev/null (Linux) or nul (Windows);
-  redirecting stderr to stdout
+
 * see how tools::pskill can be used our own process_send_signal
-* prevent Ctrl+C from being passed to the child process
