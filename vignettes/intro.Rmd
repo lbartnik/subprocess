@@ -132,8 +132,8 @@ print(handle)
 
 And now let's see what we can find it the child's output:
 ```{r read_from_child}
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 The first number in the output is the value returned by `process_write`
@@ -147,30 +147,30 @@ process to process its input.
 
 ```{r new_n}
 process_write(handle, 'n <- 10\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 Now it's time to use this variable in a function call:
 
 ```{r rnorn_n}
 process_write(handle, 'rnorm(n)\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 Finally, we exit the child process:
 
 ```{r quit_child}
 process_write(handle, 'q(save = "no")\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 The last thing is making sure that the child process is no longer alive:
 
 ```{r verify_child_exited}
-process_poll(handle)
+process_state(handle)
 process_return_code(handle)
 ```
 
@@ -198,8 +198,8 @@ we check its output streams.
 ```{r interact_with_shell}
 process_write(handle, "ls\n")
 Sys.sleep(1)
-process_read(handle)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT)
+process_read(handle, PIPE_STDERR)
 ```
 
 
@@ -226,18 +226,18 @@ handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
 Sys.sleep(1)
 
 # process is hung
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 
 # ask nicely to exit; will be ignored in Linux but not in Windows
 process_terminate(handle)
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 
 # forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 ```
 
 We see that the child process remains running until it receives the
