@@ -294,6 +294,30 @@ SEXP C_process_wait (SEXP _handle, SEXP _timeout)
   /* check the process */
   try_run(&process_handle_t::wait, handle, timeout);
 
+  return C_process_return_code(_handle);
+}
+
+
+SEXP C_process_return_code (SEXP _handle)
+{
+  /* extract handle */
+  process_handle_t * handle = extract_process_handle(_handle);
+
+  if (handle->state == process_handle_t::EXITED ||
+      handle->state == process_handle_t::TERMINATED)
+    return allocate_single_int(handle->return_code);
+  else
+    return allocate_single_int(NA_INTEGER);
+}
+
+
+SEXP C_process_state (SEXP _handle)
+{
+  process_handle_t * handle = extract_process_handle(_handle);
+
+  /* refresh the handle */
+  try_run(&process_handle_t::wait, handle, TIMEOUT_IMMEDIATE);
+
   /* answer */
   SEXP ans;
   PROTECT(ans = allocVector(STRSXP, 1));
@@ -314,20 +338,6 @@ SEXP C_process_wait (SEXP _handle, SEXP _timeout)
   /* ans */
   UNPROTECT(1);
   return ans;
-}
-
-
-SEXP C_process_return_code (SEXP _handle)
-{
-  process_handle_t * handle = extract_process_handle(_handle);
-
-  try_run(&process_handle_t::wait, handle, TIMEOUT_IMMEDIATE);
-
-  if (handle->state == process_handle_t::EXITED ||
-      handle->state == process_handle_t::TERMINATED)
-    return allocate_single_int(handle->return_code);
-  else
-    return allocate_single_int(NA_INTEGER);
 }
 
 

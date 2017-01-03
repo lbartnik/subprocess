@@ -500,6 +500,8 @@ void process_handle_t::wait (int _timeout)
     state = process_handle_t::TERMINATED;
     return_code = WTERMSIG(return_code);
   }
+
+  throw subprocess_exception("process did not exit nor was terminated");
 }
 
 

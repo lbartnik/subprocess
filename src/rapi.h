@@ -28,6 +28,8 @@ EXPORT SEXP C_process_wait(SEXP _handle, SEXP _timeout);
 
 EXPORT SEXP C_process_return_code(SEXP _handle);
 
+EXPORT SEXP C_process_state(SEXP _handle);
+
 EXPORT SEXP C_process_terminate(SEXP _handle);
 
 EXPORT SEXP C_process_kill(SEXP _handle);
