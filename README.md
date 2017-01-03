@@ -50,7 +50,7 @@ process_read(handle, timeout = 1000)
 #> [7] "0 packages can be updated."                                 
 #> [8] "0 updates are security updates."                            
 #> [9] ""
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDERR)
 #> character(0)
 ```
 
@@ -63,7 +63,7 @@ process_write(handle, 'ls\n')
 process_read(handle, timeout = 1000)
 #> [1] "Desktop"          "Download"         "examples.desktop"
 #> [4] "Music"            "Public"           "Video"
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDERR)
 #> character(0)
 ```
 
@@ -80,7 +80,7 @@ process_write(handle, 'exit\n')
 #> [1] 5
 process_read(handle, timeout = TIMEOUT_INFINITE)
 #> character(0)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDERR)
 #> character(0)
 ```
 
