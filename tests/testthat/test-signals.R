@@ -33,6 +33,6 @@ test_that("sending signal to a child process", {
 
   process_send_signal(handle, CTRL_C_EVENT)
   
-  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "exited")
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0)
   expect_false(process_exists(handle))
 })

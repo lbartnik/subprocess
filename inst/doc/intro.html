@@ -12,7 +12,7 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2016-11-28" />
+<meta name="date" content="2017-01-02" />
 
 <title>Introduction to Sub-Processes in R</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to Sub-Processes in R</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2016-11-28</em></h4>
+<h4 class="date"><em>2017-01-02</em></h4>
 
 
 
@@ -112,11 +112,11 @@ R_binary &lt;-<span class="st"> </span>function () {
 <p>Let’s see the description of the child process:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
-<span class="co">#&gt; command   :  /usr/lib/R/bin/R --no-save </span>
-<span class="co">#&gt; system id :  4248 </span>
-<span class="co">#&gt; state     :  running</span></code></pre></div>
+<span class="co">#&gt; command   : /usr/lib/R/bin/R --no-save</span>
+<span class="co">#&gt; system id : 11382</span>
+<span class="co">#&gt; state     : running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt;  [1] &quot;&quot;                                                             </span>
 <span class="co">#&gt;  [2] &quot;R version 3.3.2 (2016-10-31) -- \&quot;Sincere Pumpkin Patch\&quot;&quot;    </span>
 <span class="co">#&gt;  [3] &quot;Copyright (C) 2016 The R Foundation for Statistical Computing&quot;</span>
@@ -126,44 +126,46 @@ R_binary &lt;-<span class="st"> </span>function () {
 <span class="co">#&gt;  [7] &quot;You are welcome to redistribute it under certain conditions.&quot; </span>
 <span class="co">#&gt;  [8] &quot;Type 'license()' or 'licence()' for distribution details.&quot;    </span>
 <span class="co">#&gt;  [9] &quot;&quot;                                                             </span>
-<span class="co">#&gt; [10] &quot;R is a collaborative project with many contributors.&quot;         </span>
-<span class="co">#&gt; [11] &quot;Type 'contributors()' for more information and&quot;               </span>
-<span class="co">#&gt; [12] &quot;'citation()' on how to cite R or R packages in publications.&quot; </span>
-<span class="co">#&gt; [13] &quot;&quot;                                                             </span>
-<span class="co">#&gt; [14] &quot;Type 'demo()' for some demos, 'help()' for on-line help, or&quot;  </span>
-<span class="co">#&gt; [15] &quot;'help.start()' for an HTML browser interface to help.&quot;        </span>
-<span class="co">#&gt; [16] &quot;Type 'q()' to quit R.&quot;                                        </span>
-<span class="co">#&gt; [17] &quot;&quot;                                                             </span>
-<span class="co">#&gt; [18] &quot;&gt; &quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="co">#&gt; [10] &quot;  Natural language support but running in an English locale&quot;  </span>
+<span class="co">#&gt; [11] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [12] &quot;R is a collaborative project with many contributors.&quot;         </span>
+<span class="co">#&gt; [13] &quot;Type 'contributors()' for more information and&quot;               </span>
+<span class="co">#&gt; [14] &quot;'citation()' on how to cite R or R packages in publications.&quot; </span>
+<span class="co">#&gt; [15] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [16] &quot;Type 'demo()' for some demos, 'help()' for on-line help, or&quot;  </span>
+<span class="co">#&gt; [17] &quot;'help.start()' for an HTML browser interface to help.&quot;        </span>
+<span class="co">#&gt; [18] &quot;Type 'q()' to quit R.&quot;                                        </span>
+<span class="co">#&gt; [19] &quot;&quot;                                                             </span>
+<span class="co">#&gt; [20] &quot;&gt; &quot;</span>
+<span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The first number in the output is the value returned by <code>process_write</code> which is the number of characters written to standard input of the child process. The final <code>character(0)</code> is the output read from the standard error stream.</p>
 <p>Next, we create a new variable in child’s session. Please notice the new-line character at the end of the command. It triggers the child process to process its input.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'n &lt;- 10</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 8</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;n &lt;- 10&quot; &quot;&gt; &quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>Now it’s time to use this variable in a function call:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'rnorm(n)</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 9</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
-<span class="co">#&gt; [2] &quot; [1]  0.63690322 -0.29050062 -1.39251008 -1.17108702  0.10301654 -0.47321051&quot;</span>
-<span class="co">#&gt; [3] &quot; [7]  0.33793674  1.06951387 -0.55820712 -0.07924711&quot;                        </span>
+<span class="co">#&gt; [2] &quot; [1]  2.39239740  0.95520346  0.96145834 -0.28637014  0.01075136 -0.26330992&quot;</span>
+<span class="co">#&gt; [3] &quot; [7] -0.41293419  0.04698814  0.85471492 -0.67604254&quot;                        </span>
 <span class="co">#&gt; [4] &quot;&gt; &quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>Finally, we exit the child process:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'q(save = &quot;no&quot;)</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 15</span>
-<span class="kw">process_read</span>(handle, <span class="dt">timeout =</span> <span class="dv">1000</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt; [1] &quot;q(save = \&quot;no\&quot;)&quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 <p>The last thing is making sure that the child process is no longer alive:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_poll</span>(handle)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_state</span>(handle)
 <span class="co">#&gt; [1] &quot;exited&quot;</span>
 <span class="kw">process_return_code</span>(handle)
 <span class="co">#&gt; [1] 0</span></code></pre></div>
@@ -176,16 +178,16 @@ R_binary &lt;-<span class="st"> </span>function () {
 handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span class="kw">shell_binary</span>())
 <span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
-<span class="co">#&gt; command   :  /bin/dash  </span>
-<span class="co">#&gt; system id :  4252 </span>
-<span class="co">#&gt; state     :  running</span></code></pre></div>
+<span class="co">#&gt; command   : /bin/dash </span>
+<span class="co">#&gt; system id : 11389</span>
+<span class="co">#&gt; state     : running</span></code></pre></div>
 <p>Now we can interact with the shell sub-process. We send a request to list the current directory, then give it a moment to process the command and produce the output (and maybe finish its start-up, too). Finally, we check its output streams.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)
 <span class="co">#&gt; [1] 3</span>
 <span class="kw">Sys.sleep</span>(<span class="dv">1</span>)
-<span class="kw">process_read</span>(handle)
+<span class="kw">process_read</span>(handle, PIPE_STDOUT)
 <span class="co">#&gt; [1] &quot;intro.Rmd&quot;</span>
-<span class="kw">process_read</span>(handle, <span class="st">'stderr'</span>)
+<span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
 </div>
 <div id="advanced-techniques" class="section level2">
@@ -204,26 +206,26 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="kw">Sys.sleep</span>(<span class="dv">1</span>)
 
 <span class="co"># process is hung</span>
-<span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;running&quot;</span>
-<span class="kw">process_return_code</span>(handle)
-<span class="co">#&gt; [1] NA</span>
+<span class="kw">process_wait</span>(handle, <span class="dv">1000</span>)
+<span class="co">#&gt; [1] 1</span>
+<span class="kw">process_state</span>(handle)
+<span class="co">#&gt; [1] &quot;exited&quot;</span>
 
 <span class="co"># ask nicely to exit; will be ignored in Linux but not in Windows</span>
 <span class="kw">process_terminate</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
-<span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;running&quot;</span>
-<span class="kw">process_return_code</span>(handle)
-<span class="co">#&gt; [1] NA</span>
+<span class="kw">process_wait</span>(handle, <span class="dv">1000</span>)
+<span class="co">#&gt; [1] 1</span>
+<span class="kw">process_state</span>(handle)
+<span class="co">#&gt; [1] &quot;exited&quot;</span>
 
 <span class="co"># forced exit; in Windows the same as the previous call to process_terminate()</span>
 <span class="kw">process_kill</span>(handle)
 <span class="co">#&gt; [1] TRUE</span>
-<span class="kw">process_poll</span>(handle, <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;terminated&quot;</span>
-<span class="kw">process_return_code</span>(handle)
-<span class="co">#&gt; [1] 9</span></code></pre></div>
+<span class="kw">process_wait</span>(handle, <span class="dv">1000</span>)
+<span class="co">#&gt; [1] 1</span>
+<span class="kw">process_state</span>(handle)
+<span class="co">#&gt; [1] &quot;exited&quot;</span></code></pre></div>
 <p>We see that the child process remains running until it receives the <code>SIGKILL</code> signal<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a>. The final return code (exit status) is the number of the signal that caused the child process to exit<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a>.</p>
 </div>
 <div id="sending-a-signal-to-the-child-process" class="section level3">

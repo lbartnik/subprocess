@@ -85,7 +85,7 @@ Before we move on to examples, let's define a few helper functions
 that abstract out the underlying operating system. We will use them
 throughout this vignette.
 
-```{r}
+```{r helpers}
 is_windows <- function () (tolower(.Platform$OS.type) == "windows")
 
 R_binary <- function () {
@@ -97,7 +97,7 @@ R_binary <- function () {
 Just for the record, vignette has been built in
 `r ifelse(is_windows(), "Windows", "Linux")`.
 
-```{r}
+```{r platform}
 ifelse(is_windows(), "Windows", "Linux")
 ```
 
@@ -115,7 +115,7 @@ standard input and read the responses from its standard output. First,
 let's spawn the child process (and give it a moment to complete the
 start-up sequence[^syssleep]):
 
-```{r}
+```{r new_child}
 handle <- spawn_process(R_binary(), c('--no-save'))
 Sys.sleep(1)
 ```
@@ -131,9 +131,9 @@ print(handle)
 ```
 
 And now let's see what we can find it the child's output:
-```{r}
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+```{r read_from_child}
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 The first number in the output is the value returned by `process_write`
@@ -145,32 +145,32 @@ Next, we create a new variable in child's session. Please notice the
 new-line character at the end of the command. It triggers the child
 process to process its input.
 
-```{r}
+```{r new_n}
 process_write(handle, 'n <- 10\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 Now it's time to use this variable in a function call:
 
-```{r}
+```{r rnorn_n}
 process_write(handle, 'rnorm(n)\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 Finally, we exit the child process:
 
-```{r}
+```{r quit_child}
 process_write(handle, 'q(save = "no")\n')
-process_read(handle, timeout = 1000)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT, timeout = 1000)
+process_read(handle, PIPE_STDERR)
 ```
 
 The last thing is making sure that the child process is no longer alive:
 
-```{r}
-process_poll(handle)
+```{r verify_child_exited}
+process_state(handle)
 process_return_code(handle)
 ```
 
@@ -180,7 +180,7 @@ and `opencpu` to name just a few. However, it's quite easy to imagine
 how running a remote shell in this manner enables new ways of
 interacting with the environment. Consider running a local shell:
 
-```{r}
+```{r spawn_shell}
 shell_binary <- function () {
   ifelse (tolower(.Platform$OS.type) == "windows",
           "C:/Windows/System32/cmd.exe", "/bin/sh")
@@ -195,11 +195,11 @@ list the current directory, then give it a moment to process the command
 and produce the output (and maybe finish its start-up, too). Finally,
 we check its output streams.
 
-```{r}
+```{r interact_with_shell}
 process_write(handle, "ls\n")
 Sys.sleep(1)
-process_read(handle)
-process_read(handle, 'stderr')
+process_read(handle, PIPE_STDOUT)
+process_read(handle, PIPE_STDERR)
 ```
 
 
@@ -220,24 +220,24 @@ milliseconds) for the child process to exit. It then returns `NA` and
 `process_kill()` forces it to exit.
 
 
-```{r}
+```{r signal_child}
 sub_command <- "library(subprocess);subprocess:::signal(15,'ignore');Sys.sleep(1000)"
 handle <- spawn_process(R_binary(), c('--slave', '-e', sub_command))
 Sys.sleep(1)
 
 # process is hung
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 
 # ask nicely to exit; will be ignored in Linux but not in Windows
 process_terminate(handle)
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 
 # forced exit; in Windows the same as the previous call to process_terminate()
 process_kill(handle)
-process_poll(handle, 1000)
-process_return_code(handle)
+process_wait(handle, 1000)
+process_state(handle)
 ```
 
 We see that the child process remains running until it receives the
@@ -264,7 +264,7 @@ automatically when the package is loaded and its value on **Linux** is
 different than on **Windows**. In the example below we see the first
 three elements of the **Linux** list of signals.
 
-```{r}
+```{r show_three_signals}
 length(signals)
 signals[1:3]
 ```

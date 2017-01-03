@@ -417,7 +417,7 @@ void process_handle_t::close_input ()
 /* ------------------------------------------------------------------ */
 
 
-void process_handle_t::poll (int _timeout)
+void process_handle_t::wait (int _timeout)
 {
   if (!child_handle || state != RUNNING)
     return;
@@ -455,7 +455,7 @@ void process_handle_t::poll (int _timeout)
 void process_handle_t::terminate()
 {
   // first make sure it's even still running
-  poll(TIMEOUT_IMMEDIATE);
+  wait(TIMEOUT_IMMEDIATE);
   if (!child_handle || state != RUNNING)
     return;
 

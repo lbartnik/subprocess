@@ -183,7 +183,9 @@ static void C_child_process_finalizer(SEXP ptr)
   // it might be necessary to terminate the process first
   auto try_terminate = [&handle] {
     try {
-      handle->poll(TIMEOUT_IMMEDIATE);
+      // refresh the handle and try terminating if the child
+      // is still running
+      handle->wait(TIMEOUT_IMMEDIATE);
       handle->terminate();
     }
     catch (subprocess_exception) {
@@ -277,7 +279,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
 }
 
 
-SEXP C_process_poll (SEXP _handle, SEXP _timeout)
+SEXP C_process_wait (SEXP _handle, SEXP _timeout)
 {
   /* extract timeout */
   if (!is_single_integer(_timeout)) {
@@ -290,7 +292,31 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
   process_handle_t * handle = extract_process_handle(_handle);
 
   /* check the process */
-  try_run(&process_handle_t::poll, handle, timeout);
+  try_run(&process_handle_t::wait, handle, timeout);
+
+  return C_process_return_code(_handle);
+}
+
+
+SEXP C_process_return_code (SEXP _handle)
+{
+  /* extract handle */
+  process_handle_t * handle = extract_process_handle(_handle);
+
+  if (handle->state == process_handle_t::EXITED ||
+      handle->state == process_handle_t::TERMINATED)
+    return allocate_single_int(handle->return_code);
+  else
+    return allocate_single_int(NA_INTEGER);
+}
+
+
+SEXP C_process_state (SEXP _handle)
+{
+  process_handle_t * handle = extract_process_handle(_handle);
+
+  /* refresh the handle */
+  try_run(&process_handle_t::wait, handle, TIMEOUT_IMMEDIATE);
 
   /* answer */
   SEXP ans;
@@ -312,20 +338,6 @@ SEXP C_process_poll (SEXP _handle, SEXP _timeout)
   /* ans */
   UNPROTECT(1);
   return ans;
-}
-
-
-SEXP C_process_return_code (SEXP _handle)
-{
-  process_handle_t * handle = extract_process_handle(_handle);
-
-  try_run(&process_handle_t::poll, handle, TIMEOUT_IMMEDIATE);
-
-  if (handle->state == process_handle_t::EXITED ||
-      handle->state == process_handle_t::TERMINATED)
-    return allocate_single_int(handle->return_code);
-  else
-    return allocate_single_int(NA_INTEGER);
 }
 
 

@@ -221,7 +221,7 @@ struct process_handle_t {
 
   void close_input ();
 
-  void poll(int _timeout);
+  void wait(int _timeout);
 
   void terminate();
 

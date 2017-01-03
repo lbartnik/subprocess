@@ -53,7 +53,8 @@ process_exists <- function (handle)
 wait_until_appears <- function (handle)
 {
   while (!process_exists(handle)) {
-    if (process_poll(handle) %in% c("exited", "terminated"))
+    process_wait(handle, TIMEOUT_IMMEDIATE)
+    if (process_state(handle) %in% c("exited", "terminated"))
       stop('failed to start ', handle$command, call. = FALSE)
     Sys.sleep(1)
   }

@@ -35,6 +35,8 @@ extern char ** environ;
 
 #define TRUE 1
 
+// a way to ignore a return value even when gcc warns about it
+template<typename T> inline void ignore_return_value (T _t) {}
 
 namespace subprocess {
 
@@ -254,7 +256,8 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      fprintf(stderr, "%s\n", e.what());
+      // we do not name stderr explicitly because CRAN doesn't like it
+      ignore_return_value(::write(2, e.what(), strlen(e.what())));
       exit_on_failure();
     }
   }
@@ -303,9 +306,9 @@ void process_handle_t::shutdown ()
 
   /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  poll(TIMEOUT_IMMEDIATE);
+  wait(TIMEOUT_IMMEDIATE);
   kill();
-  poll(TIMEOUT_INFINITE);
+  wait(TIMEOUT_INFINITE);
 
   state = SHUTDOWN;
 }
@@ -456,10 +459,10 @@ void process_handle_t::close_input ()
 }
 
 
-/* --- process::poll ------------------------------------------------ */
+/* --- process::wait ------------------------------------------------ */
 
 
-void process_handle_t::poll (int _timeout)
+void process_handle_t::wait (int _timeout)
 {
   if (!child_id) {
     throw subprocess_exception(ECHILD, "child does not exist");
@@ -487,9 +490,7 @@ void process_handle_t::poll (int _timeout)
   } while (rc == 0 && _timeout > 0);
 
   // the child is still running
-  if (rc == 0) {
-    return;
-  }
+  if (rc == 0) return;
 
   // the child has exited or has been terminated
   if (WIFEXITED(return_code)) {
@@ -499,6 +500,9 @@ void process_handle_t::poll (int _timeout)
   else if (WIFSIGNALED(return_code)) {
     state = process_handle_t::TERMINATED;
     return_code = WTERMSIG(return_code);
+  }
+  else {
+    throw subprocess_exception(0, "process did not exit nor was terminated");
   }
 }
 
@@ -534,7 +538,7 @@ static void termination_signal (process_handle_t & _handle, int _signal, int _ti
     throw subprocess_exception(errno, "system kill() failed");
   }
 
-  _handle.poll(_timeout);
+  _handle.wait(_timeout);
 }
 
 

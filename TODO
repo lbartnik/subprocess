@@ -8,9 +8,6 @@
 * implement a high-level popen() call/factor function with parameters:
   stdin, stdout, stderr; enable string-based input, output to /dev/null
   (Linux) or nul (Windows); redirecting stderr to stdout
-* process_poll() should be renamed to process_wait() - its "timeout"
-  parameter is not really consistent with the idea of poll() because
-  it means "wait until the child exits"
 
 * make partial UTF8 handling optional in process_read(); maybe someone
   is reading bytes and not textual output?
