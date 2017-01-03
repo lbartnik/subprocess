@@ -35,7 +35,8 @@ test_that("child process is terminated in Windows", {
   
   # ... and not after we kill the parent
   process_kill(parent_handle)
-  expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
+  process_wait(parent_handle, TIMEOUT_INFINITE)
+  expect_equal(process_state(parent_handle), "terminated")
   
   # give the child a moment to dissapear from OS tables
   expect_true(wait_until_exits(parent_handle))
@@ -87,7 +88,8 @@ test_that("child process is terminated in Linux", {
   process_kill(parent_handle)
 
   expect_true(wait_until_exits(parent_handle))
-  expect_equal(process_poll(parent_handle, TIMEOUT_INFINITE), "terminated")
+  process_wait(parent_handle, TIMEOUT_INFINITE)
+  expect_equal(process_state(parent_handle), "terminated")
 
   expect_true(wait_until_exits(child_id))
   expect_false(process_exists(parent_handle))
@@ -104,5 +106,7 @@ test_that("child exits when stdin is closed", {
   expect_true(process_exists(handle))
 
   process_close_input(handle)
-  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "exited")
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0)
+  expect_equal(process_state(handle), "exited")
 })
+

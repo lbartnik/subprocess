@@ -34,7 +34,8 @@ test_that("inherits environment from parent", {
   handle <- R_child(c("--slave", "-e", "cat(Sys.getenv('PARENT_VAR'))"))
   
   expect_equal(process_read(handle, timeout = TIMEOUT_INFINITE)$stdout, 'PARENT_VAL')
-  expect_equal(process_poll(handle, timeout = TIMEOUT_INFINITE), "exited")
+  expect_equal(process_wait(handle, timeout = TIMEOUT_INFINITE), 0)
+  expect_equal(process_state(handle), "exited")
 })
 
 

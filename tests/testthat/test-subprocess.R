@@ -1,5 +1,7 @@
 context("subprocess")
 
+killed_exit_code <- ifelse(is_windows(), 127, 9)
+
 test_that("helper works", {
   expect_true(process_exists(Sys.getpid()))
   expect_false(process_exists(99999999))
@@ -17,7 +19,8 @@ test_that("a subprocess can be spawned and killed", {
   expect_true(process_exists(handle))
   
   process_kill(handle)
-  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "terminated")
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), killed_exit_code)
+  expect_equal(process_state(handle), "terminated")
   expect_false(process_exists(handle))
 })
 
@@ -25,16 +28,14 @@ test_that("a subprocess can be spawned and killed", {
 test_that("waiting for a child to exit", {
   on.exit(process_kill(handle))
   handle <- R_child()
-  
-  expect_equal(process_poll(handle), "running")
+
+  process_wait(handle, TIMEOUT_IMMEDIATE)
+  expect_equal(process_state(handle), "running")
   process_kill(handle)
 
-  expected_code <- ifelse(is_windows(), 127, 9)
-  expect_equal(process_poll(handle, TIMEOUT_INFINITE), "terminated")
-  expect_equal(process_return_code(handle), expected_code)
-
-  # wait() combines poll() and return_code()
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), expected_code)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), killed_exit_code)
+  expect_equal(process_state(handle), "terminated")
+  expect_equal(process_return_code(handle), killed_exit_code)
 })
 
 
