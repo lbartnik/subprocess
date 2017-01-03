@@ -8,6 +8,8 @@
   standard input pipe; this in most cases will let the child know it
   should exit
 
+* renamed process_poll() to process_wait(); add process_state()
+
 * converted shared library to C++
 
 # subprocess 0.7.4
