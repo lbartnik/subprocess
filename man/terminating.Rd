@@ -4,14 +4,13 @@
 \name{terminating}
 \alias{TIMEOUT_IMMEDIATE}
 \alias{TIMEOUT_INFINITE}
-\alias{process_poll}
 \alias{process_return_code}
 \alias{process_wait}
 \alias{terminating}
 \title{Terminating a Child Process.}
 \format{An object of class \code{integer} of length 1.}
 \usage{
-process_poll(handle, timeout = TIMEOUT_IMMEDIATE)
+process_wait(handle, timeout = TIMEOUT_INFINITE)
 
 process_return_code(handle)
 
@@ -27,7 +26,7 @@ TIMEOUT_IMMEDIATE
 \item{timeout}{Optional timeout in milliseconds.}
 }
 \value{
-\code{process_poll} returns one of these values:
+\code{process_wait} returns one of these values:
 \code{"not-started"}. \code{"running"}, \code{"exited"},
 \code{"terminated"}.
 }
@@ -51,14 +50,14 @@ operation to complete.
 complete.
 }
 \details{
-\code{process_poll} checks the state of the child process.
+\code{process_wait} checks the state of the child process.
 
-\code{process_return_code} complements \code{process_poll}
+\code{process_return_code} complements \code{process_wait}
 by giving access to the child process' exit status (return code). If
-\code{process_poll} returns neither \code{"exited"} nor
+\code{process_wait} returns neither \code{"exited"} nor
 \code{"terminated"}, \code{process_return_code} returns \code{NA}.
 
-\code{process_wait} combined \code{process_poll} and
+\code{process_wait} combined \code{process_wait} and
 \code{process_return_code}. It firsts for the process to exit and
 then returns its exit code.
 }

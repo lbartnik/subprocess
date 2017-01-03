@@ -100,7 +100,7 @@ print.process_handle <- function (x, ...)
   cat('Process Handle\n')
   cat('command   : ', x$command, ' ', paste(x$arguments, collapse = ' '), '\n', sep = '')
   cat('system id : ', as.integer(x$c_handle), '\n', sep = '')
-  cat('state     : ', process_poll(x), '\n', sep = '')
+  cat('state     : ', process_wait(x), '\n', sep = '')
   
   invisible(x)
 }
@@ -131,12 +131,12 @@ is_process_handle <- function (x)
 #'   \item a positive integer, which is the actual timeout in milliseconds
 #' }
 #' 
-#' @details \code{process_poll} checks the state of the child process.
+#' @details \code{process_wait} checks the state of the child process.
 #' 
 #' @param handle Process handle obtained from \code{spawn_process}.
 #' @param timeout Optional timeout in milliseconds.
 #' 
-#' @return \code{process_poll} returns one of these values:
+#' @return \code{process_wait} returns one of these values:
 #' \code{"not-started"}. \code{"running"}, \code{"exited"},
 #' \code{"terminated"}.
 #' 
@@ -147,16 +147,16 @@ is_process_handle <- function (x)
 #' @seealso \code{\link{spawn_process}}, \code{\link{process_read}}
 #'          \code{\link{signals}}
 #' 
-process_poll <- function (handle, timeout = TIMEOUT_IMMEDIATE)
+process_wait <- function (handle, timeout = TIMEOUT_IMMEDIATE)
 {
   stopifnot(is_process_handle(handle))
-  .Call("C_process_poll", handle$c_handle, as.integer(timeout))
+  .Call("C_process_wait", handle$c_handle, as.integer(timeout))
 }
 
 
-#' @details \code{process_return_code} complements \code{process_poll}
+#' @details \code{process_return_code} complements \code{process_wait}
 #' by giving access to the child process' exit status (return code). If
-#' \code{process_poll} returns neither \code{"exited"} nor
+#' \code{process_wait} returns neither \code{"exited"} nor
 #' \code{"terminated"}, \code{process_return_code} returns \code{NA}.
 #' 
 #' @rdname terminating
@@ -169,7 +169,7 @@ process_return_code <- function (handle)
 }
 
 
-#' @details \code{process_wait} combined \code{process_poll} and
+#' @details \code{process_wait} combined \code{process_wait} and
 #' \code{process_return_code}. It firsts for the process to exit and
 #' then returns its exit code.
 #' 
@@ -179,7 +179,7 @@ process_return_code <- function (handle)
 process_wait <- function (handle, timeout = TIMEOUT_INFINITE)
 {
   stopifnot(is_process_handle(handle))
-  process_poll(handle, timeout)
+  process_wait(handle, timeout)
   process_return_code(handle)
 }
 
