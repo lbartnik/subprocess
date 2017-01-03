@@ -105,7 +105,7 @@ the appropriate OS routine (\code{waitpid()} or
 effectively lets the operating system clean up after the child
 process. Calling \code{process_send_signal()} is not accompanied by
 such clean-up and if the child process exits it needs to be followed
-by a call to \code{\link{process_poll}()}.
+by a call to \code{\link{process_wait}()}.
 
 \code{process_terminate()} on Linux sends the
 \code{SIGTERM} signal to the process pointed to by \code{handle}.

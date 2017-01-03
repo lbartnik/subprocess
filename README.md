@@ -87,8 +87,8 @@ process_read(handle, 'stderr')
 The last thing is making sure that the child process is no longer alive:
 
 ```r
-process_poll(handle)
-#> [1] "exited"
-process_return_code(handle)
+process_wait(handle)
 #> [1] 0
+process_status(handle)
+#> [1] "exited"
 ```
