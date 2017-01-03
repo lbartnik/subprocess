@@ -68,7 +68,7 @@ static void CloseHandle (HANDLE & _handle)
   if (!_handle) return;
 
   auto rc = ::CloseHandle(_handle);
-  _handle = nullptr;
+  _handle = PIPE_CLOSED;
 
   if (rc == FALSE) {
     throw subprocess_exception(::GetLastError(), "could not close handle");
@@ -80,7 +80,7 @@ static void CloseHandle (HANDLE & _handle)
 
 process_handle_t::process_handle_t ()
   : process_job(nullptr), child_handle(nullptr),
-    pipe_stdin(nullptr), pipe_stdout(nullptr), pipe_stderr(nullptr),
+    pipe_stdin(PIPE_CLOSED), pipe_stdout(PIPE_CLOSED), pipe_stderr(PIPE_CLOSED),
     child_id(0), state(NOT_STARTED), return_code(0),
     termination_mode(TERMINATION_GROUP)
 {}
@@ -398,6 +398,19 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 
   // out of time
   return 0;
+}
+
+
+/* --- process::close_input ----------------------------------------- */
+
+void process_handle_t::close_input ()
+{
+  if (pipe_stdin == PIPE_CLOSED) {
+    throw subprocess_exception(EALREADY, "child's standard input already closed");
+  }
+
+  CloseHandle(pipe_stdin);
+  pipe_stdin = PIPE_CLOSED;
 }
 
 
