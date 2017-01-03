@@ -303,9 +303,9 @@ void process_handle_t::shutdown ()
 
   /* closing pipes should let the child process exit */
   // TODO there might be a need to send a termination signal first
-  poll(TIMEOUT_IMMEDIATE);
+  wait(TIMEOUT_IMMEDIATE);
   kill();
-  poll(TIMEOUT_INFINITE);
+  wait(TIMEOUT_INFINITE);
 
   state = SHUTDOWN;
 }
@@ -456,10 +456,10 @@ void process_handle_t::close_input ()
 }
 
 
-/* --- process::poll ------------------------------------------------ */
+/* --- process::wait ------------------------------------------------ */
 
 
-void process_handle_t::poll (int _timeout)
+void process_handle_t::wait (int _timeout)
 {
   if (!child_id) {
     throw subprocess_exception(ECHILD, "child does not exist");
@@ -534,7 +534,7 @@ static void termination_signal (process_handle_t & _handle, int _signal, int _ti
     throw subprocess_exception(errno, "system kill() failed");
   }
 
-  _handle.poll(_timeout);
+  _handle.wait(_timeout);
 }
 
 
