@@ -40,7 +40,7 @@ print(handle)
 And here is what the child process has sent so far to its output streams:
 
 ```r
-process_read(handle, timeout = 1000)
+process_read(handle, PIPE_STDOUT, timeout = TIMEOUT_INFINITE)
 #> [1] "Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-27-generic x86_64)"
 #> [2] ""                                                           
 #> [3] " * Documentation:  https://help.ubuntu.com"                 
@@ -60,7 +60,7 @@ to list files.
 ```r
 process_write(handle, 'ls\n')
 #> [1] 3
-process_read(handle, timeout = 1000)
+process_read(handle, PIPE_STDOUT, timeout = TIMEOUT_INFINITE)
 #> [1] "Desktop"          "Download"         "examples.desktop"
 #> [4] "Music"            "Public"           "Video"
 process_read(handle, PIPE_STDERR)
@@ -78,7 +78,7 @@ We are now ready to close the connection by exiting the remote shell:
 ```r
 process_write(handle, 'exit\n')
 #> [1] 5
-process_read(handle, timeout = TIMEOUT_INFINITE)
+process_read(handle, PIPE_STDOUT, timeout = TIMEOUT_INFINITE)
 #> character(0)
 process_read(handle, PIPE_STDERR)
 #> character(0)
@@ -87,7 +87,7 @@ process_read(handle, PIPE_STDERR)
 The last thing is making sure that the child process is no longer alive:
 
 ```r
-process_wait(handle)
+process_wait(handle, TIMEOUT_INFINITE)
 #> [1] 0
 process_status(handle)
 #> [1] "exited"

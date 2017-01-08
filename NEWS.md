@@ -12,6 +12,9 @@
 
 * converted shared library to C++
 
+* bugfix: group terminate in Windows
+
+
 # subprocess 0.7.4
 
 * initial submission to CRAN; basic API works in Linux and Windows
