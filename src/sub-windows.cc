@@ -283,13 +283,13 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   startupInfo.info.wShowWindow = SW_HIDE;
 
   // creation flags
-  DWORD creation_flags = 0;
+  DWORD creation_flags = CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP;
 
   // if termination is set to "group", create a job for this process;
   // attempt at it at the beginning and not even try to start the process
   // if it fails
   if (_termination_mode == TERMINATION_GROUP) {
-    creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
+    creation_flags |= CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB;
   }
 
   BOOL rc = ::CreateProcess(_command,         // lpApplicationName
@@ -460,7 +460,7 @@ void process_handle_t::wait (int _timeout)
 }
 
 
-/* --- process::send_signal ----------------------------------------- */
+/* --- process::terminate ------------------------------------------- */
 
 
 // compare with: https://github.com/andreisavu/python-process/blob/master/killableprocess.py
@@ -503,7 +503,7 @@ void process_handle_t::terminate()
 }
 
 
-/* --- process::send_signal ----------------------------------------- */
+/* --- process::kill ------------------------------------------------ */
 
 
 void process_handle_t::kill ()
@@ -522,6 +522,13 @@ void process_handle_t::kill ()
  * WARNING! I cannot make it work. It seems that there is no way of
  * sending Ctrl+C to the child process without killing the parent R
  * at the same time.
+ *
+ * From:
+ * https://msdn.microsoft.com/en-us/library/windows/desktop/ms683155(v=vs.85).aspx
+ *
+ * Generates a CTRL+C signal. This signal cannot be generated for process groups.
+ * If dwProcessGroupId is nonzero, this function will succeed, but the CTRL+C
+ * signal will not be received by processes within the specified process group.
  */
 void process_handle_t::send_signal (int _signal)
 {
@@ -529,19 +536,13 @@ void process_handle_t::send_signal (int _signal)
     return terminate();
   }
 
-  BOOL rc = TRUE;
-  // that's what they do in Python
-  if (_signal == CTRL_C_EVENT || _signal == CTRL_BREAK_EVENT) {
-    rc = ::GenerateConsoleCtrlEvent(_signal, (DWORD)child_id);
-  }
   // unsupported `signal` value
-  else {
-    ::SetLastError(ERROR_INVALID_SIGNAL_NUMBER);
-    rc = FALSE;
+  if (_signal != CTRL_C_EVENT && _signal != CTRL_BREAK_EVENT) {
+    throw subprocess_exception(ERROR_INVALID_SIGNAL_NUMBER, "signal not supported");
   }
 
-  if (rc == FALSE) {
-    throw subprocess_exception(::GetLastError(), "could not send signal to child process");
+  if (::GenerateConsoleCtrlEvent(_signal, child_id) == FALSE) {
+    throw subprocess_exception(::GetLastError(), "signal could not be sent");
   }
 }
 
