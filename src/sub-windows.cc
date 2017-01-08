@@ -279,11 +279,9 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
   StartupInfo startupInfo(*this);
-  startupInfo.info.dwFlags = STARTF_USESHOWWINDOW;
-  startupInfo.info.wShowWindow = SW_HIDE;
 
   // creation flags
-  DWORD creation_flags = CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP;
+  DWORD creation_flags = CREATE_NEW_PROCESS_GROUP;
 
   // if termination is set to "group", create a job for this process;
   // attempt at it at the beginning and not even try to start the process
