@@ -65,10 +65,10 @@ static void DuplicateHandle(HANDLE src, HANDLE * dst)
 
 static void CloseHandle (HANDLE & _handle)
 {
-  if (!_handle) return;
+  if (_handle == HANDLE_CLOSED) return;
 
   auto rc = ::CloseHandle(_handle);
-  _handle = PIPE_CLOSED;
+  _handle = HANDLE_CLOSED;
 
   if (rc == FALSE) {
     throw subprocess_exception(::GetLastError(), "could not close handle");
@@ -80,7 +80,7 @@ static void CloseHandle (HANDLE & _handle)
 
 process_handle_t::process_handle_t ()
   : process_job(nullptr), child_handle(nullptr),
-    pipe_stdin(PIPE_CLOSED), pipe_stdout(PIPE_CLOSED), pipe_stderr(PIPE_CLOSED),
+    pipe_stdin(HANDLE_CLOSED), pipe_stdout(HANDLE_CLOSED), pipe_stderr(HANDLE_CLOSED),
     child_id(0), state(NOT_STARTED), return_code(0),
     termination_mode(TERMINATION_GROUP)
 {}
@@ -224,20 +224,28 @@ struct StartupInfo {
 
 
 // see: https://blogs.msdn.microsoft.com/oldnewthing/20131209-00/?p=2433
-static HANDLE CreateJobForChild ()
+static HANDLE CreateAndAssignChildToJob (HANDLE _process)
 {
   HANDLE job_handle = ::CreateJobObject(NULL, NULL);
+  if (!job_handle) {
+    throw subprocess_exception(::GetLastError(), "group termination: could not create a new job");
+  }
   
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
   ::memset(&info, 0, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
 
   info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-  ::SetInformationJobObject(job_handle,
-                            JobObjectExtendedLimitInformation,
-                            &info, sizeof(info));
-  
-  if (!job_handle) {
-    throw subprocess_exception(::GetLastError(), "could not create job object");
+  if (FALSE == ::SetInformationJobObject(job_handle,
+                                         JobObjectExtendedLimitInformation,
+                                         &info, sizeof(info)))
+  {
+    CloseHandle(job_handle);
+    throw subprocess_exception(::GetLastError(), "could not set job information");
+  }
+
+  if (::AssignProcessToJobObject(job_handle, _process) == FALSE) {
+    CloseHandle(job_handle);
+    throw subprocess_exception(::GetLastError(), "group termination: could not assign process to a job");
   }
 
   return job_handle;
@@ -271,16 +279,17 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
   StartupInfo startupInfo(*this);
+  startupInfo.info.dwFlags = STARTF_USESHOWWINDOW;
+  startupInfo.info.wShowWindow = SW_HIDE;
 
   // creation flags
-  DWORD creation_flags = CREATE_NO_WINDOW;
+  DWORD creation_flags = 0;
 
   // if termination is set to "group", create a job for this process;
   // attempt at it at the beginning and not even try to start the process
   // if it fails
   if (_termination_mode == TERMINATION_GROUP) {
     creation_flags |= CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB;
-    process_job = CreateJobForChild();
   }
 
   BOOL rc = ::CreateProcess(_command,         // lpApplicationName
@@ -311,12 +320,14 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
    *  with the job."
    */
   if (_termination_mode == TERMINATION_GROUP) {
-    BOOL rc = ::AssignProcessToJobObject(process_job, pi.hProcess);
-    if (rc == FALSE) {
-      int error_code = ::GetLastError();
+    // if cannot create and/or assign process to a new job, terminate
+    try {
+      process_job = CreateAndAssignChildToJob(pi.hProcess);
+    }
+    catch (subprocess_exception & e) {
       state = RUNNING;
       terminate();
-      throw subprocess_exception(error_code, "could not set group termination");
+      throw;
     }
 
     if (::ResumeThread(pi.hThread) == (DWORD)-1) {
@@ -339,11 +350,12 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
 void process_handle_t::shutdown ()
 {
-  if (!child_handle)
+  if (child_handle == HANDLE_CLOSED)
     return;
 
   // close the process handle
   CloseHandle(child_handle);
+  CloseHandle(process_job);
 
   // close read & write handles
   CloseHandle(pipe_stdin);
@@ -405,12 +417,12 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 
 void process_handle_t::close_input ()
 {
-  if (pipe_stdin == PIPE_CLOSED) {
+  if (pipe_stdin == HANDLE_CLOSED) {
     throw subprocess_exception(EALREADY, "child's standard input already closed");
   }
 
   CloseHandle(pipe_stdin);
-  pipe_stdin = PIPE_CLOSED;
+  pipe_stdin = HANDLE_CLOSED;
 }
 
 
@@ -483,8 +495,11 @@ void process_handle_t::terminate()
   }
 
   // clean up
+  wait(TIMEOUT_INFINITE);
   state = TERMINATED;
-  return_code = 127;
+
+  // release handles
+  shutdown();
 }
 
 
