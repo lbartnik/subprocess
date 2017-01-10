@@ -59,8 +59,8 @@ size_t consume_utf8 (const char * _input, size_t _length)
 {
   wchar_t wc;
   size_t used, consumed = 0;
-  mbstate_t mb_st;
-  
+  mbstate_t mb_st { 0 };
+
   if (!mbsinit(&mb_st)) memset(&mb_st,0,sizeof(mb_st));
 
   // if used > 0 we can just skip that many bytes and move on  
