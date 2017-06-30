@@ -119,12 +119,12 @@ struct StartupInfo {
     }
   };
 
-  StartupInfo (process_handle_t & _process) {
+  StartupInfo (process_handle_t & _process, DWORD & _creation_flags) {
     memset(&info, 0, sizeof(STARTUPINFO));
     info.cb = sizeof(STARTUPINFO);
 
     pipe_redirection(_process);
-    hidden_window();
+    hidden_window(_creation_flags);
   }
 
   ~StartupInfo () {
@@ -174,10 +174,12 @@ struct StartupInfo {
    * Create a hidden window. This way we can still send Ctrl+C
    * to that process.
    */
-  void hidden_window ()
+  void hidden_window (DWORD & _creation_flags)
   {
     info.dwFlags |= STARTF_USESHOWWINDOW;
     info.wShowWindow = SW_HIDE;
+
+    _creation_flags |= CREATE_NEW_CONSOLE;
   }
 
 
@@ -284,14 +286,14 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   /* put all arguments into one line */
   char * command_line = strjoin(_arguments, ' ');
 
-  /* Windows magic */
   PROCESS_INFORMATION pi;
   memset(&pi, 0, sizeof(PROCESS_INFORMATION));
 
-  StartupInfo startupInfo(*this);
-
   // creation flags
   DWORD creation_flags = CREATE_NEW_PROCESS_GROUP;
+
+  // update pipe handles and creation flags
+  StartupInfo startupInfo(*this, creation_flags);
 
   // if termination is set to "group", create a job for this process;
   // attempt at it at the beginning and not even try to start the process
