@@ -88,6 +88,19 @@ process_handle_t::process_handle_t ()
 
 /* ------------------------------------------------------------------ */
 
+struct Handle {
+  HANDLE handle;
+
+  Handle(HANDLE _handle = nullptr) : handle(_handle) { }
+  ~Handle() { if (handle) CloseHandle(handle); }
+
+  HANDLE & operator= (const HANDLE & _new) { handle = _new; return handle; }
+  operator HANDLE () const { return handle; }
+  PHANDLE address() { return &handle; }
+
+  HANDLE move () { auto tmp = handle; handle = nullptr; return tmp; }
+};
+
 
 /*
  * Wrap redirections in a class to achieve RAII.
@@ -95,25 +108,23 @@ process_handle_t::process_handle_t ()
 struct StartupInfo {
 
   struct pipe_holder {
-    HANDLE read, write;
+    Handle read, write;
 
     pipe_holder(SECURITY_ATTRIBUTES & sa)
       : read(nullptr), write(nullptr)
     {
-      if (!::CreatePipe(&read, &write, &sa, 0)) {
+      if (!::CreatePipe(read.address(), write.address(), &sa, 0)) {
         throw subprocess_exception(GetLastError(), "could not create pipe");
       }
-    }
-
-    ~pipe_holder () {
-      CloseHandle(read);
-      CloseHandle(write);
     }
   };
 
   StartupInfo (process_handle_t & _process) {
     memset(&info, 0, sizeof(STARTUPINFO));
+    info.cb = sizeof(STARTUPINFO);
+
     pipe_redirection(_process);
+    hidden_window();
   }
 
   ~StartupInfo () {
@@ -150,16 +161,23 @@ struct StartupInfo {
     DuplicateHandle(err.read, &_process.pipe_stderr);
 
     // prepare the info object
-    info.cb = sizeof(STARTUPINFO);
-    info.hStdError  = err.write;
-    info.hStdOutput = out.write;
-    info.hStdInput  = in.read;
-    info.dwFlags = STARTF_USESTDHANDLES;
+    info.dwFlags |= STARTF_USESTDHANDLES;
 
-    // set to null so that destructor does not close those handles
-    err.write = nullptr;
-    out.write = nullptr;
-    in.read   = nullptr;
+    // "move" means "set to null" so that destructor does not close
+    // those handles
+    info.hStdError  = err.write.move();
+    info.hStdOutput = out.write.move();
+    info.hStdInput  = in.read.move();
+  }
+
+  /*
+   * Create a hidden window. This way we can still send Ctrl+C
+   * to that process.
+   */
+  void hidden_window ()
+  {
+    info.dwFlags |= STARTF_USESHOWWINDOW;
+    info.wShowWindow = SW_HIDE;
   }
 
 
@@ -168,9 +186,7 @@ struct StartupInfo {
    */
   int file_redirection(process_handle_t * _process, STARTUPINFO * _si)
   {
-    HANDLE input  = NULL;
-    HANDLE output = NULL;
-    HANDLE error  = NULL;
+    Handle input, output, error;
 
     input = CreateFile("C:/Windows/TEMP/subprocess.in", // name of the write
                       GENERIC_READ,           // open for writing
@@ -181,7 +197,7 @@ struct StartupInfo {
                       NULL);                  // no attr. template
 
     if (input == INVALID_HANDLE_VALUE) {
-      goto error;
+      return -1;
     }
 
     output = CreateFile("C:/Windows/TEMP/subprocess.out", // name of the write
@@ -193,12 +209,12 @@ struct StartupInfo {
                         NULL);                  // no attr. template
 
     if (output == INVALID_HANDLE_VALUE) { 
-      goto error;
+      return -1;
     }
 
     DuplicateHandle(output, &_process->pipe_stdout);
     DuplicateHandle(output, &_process->pipe_stderr);
-    DuplicateHandle(output, &error);
+    DuplicateHandle(output, error.address());
   
     _si->cb = sizeof(STARTUPINFO);
     _si->hStdError = error;
@@ -207,12 +223,6 @@ struct StartupInfo {
     _si->dwFlags = STARTF_USESTDHANDLES;
 
     return 0;
-
-  error:
-    if (input) CloseHandle(input);
-    if (output) CloseHandle(output);
-    if (error) CloseHandle(error);
-    return -1;
   }
 
   /**
