@@ -179,7 +179,7 @@ struct StartupInfo {
     info.dwFlags |= STARTF_USESHOWWINDOW;
     info.wShowWindow = SW_HIDE;
 
-    _creation_flags |= CREATE_NEW_CONSOLE;
+//    _creation_flags |= CREATE_NEW_CONSOLE;
   }
 
 
