@@ -1,7 +1,7 @@
 context("signals")
 
 
-test_that("sending signal to a child process", {
+test_that("sending signal in Linux", {
   skip_if_not(is_linux())
 
   script_path <- file.path(getwd(), 'signal-trap.sh')
@@ -24,15 +24,33 @@ test_that("sending signal to a child process", {
 })
 
 
-test_that("sending signal to a child process", {
-  skip("signals do not work in Windows")
-#  skip_if_not(is_windows())
+test_that("sending signal in Windows", {
+  skip_if_not(is_windows())
 
-  handle <- spawn_process(R_binary(),
-                          c("--slave", "-e", "tryCatch(Sys.sleep(100))"))
+  spawn <- function () {
+    spawn_process(R_binary(), c("--slave", "-e", "tryCatch(Sys.sleep(60))"))
+  }
 
+  # Ctrl+C
+  handle <- spawn()
+  expect_true(wait_until_appears(handle))
+  
   process_send_signal(handle, CTRL_C_EVENT)
   
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0)
+  # according to:
+  # https://msdn.microsoft.com/en-us/library/cc704588.aspx
+  # 
+  # 0xC0000001 = STATUS_UNSUCCESSFUL
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
+  expect_false(process_exists(handle))
+
+  # CTRL+Break
+  handle <- spawn()
+  expect_true(wait_until_appears(handle))
+
+    process_send_signal(handle, CTRL_BREAK_EVENT)
+  
+  # 0xC000013A = STATUS_CONTROL_C_EXIT  
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), -1073741510L)
   expect_false(process_exists(handle))
 })
