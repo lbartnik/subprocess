@@ -188,7 +188,7 @@ struct StartupInfo {
      * it correctly).
      * 
      * _creation_flags |= CREATE_NEW_CONSOLE;
-     * /
+     */
   }
 
 
