@@ -179,7 +179,16 @@ struct StartupInfo {
     info.dwFlags |= STARTF_USESHOWWINDOW;
     info.wShowWindow = SW_HIDE;
 
-//    _creation_flags |= CREATE_NEW_CONSOLE;
+    /*
+     * Create a hidden window but do not create a new console.
+     * This is the only combination that seems to work in Windows (in
+     * most scenarios, but there seem to be cases when this fails; I
+     * still don't understand how to do it propertly, and there seems
+     * to be a great deal of confusion among people online how to do
+     * it correctly).
+     * 
+     * _creation_flags |= CREATE_NEW_CONSOLE;
+     * /
   }
 
 

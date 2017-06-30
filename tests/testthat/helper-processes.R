@@ -45,6 +45,8 @@ process_exists <- function (handle)
 }
 
 
+# wait_until_* 
+#
 # Wait infinitey - on CRAN tests will timeout, locally we can always
 # tell that something is wrong. This is because some systems are simply
 # overloaded and it might take *minutes* for the processes to appear

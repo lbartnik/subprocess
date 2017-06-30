@@ -28,10 +28,13 @@ test_that("sending signal in Windows", {
   skip_if_not(is_windows())
 
   spawn <- function () {
-    spawn_process(R_binary(), c("--slave", "-e", "tryCatch(Sys.sleep(100))"))
+    spawn_process(R_binary(), c("--slave", "-e", "tryCatch(Sys.sleep(60))"))
   }
 
+  # Ctrl+C
   handle <- spawn()
+  expect_true(wait_until_appears(handle))
+  
   process_send_signal(handle, CTRL_C_EVENT)
   
   # according to:
@@ -41,9 +44,12 @@ test_that("sending signal in Windows", {
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
   expect_false(process_exists(handle))
 
+  # CTRL+Break
   handle <- spawn()
-  process_send_signal(handle, CTRL_BREAK_EVENT)
+  expect_true(wait_until_appears(handle))
 
+    process_send_signal(handle, CTRL_BREAK_EVENT)
+  
   # 0xC000013A = STATUS_CONTROL_C_EXIT  
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), -1073741510L)
   expect_false(process_exists(handle))
