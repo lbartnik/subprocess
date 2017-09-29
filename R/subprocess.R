@@ -1,4 +1,4 @@
-#' @useDynLib subprocess
+#' @useDynLib subprocess, .registration = TRUE
 NULL
 
 
