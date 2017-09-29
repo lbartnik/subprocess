@@ -30,7 +30,7 @@ test_that("inherits environment from parent", {
   on.exit(Sys.unsetenv("PARENT_VAR"), add = TRUE)
   Sys.setenv(PARENT_VAR="PARENT_VAL")
   
-  on.exit(terminate_gracefully(handle), add = TRUE)
+  on.exit(process_terminate(handle), add = TRUE)
   handle <- R_child(c("--slave", "-e", "cat(Sys.getenv('PARENT_VAR'))"))
   
   expect_equal(process_read(handle, timeout = TIMEOUT_INFINITE)$stdout, 'PARENT_VAL')

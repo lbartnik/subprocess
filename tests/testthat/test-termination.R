@@ -101,7 +101,7 @@ test_that("child process is terminated in Linux", {
 
 
 test_that("child exits when stdin is closed", {
-  on.exit(process_kill(handle))
+  on.exit(process_terminate(handle))
   handle <- R_child()
   expect_true(process_exists(handle))
 
