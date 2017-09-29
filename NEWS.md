@@ -1,3 +1,7 @@
+# subprocess 0.8.1
+
+* explicitly register native symbols
+
 # subprocess 0.8.0
 
 * added support for Mac OS
