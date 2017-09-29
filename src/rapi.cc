@@ -205,7 +205,6 @@ static void C_child_process_finalizer(SEXP ptr)
 
 
 
-// TODO add wait/timeout
 SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
 {
   process_handle_t * handle = extract_process_handle(_handle);
@@ -519,3 +518,4 @@ static SEXP allocate_single_bool (bool _value)
   UNPROTECT(1);
   return ans;
 }
+
