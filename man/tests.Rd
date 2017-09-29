@@ -14,4 +14,3 @@ If there is no error in those tests a simple string message
 is returned. If there is at least one error, another message
 is returned.
 }
-

@@ -2,11 +2,11 @@
 % Please edit documentation in R/subprocess.R
 \docType{data}
 \name{spawn_process}
-\alias{TERMINATION_CHILD_ONLY}
-\alias{TERMINATION_GROUP}
-\alias{is_process_handle}
-\alias{print.process_handle}
 \alias{spawn_process}
+\alias{print.process_handle}
+\alias{is_process_handle}
+\alias{TERMINATION_GROUP}
+\alias{TERMINATION_CHILD_ONLY}
 \title{Start a new child process.}
 \format{\code{TERMINATION_GROUP} and \code{TERMINATION_CHILD_ONLY}
         are single \code{character} values.}
@@ -98,5 +98,5 @@ In Windows this is implemented with the job API, namely
 after \code{fork()} but before \code{execve()}, and \code{kill()} is
 called with the negate process id.
 }
-\keyword{datasets}
 
+\keyword{datasets}
