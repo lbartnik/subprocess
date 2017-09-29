@@ -83,4 +83,3 @@ terminate_gracefully <- function (handle, message = "q('no')\n")
   process_wait(handle)
   wait_until_exits(handle)
 }
-
