@@ -21,6 +21,9 @@ test_that("working directory can be set", {
   process_write(handle_2, print_wd)
   expect_equal(normalizePath(process_read(handle_2, timeout = 1000)$stdout),
                work_dir)
+  
+  terminate_gracefully(handle)
+  terminate_gracefully(handle_2)
 })
 
 
@@ -45,6 +48,8 @@ test_that("passing new environment", {
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
   expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
+  
+  terminate_gracefully(handle)
 })
 
 
@@ -54,6 +59,8 @@ test_that("new environment via named vector", {
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
   expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
+  
+  terminate_gracefully(handle)
 })
 
 
@@ -63,6 +70,8 @@ test_that("new environment via list", {
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
   expect_equal(process_read(handle, timeout = 1000)$stdout, 'SOME_VALUE')
+  
+  terminate_gracefully(handle)
 })
 
 
