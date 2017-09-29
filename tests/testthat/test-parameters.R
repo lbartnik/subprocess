@@ -8,14 +8,14 @@ test_that("working directory can be set", {
   norm_wd  <- normalizePath(getwd())
   expect_false(identical(work_dir, getwd()))
   
-  on.exit(process_terminate(handle), add = TRUE)
+  on.exit(terminate_gracefully(handle), add = TRUE)
   handle <- R_child()
   
   process_write(handle, print_wd)
   expect_equal(normalizePath(process_read(handle, timeout = 1000)$stdout),
                norm_wd)
   
-  on.exit(process_terminate(handle_2), add = TRUE)
+  on.exit(terminate_gracefully(handle_2), add = TRUE)
   handle_2 <- R_child(workdir = work_dir)
   
   process_write(handle_2, print_wd)
@@ -40,7 +40,7 @@ test_that("inherits environment from parent", {
 
 
 test_that("passing new environment", {
-  on.exit(process_terminate(handle), add = TRUE)
+  on.exit(terminate_gracefully(handle), add = TRUE)
   handle <- R_child(environment = "VAR=SOME_VALUE")
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
@@ -49,7 +49,7 @@ test_that("passing new environment", {
 
 
 test_that("new environment via named vector", {
-  on.exit(process_terminate(handle), add = TRUE)
+  on.exit(terminate_gracefully(handle), add = TRUE)
   handle <- R_child(environment = c(VAR="SOME_VALUE"))
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')
@@ -58,7 +58,7 @@ test_that("new environment via named vector", {
 
 
 test_that("new environment via list", {
-  on.exit(process_terminate(handle), add = TRUE)
+  on.exit(terminate_gracefully(handle), add = TRUE)
   handle <- R_child(environment = list(VAR="SOME_VALUE"))
   
   process_write(handle, 'cat(Sys.getenv("VAR"))\n')

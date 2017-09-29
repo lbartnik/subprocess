@@ -5,7 +5,7 @@ test_that("output buffer is flushed", {
   command <- paste0('cat(sep = "\\n", replicate(', lines,
                     ', paste(sample(letters, 60, TRUE), collapse = "")))')
 
-  on.exit(process_kill(handle))
+  on.exit(terminate_gracefully(handle))
   handle <- R_child()
   expect_true(process_exists(handle))
 
@@ -22,7 +22,7 @@ test_that("output buffer is flushed", {
 
 
 test_that("exchange data", {
-  on.exit(process_kill(handle))
+  on.exit(terminate_gracefully(handle))
   handle <- R_child()
   
   expect_true(process_exists(handle))
@@ -37,7 +37,7 @@ test_that("exchange data", {
 
 
 test_that("read from standard error output", {
-  on.exit(process_kill(handle))
+  on.exit(terminate_gracefully(handle))
   handle <- R_child()
   
   process_write(handle, 'cat("A", file = stderr())\n')
@@ -49,7 +49,7 @@ test_that("read from standard error output", {
 
 
 test_that("write returns the number of characters", {
-  on.exit(process_kill(handle))
+  on.exit(terminate_gracefully(handle))
   handle <- R_child()
   
   expect_equal(process_write(handle, 'cat("A")\n'), 9)
@@ -57,7 +57,7 @@ test_that("write returns the number of characters", {
 
 
 test_that("non-blocking read", {
-  on.exit(process_kill(handle))
+  on.exit(terminate_gracefully(handle))
   
   handle <- R_child()
   expect_true(process_exists(handle))
@@ -67,4 +67,3 @@ test_that("non-blocking read", {
   expect_equal(process_read(handle, PIPE_BOTH), list(stdout = character(0),
                                                      stderr = character(0)))
 })
-
