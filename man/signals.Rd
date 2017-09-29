@@ -2,8 +2,11 @@
 % Please edit documentation in R/signals.R
 \docType{data}
 \name{signals}
-\alias{CTRL_BREAK_EVENT}
-\alias{CTRL_C_EVENT}
+\alias{signals}
+\alias{signals}
+\alias{process_terminate}
+\alias{process_kill}
+\alias{process_send_signal}
 \alias{SIGABRT}
 \alias{SIGALRM}
 \alias{SIGCHLD}
@@ -23,10 +26,8 @@
 \alias{SIGTTOU}
 \alias{SIGUSR1}
 \alias{SIGUSR2}
-\alias{process_kill}
-\alias{process_send_signal}
-\alias{process_terminate}
-\alias{signals}
+\alias{CTRL_C_EVENT}
+\alias{CTRL_BREAK_EVENT}
 \title{Sending signals to the child process.}
 \format{An object of class \code{list}.}
 \usage{
@@ -153,4 +154,3 @@ process_send_signal(h, CTRL_BREAK_EVENT)
 \code{\link{spawn_process}}
 }
 \keyword{datasets}
-

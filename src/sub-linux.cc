@@ -18,7 +18,11 @@
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <unistd.h>
 
-#ifdef __MACH__
+#include "config-os.h"
+#include "subprocess.h"
+
+
+#ifdef SUBPROCESS_MACOS
 #include <mach/clock.h>
 #include <mach/mach.h>
 
@@ -26,8 +30,6 @@
 extern char ** environ;
 #endif
 
-
-#include "subprocess.h"
 
 #ifdef TRUE
 #undef TRUE

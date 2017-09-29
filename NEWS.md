@@ -1,5 +1,7 @@
 # subprocess 0.8.1
 
+* explicitly register native symbols
+
 * Ctrl+C works in Windows
 
 * multiple fixes in test code

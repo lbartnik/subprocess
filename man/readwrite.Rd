@@ -2,13 +2,15 @@
 % Please edit documentation in R/readwrite.R
 \docType{data}
 \name{readwrite}
-\alias{PIPE_BOTH}
-\alias{PIPE_STDERR}
-\alias{PIPE_STDOUT}
-\alias{process_close_input}
+\alias{readwrite}
 \alias{process_read}
+\alias{readwrite}
 \alias{process_write}
 \alias{readwrite}
+\alias{process_close_input}
+\alias{PIPE_STDOUT}
+\alias{PIPE_STDERR}
+\alias{PIPE_BOTH}
 \title{Communicating with a Child Process}
 \format{\code{PIPE_STDOUT}, \code{PIPE_STDERR} and \code{PIPE_BOTH}
         are single \code{character} values.}
@@ -84,4 +86,3 @@ respective output stream of the child process.
 For details on \code{timeout} see \code{\link{terminating}}.
 }
 \keyword{datasets}
-

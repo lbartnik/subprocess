@@ -2,12 +2,12 @@
 % Please edit documentation in R/subprocess.R
 \docType{data}
 \name{terminating}
-\alias{TIMEOUT_IMMEDIATE}
-\alias{TIMEOUT_INFINITE}
-\alias{process_return_code}
-\alias{process_state}
-\alias{process_wait}
 \alias{terminating}
+\alias{process_wait}
+\alias{process_state}
+\alias{process_return_code}
+\alias{TIMEOUT_INFINITE}
+\alias{TIMEOUT_IMMEDIATE}
 \title{Terminating a Child Process.}
 \format{An object of class \code{integer} of length 1.}
 \usage{
@@ -69,4 +69,3 @@ returned also by \code{process_wait()}. It does not invoke
          \code{\link{signals}}
 }
 \keyword{datasets}
-

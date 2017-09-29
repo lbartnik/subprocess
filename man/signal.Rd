@@ -14,4 +14,3 @@ signal(signal, handler)
 \description{
 A helper function used in vignette.
 }
-
