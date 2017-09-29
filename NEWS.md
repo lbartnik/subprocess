@@ -2,17 +2,21 @@
 
 * explicitly register native symbols
 
+* Ctrl+C works in Windows
+
+* multiple fixes in test code
+
 # subprocess 0.8.0
 
-* added support for Mac OS
+* support for Mac OS
 
-* enabled shared read from both stdout and stderr of the child process
+* shared read from both stdout and stderr of the child process
 
-* added process_close_input() call to close the write end of child's
+* new `process_close_input()` call to close the write end of child's
   standard input pipe; this in most cases will let the child know it
   should exit
 
-* renamed process_poll() to process_wait(); add process_state()
+* renamed `process_poll()` to `process_wait()`; add `process_state()`
 
 * converted shared library to C++
 
