@@ -36,10 +36,8 @@ Python package which goes by the same. Its documentation can be found
 [here](https://docs.python.org/3/library/subprocess.html) and numerous
 examples of how it can be used can be found on the Web.
 
-The R `subprocess` package has been implemented for both **Linux** and
-**Windows** but since the author doesn't have access to a **MacOS**
-machine the extent to which it is compatible with **MacOS** is unknown
-to him.
+The R `subprocess` package has been verified to run on **Linux**,
+**Windows** and **MacOS**.
 
 
 [^systemslanguage]: "By systems programming I mean writing code that

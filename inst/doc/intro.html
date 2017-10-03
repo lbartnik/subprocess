@@ -4,7 +4,7 @@
 
 <head>
 
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="generator" content="pandoc" />
 
@@ -12,7 +12,7 @@
 
 <meta name="author" content="Lukasz A. Bartnik" />
 
-<meta name="date" content="2017-01-02" />
+<meta name="date" content="2017-10-03" />
 
 <title>Introduction to Sub-Processes in R</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to Sub-Processes in R</h1>
 <h4 class="author"><em>Lukasz A. Bartnik</em></h4>
-<h4 class="date"><em>2017-01-02</em></h4>
+<h4 class="date"><em>2017-10-03</em></h4>
 
 
 
@@ -79,7 +79,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p>Since R is not really a systems-programming language<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a> some facilities present in other such languages (e.g. C/C++, Python) haven’t been yet brought to R. One of such features is process management which is understood here as the capability to create, interact with and control the lifetime of child processes.</p>
 <p>The R package <code>subprocess</code> aims at filling this gap by providing the few basic operations to carry out the aforementioned tasks. The <code>spawn_subprocess()</code> function starts a new child process and returns a handle which can be later used in <code>process_read()</code> and <code>process_write()</code> to send and receive data or in <code>process_wait()</code> or <code>process_terminate()</code> to stop the such a process.</p>
 <p>The R <code>subprocess</code> package has been designed after the exemplary Python package which goes by the same. Its documentation can be found <a href="https://docs.python.org/3/library/subprocess.html">here</a> and numerous examples of how it can be used can be found on the Web.</p>
-<p>The R <code>subprocess</code> package has been implemented for both <strong>Linux</strong> and <strong>Windows</strong> but since the author doesn’t have access to a <strong>MacOS</strong> machine the extent to which it is compatible with <strong>MacOS</strong> is unknown to him.</p>
+<p>The R <code>subprocess</code> package has been verified to run on <strong>Linux</strong>, <strong>Windows</strong> and <strong>MacOS</strong>.</p>
 </div>
 <div id="design-and-implementation" class="section level2">
 <h2>Design and Implementation</h2>
@@ -113,13 +113,13 @@ R_binary &lt;-<span class="st"> </span>function () {
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   : /usr/lib/R/bin/R --no-save</span>
-<span class="co">#&gt; system id : 11382</span>
+<span class="co">#&gt; system id : 14227</span>
 <span class="co">#&gt; state     : running</span></code></pre></div>
 <p>And now let’s see what we can find it the child’s output:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
 <span class="co">#&gt;  [1] &quot;&quot;                                                             </span>
-<span class="co">#&gt;  [2] &quot;R version 3.3.2 (2016-10-31) -- \&quot;Sincere Pumpkin Patch\&quot;&quot;    </span>
-<span class="co">#&gt;  [3] &quot;Copyright (C) 2016 The R Foundation for Statistical Computing&quot;</span>
+<span class="co">#&gt;  [2] &quot;R version 3.4.1 (2017-06-30) -- \&quot;Single Candle\&quot;&quot;            </span>
+<span class="co">#&gt;  [3] &quot;Copyright (C) 2017 The R Foundation for Statistical Computing&quot;</span>
 <span class="co">#&gt;  [4] &quot;Platform: x86_64-pc-linux-gnu (64-bit)&quot;                       </span>
 <span class="co">#&gt;  [5] &quot;&quot;                                                             </span>
 <span class="co">#&gt;  [6] &quot;R is free software and comes with ABSOLUTELY NO WARRANTY.&quot;    </span>
@@ -151,9 +151,9 @@ R_binary &lt;-<span class="st"> </span>function () {
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">'rnorm(n)</span><span class="ch">\n</span><span class="st">'</span>)
 <span class="co">#&gt; [1] 9</span>
 <span class="kw">process_read</span>(handle, PIPE_STDOUT, <span class="dt">timeout =</span> <span class="dv">1000</span>)
-<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                                    </span>
-<span class="co">#&gt; [2] &quot; [1]  2.39239740  0.95520346  0.96145834 -0.28637014  0.01075136 -0.26330992&quot;</span>
-<span class="co">#&gt; [3] &quot; [7] -0.41293419  0.04698814  0.85471492 -0.67604254&quot;                        </span>
+<span class="co">#&gt; [1] &quot;rnorm(n)&quot;                                                              </span>
+<span class="co">#&gt; [2] &quot; [1] -0.7766305 -0.5055096 -0.1805872  0.6010226 -0.2043694  0.7233065&quot;</span>
+<span class="co">#&gt; [3] &quot; [7]  0.9965769  0.8596935 -0.8944460 -0.9790457&quot;                      </span>
 <span class="co">#&gt; [4] &quot;&gt; &quot;</span>
 <span class="kw">process_read</span>(handle, PIPE_STDERR)
 <span class="co">#&gt; character(0)</span></code></pre></div>
@@ -179,7 +179,7 @@ handle &lt;-<span class="st"> </span><span class="kw">spawn_process</span>(<span
 <span class="kw">print</span>(handle)
 <span class="co">#&gt; Process Handle</span>
 <span class="co">#&gt; command   : /bin/dash </span>
-<span class="co">#&gt; system id : 11389</span>
+<span class="co">#&gt; system id : 14231</span>
 <span class="co">#&gt; state     : running</span></code></pre></div>
 <p>Now we can interact with the shell sub-process. We send a request to list the current directory, then give it a moment to process the command and produce the output (and maybe finish its start-up, too). Finally, we check its output streams.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">process_write</span>(handle, <span class="st">&quot;ls</span><span class="ch">\n</span><span class="st">&quot;</span>)
@@ -271,7 +271,7 @@ signals[<span class="dv">1</span>:<span class="dv">3</span>]
   (function () {
     var script = document.createElement("script");
     script.type = "text/javascript";
-    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
     document.getElementsByTagName("head")[0].appendChild(script);
   })();
 </script>
