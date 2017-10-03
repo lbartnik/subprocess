@@ -1,1 +1,1 @@
-OBJECTS=rapi.o subprocess.o sub-linux.o tests.o
+OBJECTS=rapi.o subprocess.o sub-linux.o tests.o registration.o

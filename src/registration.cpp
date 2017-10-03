@@ -4,8 +4,9 @@
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
 
+#include "rapi.h"
+
 static const R_CallMethodDef callMethods[]  = {
-  { "extract_process_handle", (DL_FUNC) &extract_process_handle, 1 },
   { "C_process_spawn",        (DL_FUNC) &C_process_spawn,        5 },
   { "C_process_read",         (DL_FUNC) &C_process_read,         3 },
   { "C_process_close_input",  (DL_FUNC) &C_process_close_input,  1 },
