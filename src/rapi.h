@@ -38,6 +38,8 @@ EXPORT SEXP C_process_send_signal(SEXP _handle, SEXP _signal);
 
 EXPORT SEXP C_known_signals();
 
+EXPORT SEXP C_signal (SEXP _signal, SEXP _handler);
+
 
 SEXP allocate_single_int (int _value);
 
@@ -48,4 +50,3 @@ SEXP allocate_single_int (int _value);
 
 
 #endif /* RAPI_H_GUARD */
-
