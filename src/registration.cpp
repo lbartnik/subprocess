@@ -4,7 +4,10 @@
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
 
+#define NO_SYSTEM_API
+#include "config-os.h"
 #include "rapi.h"
+
 
 static const R_CallMethodDef callMethods[]  = {
   { "C_process_spawn",        (DL_FUNC) &C_process_spawn,        5 },
