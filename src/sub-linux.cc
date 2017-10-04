@@ -82,7 +82,9 @@ static time_t clock_millisec ()
   clock_gettime(CLOCK_REALTIME, &current);
 #endif
 
-  return (int)current.tv_sec * 1000 + (int)(current.tv_nsec / 1000000);
+  long long current_time = static_cast<long long>(current.tv_sec) * 1000L +
+                           static_cast<long long>(current.tv_nsec / 1000000L);
+  return static_cast<time_t>(current_time);
 }
 
 

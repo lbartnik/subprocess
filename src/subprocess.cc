@@ -59,7 +59,7 @@ size_t consume_utf8 (const char * _input, size_t _length)
 {
   wchar_t wc;
   size_t used, consumed = 0;
-  mbstate_t mb_st { 0 };
+  mbstate_t mb_st = { };
 
   if (!mbsinit(&mb_st)) memset(&mb_st,0,sizeof(mb_st));
 
