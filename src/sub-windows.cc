@@ -38,7 +38,7 @@ string strerror (int _code, const string & _message)
                             buffer.data(), (DWORD)buffer.size() - 1, NULL);
 
   std::stringstream message;
-  message << _message << ": " 
+  message << _message << ": "
           << ((ret > 0) ? buffer.data() : "system error message could not be fetched");
 
   return message.str().substr(0, message.str().find_last_not_of("\r\n\t"));
@@ -73,6 +73,22 @@ static void CloseHandle (HANDLE & _handle)
   if (rc == FALSE) {
     throw subprocess_exception(::GetLastError(), "could not close handle");
   }
+}
+
+
+// return true if idle, false on timeout, throw on error
+static bool WaitForInputIdle (HANDLE _process, DWORD _timeout = INFINITE)
+{
+  if (_process == HANDLE_CLOSED) {
+    throw subprocess_exception(::GetLastError(), "invalid handle");
+  }
+
+  auto rc = ::WaitForInputIdle(_process, _timeout);
+  if (rc == WAIT_FAILED) {
+    throw subprocess_exception(::GetLastError(), "failure while waiting for child to enter idle state");
+  }
+
+  return rc != WAIT_TIMEOUT;
 }
 
 
@@ -147,7 +163,7 @@ struct StartupInfo {
 
     pipe_holder in(sa), out(sa), err(sa);
 
-    // Ensure the write handle to the pipe for STDIN is not inherited. 
+    // Ensure the write handle to the pipe for STDIN is not inherited.
     if (!::SetHandleInformation(in.write, HANDLE_FLAG_INHERIT, 0)) {
       throw subprocess_exception(GetLastError(), "could not set handle information");
     }
@@ -186,7 +202,7 @@ struct StartupInfo {
      * still don't understand how to do it propertly, and there seems
      * to be a great deal of confusion among people online how to do
      * it correctly).
-     * 
+     *
      * _creation_flags |= CREATE_NEW_CONSOLE;
      */
   }
@@ -219,14 +235,14 @@ struct StartupInfo {
                         FILE_ATTRIBUTE_NORMAL,  // normal file
                         NULL);                  // no attr. template
 
-    if (output == INVALID_HANDLE_VALUE) { 
+    if (output == INVALID_HANDLE_VALUE) {
       return -1;
     }
 
     DuplicateHandle(output, &_process->pipe_stdout);
     DuplicateHandle(output, &_process->pipe_stderr);
     DuplicateHandle(output, error.address());
-  
+
     _si->cb = sizeof(STARTUPINFO);
     _si->hStdError = error;
     _si->hStdOutput = output;
@@ -240,7 +256,7 @@ struct StartupInfo {
    * The actual startup info object.
    */
   STARTUPINFO info;
- 
+
 };
 
 
@@ -251,7 +267,7 @@ static HANDLE CreateAndAssignChildToJob (HANDLE _process)
   if (!job_handle) {
     throw subprocess_exception(::GetLastError(), "group termination: could not create a new job");
   }
-  
+
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
   ::memset(&info, 0, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
 
@@ -333,7 +349,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   /* if termination mode is "group" add process to the job; see here
    * for more details:
    * https://msdn.microsoft.com/en-us/library/windows/desktop/ms684161(v=vs.85).aspx
-   * 
+   *
    * "After a process is associated with a job, by default any child
    *  processes it creates using CreateProcess are also associated
    *  with the job."
@@ -356,6 +372,13 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
   /* close thread handle but keep the process handle */
   CloseHandle(pi.hThread);
+
+  /* wait for the child process to become idle; that is, wait until it
+   * actually starts; see:
+   * https://msdn.microsoft.com/en-us/library/windows/desktop/ms687022(v=vs.85).aspx
+   */
+  WaitForInputIdle(pi.hProcess);
+
 
   state            = RUNNING;
   child_handle     = pi.hProcess;
@@ -403,14 +426,14 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
 {
   stdout_.clear();
   stderr_.clear();
-  
+
   ULONGLONG start = GetTickCount64();
   int timediff, sleep_time = 100; /* by default sleep 0.1 seconds */
-  
+
   if (_timeout >= 0) {
     sleep_time = _timeout / 10;
   }
-  
+
   do {
     size_t rc1 = 0, rc2 = 0;
     if (_pipe & PIPE_STDOUT) rc1 = stdout_.read(pipe_stdout);
@@ -420,11 +443,11 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
     if (rc1 > 0 || rc2 > 0 || sleep_time == 0) {
       return std::max(rc1, rc2);
     }
-    
+
     // sleep_time is now guaranteed to be positive
     Sleep(sleep_time);
     timediff = (int)(GetTickCount64() - start);
-    
+
   } while (_timeout < 0 || timediff < _timeout);
 
   // out of time
@@ -458,18 +481,18 @@ void process_handle_t::wait (int _timeout)
     _timeout = INFINITE;
 
   DWORD rc = ::WaitForSingleObject(child_handle, _timeout);
-  
+
   // if already exited
   if (rc == WAIT_OBJECT_0) {
     DWORD status;
     if (::GetExitCodeProcess(child_handle, &status) == FALSE) {
       throw subprocess_exception(::GetLastError(), "could not read child exit code");
     }
- 
+
     if (status == STILL_ACTIVE) {
       return;
     }
-    
+
     return_code = (int)status;
     state = EXITED;
   }
@@ -634,15 +657,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
   const char * command = "x";
   char * args[] = { "x", NULL };
   char * env[]  = { NULL };
-  
+
   process_handle_t handle;
   if (spawn_process(&handle, command, args, env) < 0) {
     fprintf(stderr, "error in spawn_process\n");
     exit(EXIT_FAILURE);
   }
-  
+
   teardown_process(&handle);
-  
+
   return 0;
 }
 #endif /* WINDOWS_TEST */
