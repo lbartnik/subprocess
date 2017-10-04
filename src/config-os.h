@@ -16,6 +16,16 @@
 
 
 #ifdef SUBPROCESS_WINDOWS
+#define EXPORT __declspec( dllexport )
+#else
+#define EXPORT 
+#endif
+
+
+/* When included in rapi.h, OS API causes compilation errors. */
+#ifndef NO_SYSTEM_API
+
+#ifdef SUBPROCESS_WINDOWS
 
 /* MinGW defines this by default */
 #ifdef _WIN32_WINNT
@@ -49,7 +59,6 @@ typedef HANDLE pipe_handle_type;
 
 constexpr pipe_handle_type HANDLE_CLOSED = nullptr;
 
-
 #else /* !SUBPROCESS_WINDOWS */
 
 #include <unistd.h>
@@ -58,15 +67,8 @@ typedef int pipe_handle_type;
 
 constexpr pipe_handle_type HANDLE_CLOSED = -1;
 
-
 #endif /* SUBPROCESS_WINDOWS */
 
-
-#ifdef SUBPROCESS_WINDOWS
-#define EXPORT __declspec( dllexport )
-#else
-#define EXPORT 
-#endif
-
+#endif /* NO_SYSTEM_API */
 
 #endif /* CONFIG_WIN_H_GUARD */
