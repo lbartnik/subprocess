@@ -1,3 +1,7 @@
+# subprocess 0.8.2
+
+* fixes in test cases for `testthat` 2.0
+
 # subprocess 0.8.1
 
 * explicitly register native symbols

@@ -11,9 +11,8 @@ test_that("onLoad is correct", {
 
   # intercept assignments
   assignMock <- mock(T, cycle = TRUE)
-  with_mock(`base::assign` = assignMock, {
-    dotOnLoad('libname', 'subprocess')
-  })
+  mockery::stub(dotOnLoad, 'assign', assignMock)
+  dotOnLoad('libname', 'subprocess')
 
   expect_called(assignMock, length(known))
 })
