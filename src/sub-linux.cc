@@ -23,6 +23,7 @@
 
 
 #ifdef SUBPROCESS_MACOS
+// for some reason environ is unaccessible via unistd.h
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
