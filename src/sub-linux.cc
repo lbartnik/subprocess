@@ -23,12 +23,11 @@
 
 
 #ifdef SUBPROCESS_MACOS
+// for some reason environ is unaccessible via unistd.h
 #include <mach/clock.h>
 #include <mach/mach.h>
-
-// for some reason is accessible via unistd.h
-extern char ** environ;
 #endif
+extern char ** environ;
 
 
 #ifdef TRUE
