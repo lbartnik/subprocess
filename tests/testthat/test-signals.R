@@ -48,9 +48,8 @@ test_that("sending signal in Windows", {
   handle <- spawn()
   expect_true(wait_until_appears(handle))
 
-    process_send_signal(handle, CTRL_BREAK_EVENT)
+  process_send_signal(handle, CTRL_BREAK_EVENT)
   
-  # 0xC000013A = STATUS_CONTROL_C_EXIT  
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), -1073741510L)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
   expect_false(process_exists(handle))
 })

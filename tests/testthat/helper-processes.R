@@ -12,7 +12,7 @@ is_mac <- function ()
 
 R_binary <- function ()
 {
-  binary <- ifelse(is_windows(), 'R.exe', 'R')
+  binary <- ifelse(is_windows(), 'Rterm.exe', 'R')
   binary <- file.path(R.home("bin"), binary)
   stopifnot(file.exists(binary))
   binary
