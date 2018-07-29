@@ -23,10 +23,12 @@
 
 
 #ifdef SUBPROCESS_MACOS
-// for some reason environ is unaccessible via unistd.h
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
+
+/* for some reason environ is unaccessible via unistd.h on Solaris
+ * this is redundant in non-Solaris builds but fixes Solaris */
 extern char ** environ;
 
 

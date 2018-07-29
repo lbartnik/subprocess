@@ -1,3 +1,7 @@
+# subprocess 0.8.3
+
+* fixes building under Solaris
+
 # subprocess 0.8.2
 
 * fixes in test cases for `testthat` 2.0
