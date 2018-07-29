@@ -90,10 +90,10 @@ CTRL_BREAK_EVENT
 Sending signals to the child process.
 
 Operating-System-level signals that can be sent via
-\code{\link[subprocess]{process_send_signal}()} are defined in the
-\code{subprocess::signals} list. It is a list that is generated when
-the package is loaded and it contains only signals supported by the
-current platform (Windows or Linux).
+[process_send_signal] are defined in the `subprocess::signals`` list.
+It is a list that is generated when the package is loaded and it
+contains only signals supported by the current platform (Windows or
+Linux).
 
 All signals, both supported and not supported by the current
 platform, are also exported under their names. If a given signal
