@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/poll.h>
 #include <dlfcn.h>
 
 #include <fcntl.h>              /* Obtain O_* constant definitions */
@@ -23,11 +24,12 @@
 
 
 #ifdef SUBPROCESS_MACOS
-// for some reason environ is unaccessible via unistd.h
 #include <mach/clock.h>
 #include <mach/mach.h>
-#endif
+
+// for some reason is accessible via unistd.h
 extern char ** environ;
+#endif
 
 
 #ifdef TRUE
@@ -213,6 +215,9 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
     throw subprocess_exception(EALREADY, "process already started");
   }
 
+  int rc, cntl_pipes[2];
+  rc = pipe(cntl_pipes);
+
   // can be addressed with PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR
   pipe_holder pipes[3];
 
@@ -225,6 +230,8 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
    * ends of pipes */
   if (child_id == 0) {
     try {
+      rc = ::close(cntl_pipes[0]); // close unused read end
+
       dup2(pipes[PIPE_STDIN][pipe_holder::READ], STDIN_FILENO);
       dup2(pipes[PIPE_STDOUT][pipe_holder::WRITE], STDOUT_FILENO);
       dup2(pipes[PIPE_STDERR][pipe_holder::WRITE], STDERR_FILENO);
@@ -243,7 +250,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
       /* if termination mode is "group" start new session */
       if (_termination_mode == TERMINATION_GROUP) {
-        setsid();
+	setsid();
       }
       
       /* if environment is empty, use parent's environment */
@@ -251,6 +258,8 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
         _environment = environ;
       }
 
+      rc = ::write(cntl_pipes[1], "S", 1);
+      rc = ::close(cntl_pipes[1]);
       /* finally start the new process */
       execve(_command, _arguments, _environment);
 
@@ -259,10 +268,15 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
+      rc = ::write(cntl_pipes[1], "F", 1);
+      rc = ::close(cntl_pipes[1]);
+
       // we do not name stderr explicitly because CRAN doesn't like it
       ignore_return_value(::write(2, e.what(), strlen(e.what())));
       exit_on_failure();
     }
+  } else {
+    rc = ::close(cntl_pipes[1]); // close unused write end
   }
 
   // child is now running
@@ -282,6 +296,11 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   pipes[PIPE_STDIN][pipe_holder::WRITE] = HANDLE_CLOSED;
   pipes[PIPE_STDOUT][pipe_holder::READ] = HANDLE_CLOSED;
   pipes[PIPE_STDERR][pipe_holder::READ] = HANDLE_CLOSED;
+
+ char buf = 0;
+ rc = ::read(cntl_pipes[0], &buf, 1);
+ rc = ::close(cntl_pipes[0]); 
+ wait(TIMEOUT_IMMEDIATE);
 }
 
 
@@ -351,31 +370,22 @@ struct enable_block_mode {
 };
 
 
-struct select_reader {
-  
-  fd_set set;
-  int max_fd;
-  
-  select_reader () : max_fd(0) { }
-  
-  void put_fd (int _fd) {
-    FD_SET(_fd, &set);
-    max_fd = std::max(max_fd, _fd);
-  }
-  
   ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
   {
     // this should never be called with "infinite" timeout
     if (_timeout < 0)
       return -1;
-    
-    FD_ZERO(&set);
+    struct pollfd fds[2];
+    memset(fds, 0, sizeof(fds));
+
     if (_pipe & PIPE_STDOUT) {
-      put_fd(_handle.pipe_stdout);
+	fds[0].fd = _handle.pipe_stdout;
+	fds[0].events = POLLIN;
       _handle.stdout_.clear();
     }
     if (_pipe & PIPE_STDERR) {
-      put_fd(_handle.pipe_stderr);
+	fds[1].fd = _handle.pipe_stderr;
+	fds[1].events = POLLIN;
       _handle.stderr_.clear();
     }
     
@@ -384,35 +394,27 @@ struct select_reader {
     ssize_t rc;
 
     do {
-      timediff = _timeout - (clock_millisec() - start);
-
       // use max so that _timeout can be TIMEOUT_IMMEDIATE and yet
-      // select can be tried at least once
-      timeout.tv_sec = std::max(0, timediff/1000);
-      timeout.tv_usec = std::max(0, (timediff % 1000) * 1000);
-      
-      rc = select(max_fd + 1, &set, NULL, NULL, &timeout);
-      if (rc == -1 && errno != EINTR && errno != EAGAIN)
-        return -1;
-      
+      // pool can be tried at least once
+      timediff = std::max(0L, _timeout - (clock_millisec() - start));
+
+      rc = poll(fds, 2, timediff);
     } while(rc == 0 && timediff > 0);
     
     // nothing to read; if errno == EINTR try reading one last time
-    if (rc == 0 || errno == EAGAIN)
+    if (rc == 0) { // timedout || errno == EAGAIN) {
       return 0;
-    
-    if (FD_ISSET(_handle.pipe_stdout, &set)) {
+    }
+ 
+    if ((_pipe & PIPE_STDOUT) && fds[0].revents == POLLIN) { 
       rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
     }
-    if (FD_ISSET(_handle.pipe_stderr, &set)) {
+    if ((_pipe & PIPE_STDERR) && fds[1].revents == POLLIN) {
       rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
     }
     
     return rc;
   }
-};
-
-
 
 
 size_t process_handle_t::read (pipe_type _pipe, int _timeout)
@@ -422,17 +424,16 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
   }
 
   ssize_t rc;
-  select_reader reader;
 
   // infinite timeout
   if (_timeout == TIMEOUT_INFINITE) {
     enable_block_mode blocker_out(pipe_stdout);
     enable_block_mode blocker_err(pipe_stderr);
-    rc = reader.timed_read(*this, _pipe, 1000);
+    rc = timed_read(*this, _pipe, 1000);
   }
   // finite or no timeout
   else {
-    rc = reader.timed_read(*this, _pipe, _timeout);
+    rc = timed_read(*this, _pipe, _timeout);
 
     if (rc < 0 && errno == EAGAIN) {
       /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
@@ -440,7 +441,6 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
       return 0;
     }
   }
-
   if (rc < 0) {
     throw subprocess_exception(errno, "could not read from child process");
   }
@@ -470,9 +470,8 @@ void process_handle_t::wait (int _timeout)
   if (!child_id) {
     throw subprocess_exception(ECHILD, "child does not exist");
   }
-  if (state != RUNNING) {
-    return;
-  }
+  if (state != RUNNING) 
+     return;
 
   /* to wait or not to wait? */ 
   int options = 0;
@@ -493,7 +492,8 @@ void process_handle_t::wait (int _timeout)
   } while (rc == 0 && _timeout > 0);
 
   // the child is still running
-  if (rc == 0) return;
+  if (rc == 0) 
+     return;
 
   // the child has exited or has been terminated
   if (WIFEXITED(return_code)) {
@@ -518,7 +518,6 @@ void process_handle_t::send_signal(int _signal)
   if (!child_id) {
     throw subprocess_exception(ECHILD, "child does not exist");
   }
-
   int rc = ::kill(child_id, _signal);
 
   if (rc < 0) {

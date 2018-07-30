@@ -14,7 +14,7 @@ test_that("output buffer is flushed", {
   Sys.sleep(3)
   
   # read everything
-  output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE, flush = TRUE)
+  output <- process_read(handle, PIPE_STDOUT, 3000, flush = TRUE)
 
   expect_length(output, lines)
   expect_true(all(nchar(output) == 60))
@@ -31,8 +31,8 @@ test_that("exchange data", {
   output <- process_read(handle, timeout = 1000)
 
   expect_named(output, c('stdout', 'stderr'))
-  expect_equal(output$stdout, 'A')
   expect_equal(output$stderr, character())
+  expect_equal(output$stdout, 'A')
 })
 
 
