@@ -259,7 +259,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
         _environment = environ;
       }
 
-      ::write(cntl_pipes[pipe_holder::WRITE], "S", 1);
+      rc = ::write(cntl_pipes[pipe_holder::WRITE], "S", 1);
       /* finally start the new process */
       execve(_command, _arguments, _environment);
 
@@ -268,7 +268,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      ::write(cntl_pipes[pipe_holder::WRITE], "F", 1);
+      rc = ::write(cntl_pipes[pipe_holder::WRITE], "F", 1);
       
       // we do not name stderr explicitly because CRAN doesn't like it
       ignore_return_value(::write(2, e.what(), strlen(e.what())));
@@ -413,10 +413,10 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
     return 0;
   }
 
-  if (fds[0].fd != -1 && && fds[0].revents == POLLIN) { 
+  if (fds[0].fd != -1 && fds[0].revents == POLLIN) { 
     rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
   }
-  if (fds[1].fd != -1 && && fds[1].revents == POLLIN) {
+  if (fds[1].fd != -1 && fds[1].revents == POLLIN) {
     rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
   }
   
