@@ -274,8 +274,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       exit_on_failure();
     }
   } else {
-    close(cntl_pites[pipe_holder::WRITE]);
-    rc = ::close(cntl_pipes[1]); // close unused write end
+    close(cntl_pipes[pipe_holder::WRITE]);
   }
 
   // child is now running
