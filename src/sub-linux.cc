@@ -215,9 +215,9 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
     throw subprocess_exception(EALREADY, "process already started");
   }
 
-  int rc, cntl_pipes[2];
-  rc = pipe(cntl_pipes);
-
+  int rc = 0;
+  // this one is used to make parent know that subprocess started
+  pipe_holder cntl_pipes;
   // can be addressed with PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR
   pipe_holder pipes[3];
 
@@ -230,7 +230,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
    * ends of pipes */
   if (child_id == 0) {
     try {
-      rc = ::close(cntl_pipes[0]); // close unused read end
+      close(cntl_pipes[pipe_holder::READ]);
 
       dup2(pipes[PIPE_STDIN][pipe_holder::READ], STDIN_FILENO);
       dup2(pipes[PIPE_STDOUT][pipe_holder::WRITE], STDOUT_FILENO);
@@ -250,7 +250,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
 
       /* if termination mode is "group" start new session */
       if (_termination_mode == TERMINATION_GROUP) {
-	setsid();
+        setsid();
       }
       
       /* if environment is empty, use parent's environment */
@@ -258,8 +258,7 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
         _environment = environ;
       }
 
-      rc = ::write(cntl_pipes[1], "S", 1);
-      rc = ::close(cntl_pipes[1]);
+      ::write(cntl_pipes[pipe_holder::WRITE], "S", 1);
       /* finally start the new process */
       execve(_command, _arguments, _environment);
 
@@ -268,14 +267,14 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      rc = ::write(cntl_pipes[1], "F", 1);
-      rc = ::close(cntl_pipes[1]);
-
+      ::write(cntl_pipes[pipe_holder::WRITE], "F", 1);
+      
       // we do not name stderr explicitly because CRAN doesn't like it
       ignore_return_value(::write(2, e.what(), strlen(e.what())));
       exit_on_failure();
     }
   } else {
+    close(cntl_pites[pipe_holder::WRITE]);
     rc = ::close(cntl_pipes[1]); // close unused write end
   }
 
@@ -297,10 +296,11 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   pipes[PIPE_STDOUT][pipe_holder::READ] = HANDLE_CLOSED;
   pipes[PIPE_STDERR][pipe_holder::READ] = HANDLE_CLOSED;
 
- char buf = 0;
- rc = ::read(cntl_pipes[0], &buf, 1);
- rc = ::close(cntl_pipes[0]); 
- wait(TIMEOUT_IMMEDIATE);
+  { // wait for subprocess to start
+    char buf = 0;
+    rc = ::read(cntl_pipes[pipe_holder::READ], &buf, 1);    
+  }
+  wait(TIMEOUT_IMMEDIATE); // update process state
 }
 
 
@@ -370,51 +370,58 @@ struct enable_block_mode {
 };
 
 
-  ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
-  {
-    // this should never be called with "infinite" timeout
-    if (_timeout < 0)
-      return -1;
-    struct pollfd fds[2];
-    memset(fds, 0, sizeof(fds));
+ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
+{
+  // this should never be called with "infinite" timeout
+  if (_timeout < 0)
+    return -1;
+  
+  struct pollfd fds[2];
+  memset(fds, 0, sizeof(fds));
 
-    if (_pipe & PIPE_STDOUT) {
-	fds[0].fd = _handle.pipe_stdout;
-	fds[0].events = POLLIN;
-      _handle.stdout_.clear();
-    }
-    if (_pipe & PIPE_STDERR) {
-	fds[1].fd = _handle.pipe_stderr;
-	fds[1].events = POLLIN;
-      _handle.stderr_.clear();
-    }
-    
-    struct timeval timeout;
-    int start = clock_millisec(), timediff;
-    ssize_t rc;
-
-    do {
-      // use max so that _timeout can be TIMEOUT_IMMEDIATE and yet
-      // pool can be tried at least once
-      timediff = std::max(0L, _timeout - (clock_millisec() - start));
-
-      rc = poll(fds, 2, timediff);
-    } while(rc == 0 && timediff > 0);
-    
-    // nothing to read; if errno == EINTR try reading one last time
-    if (rc == 0) { // timedout || errno == EAGAIN) {
-      return 0;
-    }
- 
-    if ((_pipe & PIPE_STDOUT) && fds[0].revents == POLLIN) { 
-      rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
-    }
-    if ((_pipe & PIPE_STDERR) && fds[1].revents == POLLIN) {
-      rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
-    }
-    
-    return rc;
+  if (_pipe & PIPE_STDOUT) {
+    fds[0].fd = _handle.pipe_stdout;
+    fds[0].events = POLLIN;
+    _handle.stdout_.clear();
+  } 
+  else {
+    fds[0].fd = -1;
   }
+  
+  if (_pipe & PIPE_STDERR) {
+    fds[1].fd = _handle.pipe_stderr;
+    fds[1].events = POLLIN;
+    _handle.stderr_.clear();
+  } 
+  else {
+    fds[1].fd = -1;
+  }
+  
+  time_t start = clock_millisec(), timediff;
+  ssize_t rc;
+
+  do {
+    // use max so that _timeout can be TIMEOUT_IMMEDIATE and yet
+    // pool can be tried at least once
+    timediff = std::max((time_t)0, _timeout - (clock_millisec() - start));
+
+    rc = poll(fds, 2, timediff);
+  } while(rc == 0 && timediff > 0);
+  
+  // nothing to read; if errno == EINTR try reading one last time
+  if (rc == 0) { 
+    return 0;
+  }
+
+  if (fds[0].fd != -1 && && fds[0].revents == POLLIN) { 
+    rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
+  }
+  if (fds[1].fd != -1 && && fds[1].revents == POLLIN) {
+    rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
+  }
+  
+  return rc;
+}
 
 
 size_t process_handle_t::read (pipe_type _pipe, int _timeout)
