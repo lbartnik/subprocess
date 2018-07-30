@@ -6,7 +6,7 @@ test_that("sending signal in Linux", {
 
   script_path <- file.path(getwd(), 'signal-trap.sh')
   expect_true(file.exists(script_path))
-  
+
   bash_path <- "/bin/bash"
   expect_true(file.exists(bash_path))
   
@@ -14,10 +14,9 @@ test_that("sending signal in Linux", {
   expect_true(process_exists(handle))
   
   # excluded signals kill or stop the child
-  for (signal in setdiff(signals, c(1, 9, 17, 19))) {
+  for (signal in setdiff(signals, c(SIGHUP, SIGKILL, SIGCHLD, SIGSTOP))) {
     process_send_signal(handle, signal)
     output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
-
     i <- which(signals == signal)
     expect_equal(output, names(signals)[[i]])
   }
