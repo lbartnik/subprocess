@@ -6,7 +6,7 @@ test_that("C tests pass", {
 
 
 test_that("multi-byte can come in parts", {
-  skip_if_not(is_linux() || is_mac())
+  skip_if_not(is_linux() || is_mac() || is_solaris())
   skip_if_not(l10n_info()$MBCS)
 
   print_in_R <- function (handle, text) {
