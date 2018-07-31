@@ -1,8 +1,8 @@
 context("signals")
 
 
-test_that("sending signal in Linux", {
-  skip_if_not(is_linux())
+test_that("sending signal in Linux/MacOS", {
+  skip_if_not(is_linux() || is_mac())
 
   script_path <- file.path(getwd(), 'signal-trap.sh')
   expect_true(file.exists(script_path))
