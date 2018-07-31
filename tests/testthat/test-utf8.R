@@ -6,7 +6,8 @@ test_that("C tests pass", {
 
 
 test_that("multi-byte can come in parts", {
-  skip_if_not(is_linux() || is_mac())
+  skip_if_not(is_linux() || is_mac() || is_solaris())
+  skip_if_not(l10n_info()$MBCS)
 
   print_in_R <- function (handle, text) {
     process_write(handle, paste0("cat('", text, "')\n"))
@@ -16,8 +17,8 @@ test_that("multi-byte can come in parts", {
   handle1 <- R_child()
 
   print_in_R(handle1, "a\\xF0\\x90")
-  expect_equal(process_read(handle1, timeout = TIMEOUT_INFINITE)$stdout, 'a')
+  expect_equal(process_read(handle1, timeout = 1000, flush = TRUE)$stdout, 'a')
   
   print_in_R(handle1, "\\x8D\\x88b")
-  expect_equal(process_read(handle1, timeout = TIMEOUT_INFINITE)$stdout, '\xF0\x90\x8D\x88b')
+  expect_equal(process_read(handle1, timeout = 100, flush = TRUE)$stdout, '\xF0\x90\x8D\x88b')
 })

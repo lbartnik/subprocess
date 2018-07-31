@@ -1,12 +1,12 @@
 context("signals")
 
 
-test_that("sending signal in Linux", {
-  skip_if_not(is_linux())
+test_that("sending signal in Linux/MacOS/Solaris", {
+  skip_if_not(is_linux() || is_mac() || is_solaris())
 
   script_path <- file.path(getwd(), 'signal-trap.sh')
   expect_true(file.exists(script_path))
-  
+
   bash_path <- "/bin/bash"
   expect_true(file.exists(bash_path))
   
@@ -14,12 +14,16 @@ test_that("sending signal in Linux", {
   expect_true(process_exists(handle))
   
   # excluded signals kill or stop the child
-  for (signal in setdiff(signals, c(1, 9, 17, 19))) {
+  skip_sigs <- c(SIGHUP, SIGKILL, SIGCHLD, SIGSTOP)
+  if (is_solaris()) {
+    # on Solaris SIGQUIT behaviour is diffrent 
+    skip_sigs <- c(skip_sigs, SIGQUIT) 
+  }
+  for (signal in setdiff(signals, skip_sigs)) {
     process_send_signal(handle, signal)
     output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
-
     i <- which(signals == signal)
-    expect_equal(output, names(signals)[[i]])
+    expect_equal(output, names(signals)[[i]], info = names(signals)[[i]])
   }
 })
 
