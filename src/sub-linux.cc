@@ -32,7 +32,6 @@
  * this is redundant in non-Solaris builds but fixes Solaris */
 extern char ** environ;
 
-
 #ifdef TRUE
 #undef TRUE
 #endif
