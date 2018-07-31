@@ -28,21 +28,25 @@ R_child <- function(args = '--slave', ...)
 
 # --- OS interface -----------------------------------------------------
 
-process_exists <- function (handle)
+find_pid <- function (handle, args = character())
 {
   pid <- ifelse (is_process_handle(handle), as.integer(handle$c_handle), handle)
   
   if (is_windows()) {
-    output <- system2("tasklist", stdout = TRUE, stderr = TRUE)
+    output <- system2("tasklist", args, stdout = TRUE, stderr = TRUE)
     return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
   }
   else {
     flag <- ifelse(is_mac(), "-p", "--pid")
-    rc <- system2("ps", c(flag, as.character(pid)), stdout = NULL, 
+    rc <- system2("ps", c(flag, as.character(pid), args), stdout = NULL, 
                   stderr = NULL)
     return(rc == 0)
   }
 }
+
+process_exists <- function (handle) find_pid(handle)
+
+process_running <- function (handle) find_pid(handle, ifelse(is_windows(), '/FI "status eq running"', ''))
 
 
 # wait_until_* 
@@ -58,7 +62,7 @@ wait_until_appears <- function (handle)
     process_wait(handle, TIMEOUT_IMMEDIATE)
     if (process_state(handle) %in% c("exited", "terminated"))
       stop('failed to start ', handle$command, call. = FALSE)
-    Sys.sleep(.1)
+    Sys.sleep(.5)
   }
   return(TRUE)
 }
@@ -67,7 +71,7 @@ wait_until_appears <- function (handle)
 wait_until_exits <- function (handle)
 {
   while (process_exists(handle)) {
-    Sys.sleep(.1)
+    Sys.sleep(.5)
   }
   return(TRUE)
 }
