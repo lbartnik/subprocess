@@ -37,9 +37,9 @@ its exit status (return code).
 
 The \code{timeout} parameter can take one of three values:
 \itemize{
-  \item \code{0} which means no timeout
-  \item \code{-1} which means "wait until there is data to read"
-  \item a positive integer, which is the actual timeout in milliseconds
+\item \code{0} which means no timeout
+\item \code{-1} which means "wait until there is data to read"
+\item a positive integer, which is the actual timeout in milliseconds
 }
 
 \code{TIMEOUT_INFINITE} denotes an "infinite" timeout
@@ -65,7 +65,7 @@ returned also by \code{process_wait()}. It does not invoke
 \code{process_wait()} behind the scenes.
 }
 \seealso{
-\code{\link{spawn_process}}, \code{\link{process_read}}
-         \code{\link{signals}}
+\code{\link[=spawn_process]{spawn_process()}}, \code{\link[=process_read]{process_read()}}
+\code{\link[=signals]{signals()}}
 }
 \keyword{datasets}

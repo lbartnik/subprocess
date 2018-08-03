@@ -90,7 +90,7 @@ CTRL_BREAK_EVENT
 Sending signals to the child process.
 
 Operating-System-level signals that can be sent via
-[process_send_signal] are defined in the `subprocess::signals`` list.
+\link{process_send_signal} are defined in the `subprocess::signals`` list.
 It is a list that is generated when the package is loaded and it
 contains only signals supported by the current platform (Windows or
 Linux).
@@ -106,7 +106,7 @@ the appropriate OS routine (\code{waitpid()} or
 effectively lets the operating system clean up after the child
 process. Calling \code{process_send_signal()} is not accompanied by
 such clean-up and if the child process exits it needs to be followed
-by a call to \code{\link{process_wait}()}.
+by a call to \code{\link[=process_wait]{process_wait()}}.
 
 \code{process_terminate()} on Linux sends the
 \code{SIGTERM} signal to the process pointed to by \code{handle}.
@@ -127,7 +127,7 @@ is also attached in the package namespace.
 In Windows, signals are delivered either only to the child process or
 to the child process and all its descendants. This behavior is
 controlled by the \code{termination_mode} argument of the
-\code{\link[subprocess]{spawn_process}()} function. Setting it to
+\code{\link[subprocess:spawn_process]{subprocess::spawn_process()}} function. Setting it to
 \code{TERMINATION_GROUP} results in signals being delivered to the
 child and its descendants.
 }
@@ -151,6 +151,6 @@ process_send_signal(h, CTRL_BREAK_EVENT)
 
 }
 \seealso{
-\code{\link{spawn_process}}
+\code{\link[=spawn_process]{spawn_process()}}
 }
 \keyword{datasets}

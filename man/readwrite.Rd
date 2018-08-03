@@ -12,8 +12,8 @@
 \alias{PIPE_STDERR}
 \alias{PIPE_BOTH}
 \title{Communicating with a Child Process}
-\format{\code{PIPE_STDOUT}, \code{PIPE_STDERR} and \code{PIPE_BOTH}
-        are single \code{character} values.}
+\format{\code{PIPE_STDOUT}, \code{PIPE_STDERR} and \code{PIPE_BOTH} are single
+\code{character} values.}
 \usage{
 process_read(handle, pipe = PIPE_BOTH, timeout = TIMEOUT_IMMEDIATE,
   flush = TRUE)
@@ -31,8 +31,8 @@ PIPE_BOTH
 \arguments{
 \item{handle}{Process handle obtained from \code{spawn_process}.}
 
-\item{pipe}{Output stream identifier: \code{PIPE_STDOUT},
-\code{PIPE_STDERR} or \code{PIPE_BOTH}.}
+\item{pipe}{Output stream identifier: \code{PIPE_STDOUT}, \code{PIPE_STDERR} or
+\code{PIPE_BOTH}.}
 
 \item{timeout}{Optional timeout in milliseconds.}
 
@@ -42,18 +42,16 @@ try again with \code{timeout=0} until C buffer is empty.}
 \item{message}{Input for the child process.}
 }
 \value{
-\code{process_read} returns a \code{list} containing either of
-        or both keys: \emph{stdout} and \emph{stderr}; the value is in
-        both cases a \code{character} vector which contains lines of
-        child's output.
+\code{process_read} returns a \code{list} which contains either of or
+both keys: \emph{stdout} and \emph{stderr}; the value is in both cases
+a \code{character} vector which contains lines of child's output.
 
-\code{process_write} returns the number of characters
-        written.
+\code{process_write} returns the number of characters written.
 }
 \description{
 \code{process_read()} reads data from one of the child process' streams,
-\emph{standard output} or \emph{standard error output}, and returns
-it as a \code{character} vector.
+\emph{standard output} or \emph{standard error output}, and returns it as a
+\code{character} vector.
 
 \code{process_write()} writes data into child's
 \emph{standard input} stream.
@@ -72,17 +70,17 @@ output.
 standard output and standard error output.
 }
 \details{
-If \code{flush=TRUE} in \code{process_read()} then the invocation of
-the underlying \code{read()} \emph{system-call} will be repeated until
-the pipe buffer is empty.
+If \code{flush=TRUE} in \code{process_read()} then the invocation of the
+underlying \code{read()} \emph{system-call} will be repeated until the pipe
+buffer is empty.
 
-If \code{pipe} is set to either \code{PIPE_STDOUT} or \code{PIPE_STDERR},
-the returned value is a single list with a single key, \emph{stdout} or
-\emph{stderr}, respectively. If \code{pipe} is set to \code{PIPE_BOTH}
-the returned \code{list} contains both keys. Values in the list are
-\code{character} vectors of 0 or more elements, lines read from the
-respective output stream of the child process.
+If \code{pipe} is set to either \code{PIPE_STDOUT} or \code{PIPE_STDERR}, the returned
+value is a single list with a single key, \code{stdout} or \code{stderr},
+respectively. If \code{pipe} is set to \code{PIPE_BOTH} the returned \code{list}
+contains both keys. Values in the list are \code{character} vectors of 0
+or more elements, lines read from the respective output stream of the
+child process.
 
-For details on \code{timeout} see \code{\link{terminating}}.
+For details on \code{timeout} see \link{terminating}.
 }
 \keyword{datasets}
