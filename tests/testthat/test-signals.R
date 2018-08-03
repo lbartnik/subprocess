@@ -42,7 +42,7 @@ test_that("sending signal in Windows", {
   # 
   # 0xC0000001 = STATUS_UNSUCCESSFUL
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
-  expect_false(process_running(handle))
+  expect_false(process_exists(handle))
 
   # CTRL+Break
   handle <- spawn()
@@ -51,5 +51,5 @@ test_that("sending signal in Windows", {
   process_send_signal(handle, CTRL_BREAK_EVENT)
   
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
-  expect_false(process_running(handle))
+  expect_false(process_exists(handle))
 })
