@@ -12,7 +12,7 @@ is_mac <- function ()
 
 R_binary <- function ()
 {
-  binary <- ifelse(is_windows(), 'R.exe', 'R')
+  binary <- ifelse(is_windows(), 'Rterm.exe', 'R')
   binary <- file.path(R.home("bin"), binary)
   stopifnot(file.exists(binary))
   binary
@@ -30,16 +30,15 @@ R_child <- function(args = '--slave', ...)
 
 process_exists <- function (handle)
 {
-  pid <- ifelse (is_process_handle(handle), as.integer(handle$c_handle), handle)
+  pid <- ifelse(is_process_handle(handle), as.character(handle$c_handle), handle)
   
   if (is_windows()) {
-    output <- system2("tasklist", stdout = TRUE, stderr = TRUE)
-    return(length(grep(as.character(pid), output, fixed = TRUE)) > 0)
+    output <- system2("tasklist", paste0('/FI "PID eq ', pid, '"'), stdout = TRUE, stderr = TRUE)
+    return(length(grep(pid, output, fixed = TRUE)) > 0)
   }
   else {
     flag <- ifelse(is_mac(), "-p", "--pid")
-    rc <- system2("ps", c(flag, as.character(pid)), stdout = NULL, 
-                  stderr = NULL)
+    rc <- system2("ps", c(flag, pid), stdout = NULL, stderr = NULL)
     return(rc == 0)
   }
 }
@@ -58,7 +57,7 @@ wait_until_appears <- function (handle)
     process_wait(handle, TIMEOUT_IMMEDIATE)
     if (process_state(handle) %in% c("exited", "terminated"))
       stop('failed to start ', handle$command, call. = FALSE)
-    Sys.sleep(.1)
+    Sys.sleep(.25)
   }
   return(TRUE)
 }
@@ -67,7 +66,7 @@ wait_until_appears <- function (handle)
 wait_until_exits <- function (handle)
 {
   while (process_exists(handle)) {
-    Sys.sleep(.1)
+    Sys.sleep(.25)
   }
   return(TRUE)
 }
