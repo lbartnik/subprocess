@@ -1,36 +1,35 @@
 #' Communicating with a Child Process
 #' 
-#' \code{process_read()} reads data from one of the child process' streams,
-#' \emph{standard output} or \emph{standard error output}, and returns
-#' it as a \code{character} vector.
+#' `process_read()` reads data from one of the child process' streams,
+#' *standard output* or *standard error output*, and returns it as a
+#' `character` vector.
 #' 
-#' If \code{flush=TRUE} in \code{process_read()} then the invocation of
-#' the underlying \code{read()} \emph{system-call} will be repeated until
-#' the pipe buffer is empty.
+#' If `flush=TRUE` in `process_read()` then the invocation of the
+#' underlying `read()` *system-call* will be repeated until the pipe
+#' buffer is empty.
 #' 
-#' If \code{pipe} is set to either \code{PIPE_STDOUT} or \code{PIPE_STDERR},
-#' the returned value is a single list with a single key, \emph{stdout} or
-#' \emph{stderr}, respectively. If \code{pipe} is set to \code{PIPE_BOTH}
-#' the returned \code{list} contains both keys. Values in the list are
-#' \code{character} vectors of 0 or more elements, lines read from the
-#' respective output stream of the child process.
+#' If `pipe` is set to either `PIPE_STDOUT` or `PIPE_STDERR`, the returned
+#' value is a single list with a single key, `stdout` or `stderr`,
+#' respectively. If `pipe` is set to `PIPE_BOTH` the returned `list`
+#' contains both keys. Values in the list are `character` vectors of 0
+#' or more elements, lines read from the respective output stream of the
+#' child process.
 #' 
-#' For details on \code{timeout} see \code{\link{terminating}}.
+#' For details on `timeout` see [terminating].
 #' 
-#' @param handle Process handle obtained from \code{spawn_process}.
-#' @param pipe Output stream identifier: \code{PIPE_STDOUT},
-#'             \code{PIPE_STDERR} or \code{PIPE_BOTH}.
+#' @param handle Process handle obtained from `spawn_process`.
+#' @param pipe Output stream identifier: `PIPE_STDOUT`, `PIPE_STDERR` or
+#'             `PIPE_BOTH`.
 #' @param timeout Optional timeout in milliseconds.
-#' @param flush If there is any data within the given \code{timeout}
-#'              try again with \code{timeout=0} until C buffer is empty. 
+#' @param flush If there is any data within the given `timeout`
+#'              try again with `timeout=0` until C buffer is empty. 
 #' 
-#' @return \code{process_read} returns a \code{list} containing either of
-#'         or both keys: \emph{stdout} and \emph{stderr}; the value is in
-#'         both cases a \code{character} vector which contains lines of
-#'         child's output.
+#' @return `process_read` returns a `list` which contains either of or
+#'         both keys: *stdout* and *stderr*; the value is in both cases
+#'         a `character` vector which contains lines of child's output.
 #' 
-#' @format \code{PIPE_STDOUT}, \code{PIPE_STDERR} and \code{PIPE_BOTH}
-#'         are single \code{character} values.
+#' @format `PIPE_STDOUT`, `PIPE_STDERR` and `PIPE_BOTH` are single
+#'         `character` values.
 #'
 #' @rdname readwrite
 #' @name readwrite
@@ -80,13 +79,11 @@ process_read <- function (handle, pipe = PIPE_BOTH, timeout = TIMEOUT_IMMEDIATE,
 }
 
 
-#' @description \code{process_write()} writes data into child's
-#' \emph{standard input} stream.
+#' @description `process_write()` writes data into child's
+#' *standard input* stream.
 #' 
 #' @param message Input for the child process.
-#' 
-#' @return \code{process_write} returns the number of characters
-#'         written.
+#' @return `process_write` returns the number of characters written.
 #' 
 #' @rdname readwrite
 #' @name readwrite
@@ -99,8 +96,8 @@ process_write <- function (handle, message)
 }
 
 
-#' @description \code{process_close_input()} closes the \emph{write} end
-#' of the pipe whose \emph{read} end is the standard input stream of the
+#' @description `process_close_input()` closes the *write* end
+#' of the pipe whose *read* end is the standard input stream of the
 #' child process. This is a standard way to gracefully request the child
 #' process to exit.
 #'  
@@ -116,14 +113,14 @@ process_close_input <- function (handle)
 
 
 
-#' @description \code{PIPE_STDOUT}: read from child's standard output.
+#' @description `PIPE_STDOUT`: read from child's standard output.
 #' 
 #' @rdname readwrite
 #' @export
 PIPE_STDOUT <- "stdout"
 
 
-#' @description \code{PIPE_STDERR}: read from child's standard error
+#' @description `PIPE_STDERR`: read from child's standard error
 #' output.
 #' 
 #' @rdname readwrite
@@ -131,7 +128,7 @@ PIPE_STDOUT <- "stdout"
 PIPE_STDERR <- "stderr"
 
 
-#' @description \code{PIPE_BOTH}: read from both child's output streams:
+#' @description `PIPE_BOTH`: read from both child's output streams:
 #' standard output and standard error output.
 #' 
 #' @rdname readwrite

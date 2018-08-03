@@ -15,15 +15,15 @@ handling child processes. It brings the capability of alternating
 read from and write to a child process, communicating via signals,
 terminating it and handling its exit status (return code).
 
-With R's standard \code{\link{system}} and \code{\link{system2}}
+With R's standard \link[base:system]{base::system} and \link[base:system2]{base::system2}
 functions one can start a new process and capture its output but
 cannot directly write to its standard input. Another tool, the
-[parallel::mclapply()] function, is aimed at replicating
+\link[parallel:mclapply]{parallel::mclapply} function, is aimed at replicating
 the current session and is limited to operating systems that come
 with the \code{fork()} system call.
 }
 \references{
-\url{https://github.com/lbartnik/subprocess}
+http://github.com/lbartnik/subprocess
 
-\url{https://docs.python.org/3/library/subprocess.html}
+http://docs.python.org/3/library/subprocess.html
 }

@@ -9,7 +9,7 @@
 \alias{TERMINATION_CHILD_ONLY}
 \title{Start a new child process.}
 \format{\code{TERMINATION_GROUP} and \code{TERMINATION_CHILD_ONLY}
-        are single \code{character} values.}
+are single \code{character} values.}
 \usage{
 spawn_process(command, arguments = character(), environment = character(),
   workdir = "", termination_mode = TERMINATION_GROUP)
@@ -40,7 +40,7 @@ TERMINATION_CHILD_ONLY
 }
 \value{
 \code{spawn_process()} returns an object of the
-        \emph{process handle} class.
+\emph{process handle} class.
 }
 \description{
 In Linux, the usual combination of \code{fork()} and \code{exec()}

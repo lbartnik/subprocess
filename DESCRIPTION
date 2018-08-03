@@ -23,5 +23,6 @@ Collate:
   'tests.R'
   'utils.R'
 RoxygenNote: 6.0.1
+Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
 SystemRequirements: C++11

@@ -1,10 +1,10 @@
 #' Sending signals to the child process.
 #' 
-#' @param handle Process handle obtained from \code{spawn_process()}.
+#' @param handle Process handle obtained from `spawn_process()`.
 #' 
-#' @seealso \code{\link{spawn_process}}
+#' @seealso [spawn_process()]
 #' 
-#' @format An object of class \code{list}.
+#' @format An object of class `list`.
 #' @rdname signals
 #' @name signals
 NULL
@@ -19,22 +19,22 @@ NULL
 #' All signals, both supported and not supported by the current
 #' platform, are also exported under their names. If a given signal
 #' is not supported on the current platform, then its value is set to
-#' \code{NA}.
+#' `NA`.
 #' 
-#' Calling \code{process_kill()} and \code{process_terminate()} invokes
-#' the appropriate OS routine (\code{waitpid()} or
-#' \code{WaitForSingleObject()}, closing the process handle, etc.) that
+#' Calling `process_kill()` and `process_terminate()` invokes
+#' the appropriate OS routine (`waitpid()` or
+#' `WaitForSingleObject()`, closing the process handle, etc.) that
 #' effectively lets the operating system clean up after the child
-#' process. Calling \code{process_send_signal()} is not accompanied by
+#' process. Calling `process_send_signal()` is not accompanied by
 #' such clean-up and if the child process exits it needs to be followed
-#' by a call to \code{\link{process_wait}()}.
+#' by a call to [process_wait()].
 #' 
 #' @details
 #' In Windows, signals are delivered either only to the child process or
 #' to the child process and all its descendants. This behavior is
-#' controlled by the \code{termination_mode} argument of the
-#' \code{\link[subprocess]{spawn_process}()} function. Setting it to
-#' \code{TERMINATION_GROUP} results in signals being delivered to the
+#' controlled by the `termination_mode` argument of the
+#' [subprocess::spawn_process()] function. Setting it to
+#' `TERMINATION_GROUP` results in signals being delivered to the
 #' child and its descendants.
 #' 
 #' @rdname signals
@@ -54,9 +54,9 @@ NULL
 signals <- character()
 
 
-#' @description \code{process_terminate()} on Linux sends the
-#' \code{SIGTERM} signal to the process pointed to by \code{handle}.
-#' On Windows it calls \code{TerminateProcess()}.
+#' @description `process_terminate()` on Linux sends the
+#' `SIGTERM` signal to the process pointed to by `handle`.
+#' On Windows it calls `TerminateProcess()`.
 #' 
 #' @rdname signals
 #' @export
@@ -68,9 +68,9 @@ process_terminate <- function (handle)
 }
 
 
-#' @description \code{process_kill()} on Linux sends the \code{SIGKILL}
-#' signal to \code{handle}. On Windows it is an alias for
-#' \code{process_terminate()}.
+#' @description `process_kill()` on Linux sends the `SIGKILL`
+#' signal to `handle`. On Windows it is an alias for
+#' `process_terminate()`.
 #' 
 #' @rdname signals
 #' @export
@@ -82,14 +82,14 @@ process_kill <- function (handle)
 }
 
 
-#' @description \code{process_send_signal()} sends an OS-level
-#' \code{signal} to \code{handle}. In Linux all standard signal
+#' @description `process_send_signal()` sends an OS-level
+#' `signal` to `handle`. In Linux all standard signal
 #' numbers are supported. On Windows supported signals are
-#' \code{SIGTERM}, \code{CTRL_C_EVENT} and \code{CTRL_BREAK_EVENT}.
-#' Those values will be available via the \code{signals} list which
+#' `SIGTERM`, `CTRL_C_EVENT` and `CTRL_BREAK_EVENT`.
+#' Those values will be available via the `signals` list which
 #' is also attached in the package namespace.
 #' 
-#' @param signal Signal number, one of \code{names(signals)}.
+#' @param signal Signal number, one of `names(signals)`.
 #' 
 #' @rdname signals
 #' @export
@@ -197,7 +197,7 @@ CTRL_BREAK_EVENT <- NA
 #' A helper function used in vignette.
 #' 
 #' @param signal Signal number.
-#' @param handler Either \code{"default"} or \code{"ignore"}.
+#' @param handler Either `"default"` or `"ignore"`.
 #'
 signal <- function (signal, handler)
 {
