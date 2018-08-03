@@ -5,7 +5,7 @@
 #' is returned. If there is at least one error, another message
 #' is returned.
 #' 
-#' @return A string \code{"All C tests passed!"} if there are no errors.
+#' @return A string `"All C tests passed!"` if there are no errors.
 #' @export
 #' @rdname tests
 #' 

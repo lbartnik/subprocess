@@ -96,8 +96,8 @@ process_write <- function (handle, message)
 }
 
 
-#' @description \code{process_close_input()} closes the \emph{write} end
-#' of the pipe whose \emph{read} end is the standard input stream of the
+#' @description `process_close_input()` closes the *write* end
+#' of the pipe whose *read* end is the standard input stream of the
 #' child process. This is a standard way to gracefully request the child
 #' process to exit.
 #'  
@@ -113,14 +113,14 @@ process_close_input <- function (handle)
 
 
 
-#' @description \code{PIPE_STDOUT}: read from child's standard output.
+#' @description `PIPE_STDOUT`: read from child's standard output.
 #' 
 #' @rdname readwrite
 #' @export
 PIPE_STDOUT <- "stdout"
 
 
-#' @description \code{PIPE_STDERR}: read from child's standard error
+#' @description `PIPE_STDERR`: read from child's standard error
 #' output.
 #' 
 #' @rdname readwrite
@@ -128,7 +128,7 @@ PIPE_STDOUT <- "stdout"
 PIPE_STDERR <- "stderr"
 
 
-#' @description \code{PIPE_BOTH}: read from both child's output streams:
+#' @description `PIPE_BOTH`: read from both child's output streams:
 #' standard output and standard error output.
 #' 
 #' @rdname readwrite
