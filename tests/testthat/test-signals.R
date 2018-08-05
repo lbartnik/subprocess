@@ -13,13 +13,10 @@ test_that("sending signal in Linux/MacOS/Solaris", {
   handle <- spawn_process(bash_path, c("-e", script_path))
   expect_true(process_exists(handle))
   
-  # excluded signals kill or stop the child
-  skip_sigs <- c(SIGHUP, SIGKILL, SIGCHLD, SIGSTOP)
-  if (is_solaris()) {
-    # on Solaris SIGQUIT behaviour is diffrent 
-    skip_sigs <- c(skip_sigs, SIGQUIT) 
-  }
-  for (signal in setdiff(signals, skip_sigs)) {
+  # exclude signals to kill or stop the child
+  skip <- c(SIGHUP, SIGKILL, SIGCHLD, SIGSTOP, if (is_solaris()) SIGQUIT) 
+
+  for (signal in setdiff(signals, skip)) {
     process_send_signal(handle, signal)
     output <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
     i <- which(signals == signal)
@@ -57,3 +54,4 @@ test_that("sending signal in Windows", {
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
   expect_false(process_exists(handle))
 })
+

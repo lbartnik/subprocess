@@ -476,8 +476,9 @@ void process_handle_t::wait (int _timeout)
   if (!child_id) {
     throw subprocess_exception(ECHILD, "child does not exist");
   }
-  if (state != RUNNING) 
+  if (state != RUNNING) {
      return;
+  }
 
   /* to wait or not to wait? */ 
   int options = 0;
@@ -498,8 +499,9 @@ void process_handle_t::wait (int _timeout)
   } while (rc == 0 && _timeout > 0);
 
   // the child is still running
-  if (rc == 0) 
+  if (rc == 0) {
      return;
+  }
 
   // the child has exited or has been terminated
   if (WIFEXITED(return_code)) {
