@@ -96,7 +96,7 @@ static void exit_on_failure ()
 {
   void * process_handle = dlopen(NULL, RTLD_NOW);
   void * exit_handle = dlsym(process_handle, "exit");
-  
+
   // it's hard to imagine a situation where this symbol would not be
   // present; regardless, we cause a SEGMENTATION error because the
   // child needs to die;
@@ -107,7 +107,7 @@ static void exit_on_failure ()
     *(int*)exit_handle = 0;
     ++ret; // hide compiler warning
   }
-  
+
   typedef void (* exit_t)(int);
   exit_t exit_fun = (exit_t)exit_handle;
   exit_fun(EXIT_FAILURE);
@@ -118,7 +118,7 @@ static void exit_on_failure ()
 
 
 /*
- * Duplicate handle and zero the original 
+ * Duplicate handle and zero the original
  */
 inline void dup2 (int _from, int _to) {
   if (::dup2(_from, _to) < 0) {
@@ -216,8 +216,6 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   }
 
   int rc = 0;
-  // this one is used to make parent know that subprocess started
-  pipe_holder cntl_pipes;
   // can be addressed with PIPE_STDIN, PIPE_STDOUT, PIPE_STDERR
   pipe_holder pipes[3];
 
@@ -230,8 +228,6 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
    * ends of pipes */
   if (child_id == 0) {
     try {
-      close(cntl_pipes[pipe_holder::READ]);
-
       dup2(pipes[PIPE_STDIN][pipe_holder::READ], STDIN_FILENO);
       dup2(pipes[PIPE_STDOUT][pipe_holder::WRITE], STDOUT_FILENO);
       dup2(pipes[PIPE_STDERR][pipe_holder::WRITE], STDERR_FILENO);
@@ -252,13 +248,12 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       if (_termination_mode == TERMINATION_GROUP) {
         setsid();
       }
-      
+
       /* if environment is empty, use parent's environment */
       if (!_environment) {
         _environment = environ;
       }
 
-      rc = ::write(cntl_pipes[pipe_holder::WRITE], "S", 1);
       /* finally start the new process */
       execve(_command, _arguments, _environment);
 
@@ -267,14 +262,10 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
       perror((string("could not run command ") + _command).c_str());
     }
     catch (subprocess_exception & e) {
-      rc = ::write(cntl_pipes[pipe_holder::WRITE], "F", 1);
-      
       // we do not name stderr explicitly because CRAN doesn't like it
       ignore_return_value(::write(2, e.what(), strlen(e.what())));
       exit_on_failure();
     }
-  } else {
-    close(cntl_pipes[pipe_holder::WRITE]);
   }
 
   // child is now running
@@ -295,11 +286,8 @@ void process_handle_t::spawn (const char * _command, char *const _arguments[],
   pipes[PIPE_STDOUT][pipe_holder::READ] = HANDLE_CLOSED;
   pipes[PIPE_STDERR][pipe_holder::READ] = HANDLE_CLOSED;
 
-  { // wait for subprocess to start
-    char buf = 0;
-    rc = ::read(cntl_pipes[pipe_holder::READ], &buf, 1);    
-  }
-  wait(TIMEOUT_IMMEDIATE); // update process state
+  // update process state
+  wait(TIMEOUT_IMMEDIATE);
 }
 
 
@@ -362,7 +350,7 @@ struct enable_block_mode {
   enable_block_mode (int _fd) : fd (_fd) {
     set_block(fd);
   }
-  
+
   ~enable_block_mode () {
     set_non_block(fd);
   }
@@ -374,7 +362,7 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
   // this should never be called with "infinite" timeout
   if (_timeout < 0)
     return -1;
-  
+
   struct pollfd fds[2];
   memset(fds, 0, sizeof(fds));
 
@@ -382,20 +370,20 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
     fds[0].fd = _handle.pipe_stdout;
     fds[0].events = POLLIN;
     _handle.stdout_.clear();
-  } 
+  }
   else {
     fds[0].fd = -1;
   }
-  
+
   if (_pipe & PIPE_STDERR) {
     fds[1].fd = _handle.pipe_stderr;
     fds[1].events = POLLIN;
     _handle.stderr_.clear();
-  } 
+  }
   else {
     fds[1].fd = -1;
   }
-  
+
   time_t start = clock_millisec(), timediff;
   ssize_t rc;
 
@@ -406,19 +394,19 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
 
     rc = poll(fds, 2, timediff);
   } while(rc == 0 && timediff > 0);
-  
-  // nothing to read; if errno == EINTR try reading one last time
-  if (rc == 0) { 
+
+  // nothing to read
+  if (rc == 0) {
     return 0;
   }
 
-  if (fds[0].fd != -1 && fds[0].revents == POLLIN) { 
+  if (fds[0].fd != -1 && fds[0].revents == POLLIN) {
     rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
   }
   if (fds[1].fd != -1 && fds[1].revents == POLLIN) {
     rc = std::min(rc, (ssize_t)_handle.stderr_.read(_handle.pipe_stderr, mbcslocale));
   }
-  
+
   return rc;
 }
 
@@ -480,16 +468,17 @@ void process_handle_t::wait (int _timeout)
      return;
   }
 
-  /* to wait or not to wait? */ 
+  /* to wait or not to wait? */
   int options = 0;
-  if (_timeout >= 0)
+  if (_timeout >= 0) {
     options = WNOHANG;
-  
+  }
+
   /* make the actual system call */
   int start = clock_millisec(), rc;
   do {
     rc = waitpid(child_id, &return_code, options);
-  
+
     // there's been an error (<0)
     if (rc < 0) {
       throw subprocess_exception(errno, "waitpid() failed");
@@ -585,7 +574,7 @@ int main (int argc, char ** argv)
   handle.spawn("/bin/bash", args, env, NULL, process_handle_t::TERMINATION_GROUP);
 
   process_write(&handle, "echo A\n", 7);
-  
+
   /* read is non-blocking so the child needs time to produce output */
   sleep(1);
   process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE);
