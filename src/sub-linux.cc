@@ -56,7 +56,7 @@ string strerror (int _code, const string & _message)
     message << _message << ": " << buffer.data();
   }
   else {
-    message << _message << ": system error message could not be fetched";
+    message << _message << ": system error message could not be fetched, errno = " << _code;
   }
 
   return message.str();
@@ -359,20 +359,12 @@ struct enable_block_mode {
 
 ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
 {
-  // this should never be called with "infinite" timeout
-  if (_timeout < 0)
-    return -1;
-
-  struct pollfd fds[2];
-  memset(fds, 0, sizeof(fds));
+  struct pollfd fds[2] { { .fd = -1 }, { .fd = -1 } };
 
   if (_pipe & PIPE_STDOUT) {
     fds[0].fd = _handle.pipe_stdout;
     fds[0].events = POLLIN;
     _handle.stdout_.clear();
-  }
-  else {
-    fds[0].fd = -1;
   }
 
   if (_pipe & PIPE_STDERR) {
@@ -380,20 +372,19 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
     fds[1].events = POLLIN;
     _handle.stderr_.clear();
   }
-  else {
-    fds[1].fd = -1;
-  }
 
-  time_t start = clock_millisec(), timediff;
+  time_t start = clock_millisec(), timediff = _timeout;
   ssize_t rc;
 
   do {
-    // use max so that _timeout can be TIMEOUT_IMMEDIATE and yet
-    // pool can be tried at least once
-    timediff = std::max((time_t)0, _timeout - (clock_millisec() - start));
-
     rc = poll(fds, 2, timediff);
-  } while(rc == 0 && timediff > 0);
+    timediff = _timeout - (clock_millisec() - start);
+
+    // interrupted or kernel failed to allocate internal resources
+    if (rc < 0 && (errno == EINTR || errno == EAGAIN)) {
+      rc = 0;
+    }
+  } while (rc == 0 && timediff > 0);
 
   // nothing to read
   if (rc == 0) {
@@ -417,24 +408,8 @@ size_t process_handle_t::read (pipe_type _pipe, int _timeout)
     throw subprocess_exception(ECHILD, "child does not exist");
   }
 
-  ssize_t rc;
+  ssize_t rc = timed_read(*this, _pipe, _timeout);
 
-  // infinite timeout
-  if (_timeout == TIMEOUT_INFINITE) {
-    enable_block_mode blocker_out(pipe_stdout);
-    enable_block_mode blocker_err(pipe_stderr);
-    rc = timed_read(*this, _pipe, 1000);
-  }
-  // finite or no timeout
-  else {
-    rc = timed_read(*this, _pipe, _timeout);
-
-    if (rc < 0 && errno == EAGAIN) {
-      /* stdin pipe is opened with O_NONBLOCK, so this means "would block" */
-      errno = 0;
-      return 0;
-    }
-  }
   if (rc < 0) {
     throw subprocess_exception(errno, "could not read from child process");
   }

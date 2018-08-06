@@ -2,6 +2,8 @@
 
 * fixes building under Solaris
 
+* replace `select()` with `poll()`
+
 # subprocess 0.8.2
 
 * fixes in test cases for `testthat` 2.0
