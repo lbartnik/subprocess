@@ -52,8 +52,8 @@ test_that("child process is terminated in Windows", {
 #
 # This test will, however, fail in plain R if termination_mode is
 # set to "child_only".
-test_that("child process is terminated in Linux", {
-  skip_if_not(is_linux())
+test_that("child process is terminated in Linux/MacOS/SunOS", {
+  skip_if_not(is_linux() || is_mac() || is_solaris())
 
   # the parent shell script will start "sleep" and print its PID
   shell <- Sys.getenv("SHELL", '/bin/sh')

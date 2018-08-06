@@ -7,6 +7,10 @@ is_mac <- function ()
   identical(tolower(Sys.info()[["sysname"]]), 'darwin')
 }
 
+is_solaris <- function()
+{
+  identical(tolower(Sys.info()[["sysname"]]), 'sunos')
+}
 
 # --- R child ----------------------------------------------------------
 
@@ -37,7 +41,7 @@ process_exists <- function (handle)
     return(length(grep(pid, output, fixed = TRUE)) > 0)
   }
   else {
-    flag <- ifelse(is_mac(), "-p", "--pid")
+    flag <- ifelse(is_mac() || is_solaris(), "-p", "--pid")
     rc <- system2("ps", c(flag, pid), stdout = NULL, stderr = NULL)
     return(rc == 0)
   }
