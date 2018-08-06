@@ -391,6 +391,7 @@ ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
     return 0;
   }
 
+  // TODO if an error occurs in the first read() it will be lost
   if (fds[0].fd != -1 && fds[0].revents == POLLIN) {
     rc = std::min(rc, (ssize_t)_handle.stdout_.read(_handle.pipe_stdout, mbcslocale));
   }
@@ -440,7 +441,7 @@ void process_handle_t::wait (int _timeout)
     throw subprocess_exception(ECHILD, "child does not exist");
   }
   if (state != RUNNING) {
-     return;
+    return;
   }
 
   /* to wait or not to wait? */
