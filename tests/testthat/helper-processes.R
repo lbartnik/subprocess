@@ -32,13 +32,18 @@ R_child <- function(args = '--slave', ...)
 
 # --- OS interface -----------------------------------------------------
 
-process_exists <- function (handle)
+process_exists <- function (handle, .silent = TRUE)
 {
-  pid <- ifelse(is_process_handle(handle), as.character(handle$c_handle), handle)
-  
+  pid <- as.character(ifelse(is_process_handle(handle), handle$c_handle, handle))
+
   if (is_windows()) {
     output <- system2("tasklist", paste0('/FI "PID eq ', pid, '"'), stdout = TRUE, stderr = TRUE)
-    return(length(grep(pid, output, fixed = TRUE)) > 0)
+    found  <- (length(grep(pid, output, fixed = TRUE)) > 0)
+    if (!found && !isTRUE(.silent)) {
+      warning(sprintf("process PID=%s not found in output:\n%s", pid, paste(output, collapse = '\n')),
+              call. = FALSE)
+    }
+    return(found)
   }
   else {
     flag <- ifelse(is_mac() || is_solaris(), "-p", "--pid")
@@ -48,7 +53,7 @@ process_exists <- function (handle)
 }
 
 
-# wait_until_* 
+# wait_until_*
 #
 # Wait infinitey - on CRAN tests will timeout, locally we can always
 # tell that something is wrong. This is because some systems are simply
