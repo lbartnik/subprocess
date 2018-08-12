@@ -48,7 +48,7 @@ test_that("sending signal in Windows", {
   # https://msdn.microsoft.com/en-us/library/cc704588.aspx
   #
   # 0xC0000001 = STATUS_UNSUCCESSFUL
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0)
   expect_false(process_exists(handle))
 
   # CTRL+Break
@@ -61,7 +61,7 @@ test_that("sending signal in Windows", {
   # 
   # Globally speaking, Exit Code 0xC000013A means that the application
   # terminated as a result of a CTRL+C or closing command prompt window
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0xC000013A)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), -1073741510L)
   expect_false(process_exists(handle))
 })
 
