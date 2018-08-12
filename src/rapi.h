@@ -36,6 +36,8 @@ EXPORT SEXP C_process_kill(SEXP _handle);
 
 EXPORT SEXP C_process_send_signal(SEXP _handle, SEXP _signal);
 
+EXPORT SEXP C_process_exists(SEXP _pid);
+
 EXPORT SEXP C_known_signals();
 
 EXPORT SEXP C_signal (SEXP _signal, SEXP _handler);
