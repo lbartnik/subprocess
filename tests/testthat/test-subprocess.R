@@ -3,7 +3,7 @@ context("subprocess")
 killed_exit_code <- ifelse(is_windows(), 127, 9)
 
 test_that("helper works", {
-  expect_true(process_exists(Sys.getpid(), .silent = FALSE), info = Sys.getpid())
+  expect_true(process_exists(Sys.getpid()))
   expect_false(process_exists(99999999))
 })
 
