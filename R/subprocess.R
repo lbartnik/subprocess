@@ -187,14 +187,18 @@ process_return_code <- function (handle)
 
 #' Check if process with a given id exists.
 #'
-#' @param pid OS-level process id.
+#' @param x A process handle returned by [spawn_process] or a OS-level process id.
 #' @return `TRUE` if process exists, `FALSE` otherwise.
 #'
 #' @export
 #'
-process_exists <- function (pid)
+process_exists <- function (x)
 {
-  isTRUE(.Call("C_process_exists", as.integer(pid)))
+  if (is_process_handle(x)) {
+    x <- x$c_handle
+  }
+
+  isTRUE(.Call("C_process_exists", as.integer(x)))
 }
 
 

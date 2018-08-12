@@ -530,6 +530,13 @@ void process_handle_t::kill()
   termination_signal(*this, SIGKILL, TIMEOUT_INFINITE);
 }
 
+/* --- process_exists ----------------------------------------------- */
+
+bool process_exists (const pid_type & _pid)
+{
+  return ::kill(_pid, 0) == 0;
+}
+
 } /* namespace subprocess */
 
 
