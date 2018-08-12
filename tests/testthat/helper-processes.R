@@ -62,6 +62,8 @@ wait_until_exits <- function (handle)
 
 terminate_gracefully <- function (handle, message = "q('no')\n")
 {
+  if (!process_exists(handle)) return(TRUE)
+
   if (!is.null(message)) {
     process_write(handle, message)
   }

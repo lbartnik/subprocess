@@ -18,5 +18,7 @@ trap_with_name SIGHUP SIGINT SIGQUIT SIGILL SIGABRT SIGFPE\
                SIGUSR2 SIGCHLD SIGCONT SIGSTOP SIGTSTP SIGTTIN\
                SIGTTOU
 
+echo "ready"
+
 # wait until ready to exit
 read
