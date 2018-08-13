@@ -39,12 +39,18 @@ R_child <- function(args = '--slave', ...)
 # overloaded and it might take *minutes* for the processes to appear
 # or exit.
 
-wait_until_appears <- function (handle)
+# Wait until process can be found in the system.
+#
+# @param x Process handle or OS-level process id (integer).
+wait_until_appears <- function (x)
 {
-  while (!process_exists(handle)) {
-    process_wait(handle, TIMEOUT_IMMEDIATE)
-    if (process_state(handle) %in% c("exited", "terminated"))
-      stop('failed to start ', handle$command, call. = FALSE)
+  while (!process_exists(x)) {
+    if (is_process_handle(x)) {
+      process_wait(x, TIMEOUT_IMMEDIATE)
+      if (process_state(x) %in% c("exited", "terminated"))
+        stop('failed to start ', x$command, call. = FALSE)
+    }
+
     Sys.sleep(.25)
   }
   return(TRUE)
