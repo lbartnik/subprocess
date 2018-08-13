@@ -567,10 +567,17 @@ void process_handle_t::send_signal (int _signal)
 
 
 bool process_exists (const pid_type & _pid) {
+  /*
+   * https://stackoverflow.com/questions/12900036/benefit-of-using-waitforsingleobject-when-checking-process-id
+   *
+   * When a process completes, it stops running but it doesn't go out of
+   * existence until the last handle to it is closed. The first solution
+   * distinguishes between those two states (still running or done running).
+   */
   HANDLE h = OpenProcess(SYNCHRONIZE, FALSE, _pid);
-  const bool ret = (h != NULL);
+  DWORD ret = WaitForSingleObject(h, 0);
   CloseHandle(h);
-  return ret;
+  return (ret == WAIT_TIMEOUT);
 }
 
 
