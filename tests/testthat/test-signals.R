@@ -46,15 +46,16 @@ test_that("sending signal in Windows", {
   # 0xC000013A = STATUS_CONTROL_C_EXIT
   #
   # However, exit code doesn't seem to be consistent between deployments
-  # (AppVeyor vs. CRAN's win-builder vs. a local Windows system)
-  error_codes <- c(1, -1073741510L)
+  # (AppVeyor vs. CRAN's win-builder vs. a local Windows system) and
+  # return codes vary: 0, 1, -1073741510L. For that reason we do not
+  # check the exit code in the test below.
 
   # Ctrl+C
   handle <- spawn()
   expect_true(wait_until_appears(handle))
 
   process_send_signal(handle, CTRL_C_EVENT)
-  expect_true(process_wait(handle, TIMEOUT_INFINITE) %in% error_codes)
+  expect_silent(process_wait(handle, TIMEOUT_INFINITE))
   expect_false(process_exists(handle))
 
   # CTRL+Break
@@ -62,7 +63,7 @@ test_that("sending signal in Windows", {
   expect_true(wait_until_appears(handle))
 
   process_send_signal(handle, CTRL_BREAK_EVENT)
-  expect_true(process_wait(handle, TIMEOUT_INFINITE) %in% error_codes)
+  expect_silent(process_wait(handle, TIMEOUT_INFINITE))
   expect_false(process_exists(handle))
 })
 
