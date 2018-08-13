@@ -79,26 +79,26 @@ struct subprocess_exception : runtime_error {
 
 /**
  * Buffer for a single output stream.
- * 
+ *
  * This buffer comes with additional logic of handling a number of
  * bytes left from the previous read that did not constitute a
  * correct multi-byte character.
  */
 struct pipe_writer {
-  
+
   static constexpr size_t buffer_size = 1024;
-  
+
   struct leftover {
     leftover () : len(0) { }
     size_t len;
     char data[4];
-    
+
     static_assert(sizeof(pipe_writer::leftover::data) < buffer_size,
                   "buffer too small for multi-byte char support");
   };
-  
+
   typedef vector<char> container_type;
-  
+
   container_type contents;
   leftover left;
 
@@ -118,13 +118,13 @@ struct pipe_writer {
 
 #ifdef SUBPROCESS_WINDOWS
     DWORD dwAvail = 0, nBytesRead;
-    
+
     // if returns FALSE and error is "broken pipe", pipe is gone
     if (!::PeekNamedPipe(_pipe, NULL, 0, NULL, &dwAvail, NULL)) {
       if (::GetLastError() == ERROR_BROKEN_PIPE) return 0;
       throw subprocess_exception(::GetLastError(), "could not peek into pipe");
     }
-  
+
     if (dwAvail == 0)
       return 0;
 
@@ -142,23 +142,31 @@ struct pipe_writer {
     return static_cast<size_t>(rc);
 #endif /* SUBPROCESS_WINDOWS */
   }
-  
-  
+
+
   /**
    * Read from pipe.
-   * 
+   *
    * Will accommodate for previous leftover and will keep a single
    * byte to store 0 at the end of the input data. That guarantees
    * that R string can be correctly constructed from buffer's data
    * (R expects a ZERO at the end).
-   * 
+   *
    * @param _fd Input pipe handle.
    * @param _mbcslocale Is this multi-byte character set? If so, verify
    *        string integrity after a successful read.
-   */    
+   */
   size_t read (pipe_handle_type _fd, bool _mbcslocale = false);
 
 }; /* pipe_writer */
+
+
+/**
+ * Check if process with given pid exists.
+ *
+ * @param _pid Process id.
+ */
+bool process_exists (const pid_type & _pid);
 
 
 
@@ -193,12 +201,12 @@ struct process_handle_t {
 
   /* how should the process be terminated */
   termination_mode_type termination_mode;
-  
+
   /* stdout & stderr handling */
   pipe_writer stdout_, stderr_;
 
   process_handle_t ();
-  
+
   ~process_handle_t () throw ()
   {
     try {

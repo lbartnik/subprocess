@@ -120,7 +120,7 @@ SEXP C_process_spawn (SEXP _command, SEXP _arguments, SEXP _environment, SEXP _w
 
   char ** arguments   = to_C_array(_arguments);
   char ** environment = to_C_array(_environment);
-  
+
   /* if environment if empty, simply ignore it */
   if (!environment || !*environment) {
     // allocated with Calloc() but Free() is still needed
@@ -222,7 +222,7 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   /* determine which pipe */
   const char * pipe = translateChar(STRING_ELT(_pipe, 0));
   pipe_type which_pipe;
-  
+
   if (!strncmp(pipe, "stdout", 6))
     which_pipe = PIPE_STDOUT;
   else if (!strncmp(pipe, "stderr", 6))
@@ -232,8 +232,8 @@ SEXP C_process_read (SEXP _handle, SEXP _pipe, SEXP _timeout)
   else {
     Rf_error("unrecognized `pipe` value");
   }
-  
-  try_run(&process_handle_t::read, handle, which_pipe, timeout); 
+
+  try_run(&process_handle_t::read, handle, which_pipe, timeout);
 
   /* produce the result - a list of one or two elements */
   SEXP ans, nms;
@@ -259,7 +259,7 @@ SEXP C_process_close_input (SEXP _handle)
 {
   process_handle_t * handle = extract_process_handle(_handle);
   try_run(&process_handle_t::close_input, handle);
-  return allocate_TRUE();  
+  return allocate_TRUE();
 }
 
 
@@ -272,7 +272,7 @@ SEXP C_process_write (SEXP _handle, SEXP _message)
   }
 
   const char * message = translateChar(STRING_ELT(_message, 0));
-  size_t ret = try_run(&process_handle_t::write, handle, message, strlen(message)); 
+  size_t ret = try_run(&process_handle_t::write, handle, message, strlen(message));
 
   return allocate_single_int((int)ret);
 }
@@ -370,6 +370,19 @@ SEXP C_process_send_signal (SEXP _handle, SEXP _signal)
 }
 
 
+SEXP C_process_exists (SEXP _pid)
+{
+  if (!is_single_integer(_pid)) {
+    Rf_error("`pid` must be a single integer value");
+  }
+
+  int pid = INTEGER_DATA(_pid)[0];
+  bool ret = subprocess::process_exists(static_cast<pid_type>(pid));
+
+  return allocate_single_bool(ret);
+}
+
+
 SEXP C_known_signals ()
 {
   SEXP ans;
@@ -415,7 +428,7 @@ SEXP C_known_signals ()
 #endif
 
   setAttrib(ans, R_NamesSymbol, ansnames);
-  
+
   /* ans, ansnames */
   UNPROTECT(2);
   return ans;
@@ -435,16 +448,16 @@ SEXP C_signal (SEXP _signal, SEXP _handler)
   if (!is_nonempty_string(_handler)) {
     error("`handler` needs to be a single character value");
   }
-  
+
   const char * handler = translateChar(STRING_ELT(_handler, 0));
   if (!strncmp(handler, "ignore", 6) && !strncmp(handler, "default", 7)) {
     error("`handler` can be either \"ignore\" or \"default\"");
   }
-  
+
   int sgn = INTEGER_DATA(_signal)[0];
   typedef void (*sighandler_t)(int);
   sighandler_t hnd = (strncmp(handler, "ignore", 6) ? SIG_DFL : SIG_IGN);
-  
+
   if (signal(sgn, hnd) == SIG_ERR) {
     Rf_error("error while calling signal()");
   }

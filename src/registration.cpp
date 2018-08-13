@@ -20,6 +20,7 @@ static const R_CallMethodDef callMethods[]  = {
   { "C_process_terminate",    (DL_FUNC) &C_process_terminate,    1 },
   { "C_process_kill",         (DL_FUNC) &C_process_kill,         1 },
   { "C_process_send_signal",  (DL_FUNC) &C_process_send_signal,  2 },
+  { "C_process_exists",       (DL_FUNC) &C_process_exists,       1 },
   { "C_known_signals",        (DL_FUNC) &C_known_signals,        0 },
   { "C_signal",               (DL_FUNC) &C_signal,               2 },
   { NULL, NULL, 0 }

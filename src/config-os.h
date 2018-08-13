@@ -18,7 +18,7 @@
 #ifdef SUBPROCESS_WINDOWS
 #define EXPORT __declspec( dllexport )
 #else
-#define EXPORT 
+#define EXPORT
 #endif
 
 
@@ -55,6 +55,7 @@
 #undef length
 
 typedef HANDLE process_handle_type;
+typedef DWORD  pid_type;
 typedef HANDLE pipe_handle_type;
 
 constexpr pipe_handle_type HANDLE_CLOSED = nullptr;
@@ -63,6 +64,7 @@ constexpr pipe_handle_type HANDLE_CLOSED = nullptr;
 
 #include <unistd.h>
 typedef pid_t process_handle_type;
+typedef pid_t pid_type;
 typedef int pipe_handle_type;
 
 constexpr pipe_handle_type HANDLE_CLOSED = -1;

@@ -15,9 +15,9 @@ test_that("a subprocess can be spawned and killed", {
 
   ptr <- attr(handle$c_handle, 'handle_ptr')
   expect_equal(class(ptr), 'externalptr')
-  
+
   expect_true(process_exists(handle))
-  
+
   # we need to clean-up 'manually'
   process_write(handle, "cat(tempdir())\n")
   path <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
@@ -37,13 +37,13 @@ test_that("waiting for a child to exit", {
 
   process_wait(handle, TIMEOUT_IMMEDIATE)
   expect_equal(process_state(handle), "running")
-  
+
   # we need to clean-up 'manually'
   process_write(handle, "cat(tempdir())\n")
   path <- process_read(handle, PIPE_STDOUT, TIMEOUT_INFINITE)
   expect_true(dir.exists(path))
   on.exit(unlink(path, TRUE, TRUE), add = TRUE)
-  
+
   process_kill(handle)
 
   expect_equal(process_wait(handle, TIMEOUT_INFINITE), killed_exit_code)
@@ -60,7 +60,7 @@ test_that("error when no executable", {
 test_that("can expand paths", {
   normalizePathMock <- mock('/full/path/to/local/executable')
   dotCallMock <- mock(1)
-  
+
   stub(spawn_process, 'normalizePath', normalizePathMock)
   stub(spawn_process, '.Call', dotCallMock)
   handle <- spawn_process("~/local/executable")
@@ -73,7 +73,7 @@ test_that("can expand paths", {
 test_that("handle can be printed", {
   on.exit(terminate_gracefully(handle))
   handle <- R_child()
-  
+
   path <- gsub("\\\\", "\\\\\\\\", normalizePath(R_binary()))
   expect_output(print(handle),
                 paste0("Process Handle\n",
