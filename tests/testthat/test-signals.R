@@ -35,7 +35,7 @@ test_that("sending signal in Windows", {
   skip_if_not(is_windows())
 
   spawn <- function () {
-    spawn_process(R_binary(), c("--slave", "-e", "tryCatch(Sys.sleep(60))"))
+    spawn_process(Sys.which("cmd"), c("/C", '"sleep 60"'))
   }
 
   # Ctrl+C
@@ -48,7 +48,7 @@ test_that("sending signal in Windows", {
   # https://msdn.microsoft.com/en-us/library/cc704588.aspx
   #
   # 0xC0000001 = STATUS_UNSUCCESSFUL
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 0)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
   expect_false(process_exists(handle))
 
   # CTRL+Break
@@ -56,12 +56,7 @@ test_that("sending signal in Windows", {
   expect_true(wait_until_appears(handle))
 
   process_send_signal(handle, CTRL_BREAK_EVENT)
-
-  # https://stackoverflow.com/a/46610564/2493260
-  # 
-  # Globally speaking, Exit Code 0xC000013A means that the application
-  # terminated as a result of a CTRL+C or closing command prompt window
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), -1073741510L)
+  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
   expect_false(process_exists(handle))
 })
 
