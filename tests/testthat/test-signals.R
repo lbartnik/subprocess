@@ -38,17 +38,23 @@ test_that("sending signal in Windows", {
     spawn_process(Sys.which("cmd"), c("/C", '"sleep 60"'))
   }
 
-  # Ctrl+C
-  handle <- spawn()
-  expect_true(wait_until_appears(handle))
-
-  process_send_signal(handle, CTRL_C_EVENT)
 
   # according to:
   # https://msdn.microsoft.com/en-us/library/cc704588.aspx
   #
   # 0xC0000001 = STATUS_UNSUCCESSFUL
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
+  # 0xC000013A = STATUS_CONTROL_C_EXIT
+  #
+  # However, exit code doesn't seem to be consistent between deployments
+  # (AppVeyor vs. CRAN's win-builder vs. a local Windows system)
+  error_codes <- c(1, -1073741510L)
+
+  # Ctrl+C
+  handle <- spawn()
+  expect_true(wait_until_appears(handle))
+
+  process_send_signal(handle, CTRL_C_EVENT)
+  expect_true(process_wait(handle, TIMEOUT_INFINITE) %in% error_codes)
   expect_false(process_exists(handle))
 
   # CTRL+Break
@@ -56,7 +62,7 @@ test_that("sending signal in Windows", {
   expect_true(wait_until_appears(handle))
 
   process_send_signal(handle, CTRL_BREAK_EVENT)
-  expect_equal(process_wait(handle, TIMEOUT_INFINITE), 1)
+  expect_true(process_wait(handle, TIMEOUT_INFINITE) %in% error_codes)
   expect_false(process_exists(handle))
 })
 
