@@ -11,8 +11,9 @@
 \format{\code{TERMINATION_GROUP} and \code{TERMINATION_CHILD_ONLY}
 are single \code{character} values.}
 \usage{
-spawn_process(command, arguments = character(), environment = character(),
-  workdir = "", termination_mode = TERMINATION_GROUP)
+spawn_process(command, arguments = character(),
+  environment = character(), workdir = "",
+  termination_mode = TERMINATION_GROUP)
 
 \method{print}{process_handle}(x, ...)
 

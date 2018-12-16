@@ -22,7 +22,7 @@ Collate:
   'subprocess.R'
   'tests.R'
   'utils.R'
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
 SystemRequirements: C++11
