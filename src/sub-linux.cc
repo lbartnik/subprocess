@@ -359,7 +359,9 @@ struct enable_block_mode {
 
 ssize_t timed_read (process_handle_t & _handle, pipe_type _pipe, int _timeout)
 {
-  struct pollfd fds[2] { { .fd = -1 }, { .fd = -1 } };
+  struct pollfd fds[2];
+  fds[0].fd = -1;
+  fds[1].fd = -1;
 
   if (_pipe & PIPE_STDOUT) {
     fds[0].fd = _handle.pipe_stdout;
