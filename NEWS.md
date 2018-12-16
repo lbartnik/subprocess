@@ -1,3 +1,9 @@
+# subprocess 0.8.4
+
+* fixes builds with Oracle compiler
+
+* documentation refreshed with Roxygen2 6.1.1
+
 # subprocess 0.8.3
 
 * fixes building under Solaris
