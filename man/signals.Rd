@@ -3,7 +3,6 @@
 \docType{data}
 \name{signals}
 \alias{signals}
-\alias{signals}
 \alias{process_terminate}
 \alias{process_kill}
 \alias{process_send_signal}
@@ -87,8 +86,6 @@ CTRL_BREAK_EVENT
 \item{signal}{Signal number, one of \code{names(signals)}.}
 }
 \description{
-Sending signals to the child process.
-
 Operating-System-level signals that can be sent via
 \link{process_send_signal} are defined in the `subprocess::signals`` list.
 It is a list that is generated when the package is loaded and it

@@ -4,9 +4,7 @@
 \name{readwrite}
 \alias{readwrite}
 \alias{process_read}
-\alias{readwrite}
 \alias{process_write}
-\alias{readwrite}
 \alias{process_close_input}
 \alias{PIPE_STDOUT}
 \alias{PIPE_STDERR}
